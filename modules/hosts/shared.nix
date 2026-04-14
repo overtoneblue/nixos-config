@@ -11,21 +11,15 @@
       ifTheyExist = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
     in
     {
-
       programs.zsh.enable = true;
 
       users.users = {
-        # FIXME: Replace with your username
         cenunix = {
 
           initialPassword = "changeme";
           isNormalUser = true;
           shell = pkgs.zsh;
 
-          # openssh.authorizedKeys.keys = [
-          #   # TODO: Add your SSH public key(s) here, if you plan on using SSH to connect
-          # ];
-          # TODO: Be sure to add any other groups you need (such as networkmanager, audio, docker, etc)
           extraGroups = [
             "wheel"
             "networkManager"
