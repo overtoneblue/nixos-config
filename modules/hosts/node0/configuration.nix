@@ -9,6 +9,7 @@
         self.nixosModules.node0Hardware
         self.nixosModules.base
         self.nixosModules.nix-settings
+        self.nixosModules.network
         self.nixosModules.niri
       ];
 
