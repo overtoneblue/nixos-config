@@ -8,6 +8,7 @@
       imports = [
         self.nixosModules.node0Hardware
         self.nixosModules.base
+        self.nixosModules.nix-settings
         self.nixosModules.niri
       ];
 
@@ -31,6 +32,7 @@
         zed
         helix
         neovim
+        vscode
       ];
     };
 }
