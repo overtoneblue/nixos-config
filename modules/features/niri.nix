@@ -63,6 +63,10 @@
               "Mod+Return".spawn-sh = lib.getExe pkgs.kitty;
               "Mod+Q".close-window = null;
               "Mod+Space".spawn-sh = "${lib.getExe self'.packages.myNoctalia} ipc call launcher toggle";
+              "Mod+G".maximize-column = null;
+              "Mod+F".fullscreen-window = null;
+              "Mod+Shift+Space".toggle-window-floating = null;
+              "Mod+C".center-column = null;
               # "Mod+d".spawn-sh = self.mkWhichKeyExe config.pkgs [
               #   {
               #     key = "b";
@@ -100,6 +104,20 @@
               #     cmd = "${lib.getExe pkgs.pavucontrol}";
               #   }
               # ];
+              "Mod+H".focus-column-left = null;
+              "Mod+L".focus-column-right = null;
+              "Mod+K".focus-window-up = null;
+              "Mod+J".focus-window-down = null;
+
+              "Mod+Left".focus-column-left = null;
+              "Mod+Right".focus-column-right = null;
+              "Mod+Up".focus-window-up = null;
+              "Mod+Down".focus-window-down = null;
+
+              "Mod+Shift+H".move-column-left = null;
+              "Mod+Shift+L".move-column-right = null;
+              "Mod+Shift+K".move-window-up = null;
+              "Mod+Shift+J".move-window-down = null;
 
               "Mod+1".focus-workspace = "w0";
               "Mod+2".focus-workspace = "w1";
