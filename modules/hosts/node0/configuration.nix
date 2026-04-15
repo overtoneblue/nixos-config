@@ -2,7 +2,12 @@
 {
 
   flake.nixosModules.node0Configuration =
-    { pkgs, lib, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     {
       # import any other modules from here
       imports = [
@@ -15,7 +20,7 @@
         self.nixosModules.gaming
         inputs.home-manager.nixosModules.home-manager
         (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
-        self.nixosModules.stylix
+        self.nixosModules.theme
         # self.nixosModules.hyprland
       ];
 
@@ -147,7 +152,7 @@
           enableCompletion = true;
           autosuggestion.enable = true;
           syntaxHighlighting.enable = true;
-          # dotDir = "${config.hm.xdg.configHome}/zsh";
+          dotDir = "/home/cenunix/.config/zsh";
           sessionVariables = {
             LC_ALL = "en_US.UTF-8";
             ZSH_AUTOSUGGEST_USE_ASYNC = "true";

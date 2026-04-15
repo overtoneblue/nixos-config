@@ -12,7 +12,7 @@
 
     {
       imports = [
-        ./gtk.nix
+        # ./gtk.nix
         inputs.stylix.nixosModules.stylix
       ];
       hm.stylix = {
