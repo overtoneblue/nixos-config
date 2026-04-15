@@ -13,7 +13,14 @@
         self.nixosModules.sound
         self.nixosModules.niri
         self.nixosModules.gaming
+        inputs.home-manager.nixosModules.home-manager
+        (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
+        # self.nixosModules.hyprland
       ];
+
+      hm.home.username = "cenunix";
+      hm.home.homeDirectory = "/home/cenunix";
+      hm.home.stateVersion = "25.11";
 
       nix.settings.experimental-features = [
         "nix-command"
@@ -31,6 +38,8 @@
       networking.hostName = "node0"; # Define your hostname.
 
       environment.systemPackages = with pkgs; [
+        git
+        thunar
         firefox
         zed
         helix

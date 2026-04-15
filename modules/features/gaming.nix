@@ -3,6 +3,9 @@
   flake.nixosModules.gaming =
     { pkgs, ... }:
     {
+      environment.systemPackages = with pkgs; [
+        gamescope
+      ];
       programs.steam = {
         enable = true;
         protontricks.enable = true;

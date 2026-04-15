@@ -2,6 +2,7 @@
 {
   flake.nixosModules.base =
     {
+      inputs,
       pkgs,
       lib,
       config,
@@ -10,7 +11,9 @@
     let
       ifTheyExist = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
     in
+
     {
+
       programs.zsh.enable = true;
 
       users.users = {
