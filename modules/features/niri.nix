@@ -59,43 +59,43 @@
               "Mod+Return".spawn-sh = lib.getExe pkgs.kitty;
               "Mod+Q".close-window = null;
               "Mod+Space".spawn-sh = "${lib.getExe self'.packages.myNoctalia} ipc call launcher toggle";
-              "Mod+d".spawn-sh = self.mkWhichKeyExe config.pkgs [
-                {
-                  key = "b";
-                  desc = "Bluetooth";
-                  cmd = "${noctaliaExe} ipc call bluetooth togglePanel";
-                }
-                {
-                  key = "w";
-                  desc = "Wifi";
-                  cmd = "${noctaliaExe} ipc call wifi togglePanel";
-                }
-                {
-                  key = "f";
-                  desc = "Firefox";
-                  cmd = "firefox";
-                }
-                {
-                  key = "t";
-                  desc = "Telegram";
-                  cmd = "Telegram";
-                }
-                {
-                  key = "d";
-                  desc = "Discord";
-                  cmd = "vesktop";
-                }
-                {
-                  key = "m";
-                  desc = "Youtube Music";
-                  cmd = "pear-desktop";
-                }
-                {
-                  key = "s";
-                  desc = "Pavucontrol";
-                  cmd = "${lib.getExe pkgs.pavucontrol}";
-                }
-              ];
+              # "Mod+d".spawn-sh = self.mkWhichKeyExe config.pkgs [
+              #   {
+              #     key = "b";
+              #     desc = "Bluetooth";
+              #     cmd = "${noctaliaExe} ipc call bluetooth togglePanel";
+              #   }
+              #   {
+              #     key = "w";
+              #     desc = "Wifi";
+              #     cmd = "${noctaliaExe} ipc call wifi togglePanel";
+              #   }
+              #   {
+              #     key = "f";
+              #     desc = "Firefox";
+              #     cmd = "firefox";
+              #   }
+              #   {
+              #     key = "t";
+              #     desc = "Telegram";
+              #     cmd = "Telegram";
+              #   }
+              #   {
+              #     key = "d";
+              #     desc = "Discord";
+              #     cmd = "vesktop";
+              #   }
+              #   {
+              #     key = "m";
+              #     desc = "Youtube Music";
+              #     cmd = "pear-desktop";
+              #   }
+              #   {
+              #     key = "s";
+              #     desc = "Pavucontrol";
+              #     cmd = "${lib.getExe pkgs.pavucontrol}";
+              #   }
+              # ];
 
               "Mod+1".focus-workspace = "w0";
               "Mod+2".focus-workspace = "w1";

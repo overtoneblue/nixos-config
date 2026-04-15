@@ -1,5 +1,5 @@
 {
-  _,
+  ...
 }:
 {
   flake.nixosModules.network =
