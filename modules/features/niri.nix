@@ -59,6 +59,25 @@
               };
             };
 
+            # workspaces =
+            #   let
+            #     settings = {
+            #       layout.gaps = 5;
+            #     };
+            #   in
+            #   {
+            #     "w0" = settings;
+            #     "w1" = settings;
+            #     "w2" = settings;
+            #     "w3" = settings;
+            #     "w4" = settings;
+            #     "w5" = settings;
+            #     "w6" = settings;
+            #     "w7" = settings;
+            #     "w8" = settings;
+            #     "w9" = settings;
+            #   };
+
             binds = {
               "Mod+Return".spawn-sh = lib.getExe pkgs.kitty;
               "Mod+Q".close-window = null;
