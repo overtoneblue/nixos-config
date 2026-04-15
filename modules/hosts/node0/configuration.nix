@@ -15,6 +15,16 @@
         "flakes"
       ];
 
+      boot = {
+        kernelPackages = pkgs.linuxPackages;
+        loader = {
+          systemd-boot.enable = true;
+          efi.canTouchEfiVariables = true;
+        };
+      };
+
+      networking.hostName = "node0"; # Define your hostname.
+
       environment.systemPackages = with pkgs; [
         firefox
         zed
