@@ -1,7 +1,7 @@
 { config, ... }:
 let
-  # inherit (config) modules;
-  # inherit (modules.programs) default;
+  inherit (config) modules;
+  inherit (modules.programs) default;
   workspaces = builtins.concatLists (
     builtins.genList (
       x:
@@ -56,8 +56,8 @@ in
         "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
         "$mod, I, exec, dms ipc call lock lock"
         "$mod, Return, exec, ${default.terminal} start --always-new-process"
-        # "$mod SHIFT, Return, exec, ${default.terminal}"
-        # "$mod, E, exec, ${default.fileManager}"
+        "$mod SHIFT, Return, exec, ${default.terminal}"
+        "$mod, E, exec, ${default.fileManager}"
         # "$mod, R, exec, killall astal; astal; killall swww-daemon; swww-daemon"
         "$mod, U, exec, ags -b hypr -r 'recorder.start()'"
         "$mod, P, exec, grimblast --notify copysave output"

@@ -1,5 +1,6 @@
 {
   inputs,
+  self,
   outputs,
   lib,
   config,
@@ -16,7 +17,6 @@ in
 {
   hm.wayland.windowManager.hyprland.extraConfig =
     let
-      noctaliaExe = (lib.getExe self'.packages.myNoctalia);
 
       monitorConfig = builtins.concatStringsSep "\n" (
         builtins.map (monitor: "monitor=${monitor}") device.monitors
@@ -33,7 +33,7 @@ in
 
       "$mod" = "SUPER";
       exec-once = [
-        "${noctaliaExe}"
+        #"${noctaliaExe}"
         "hyprctl setcursor ${pointerCursor.name} ${toString pointerCursor.size}"
         # "hyprsunset --temperature 5700"
       ];
