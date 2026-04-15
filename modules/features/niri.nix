@@ -30,6 +30,28 @@
 
           layout.gaps = 5;
 
+          outputs = {
+            "DP-1" = {
+              position = _: {
+                props = {
+                  x = 0;
+                  y = 0;
+                };
+              };
+              mode = "1920x1080@240.00";
+              transform = "90";
+            };
+            "DP-2" = {
+              position = _: {
+                props = {
+                  x = 1080;
+                  y = 0;
+                };
+              };
+              mode = "2560x1440@240.00";
+            };
+          };
+
           binds = {
             "Mod+Return".spawn-sh = lib.getExe pkgs.kitty;
             "Mod+Q".close-window = null;
