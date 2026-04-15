@@ -23,6 +23,7 @@
         (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
         self.nixosModules.theme
         self.nixosModules.hyprland
+        self.nixosModules.nvf
       ];
 
       hm.home.username = "cenunix";
@@ -34,6 +35,7 @@
         act # local github actions
         zsh-forgit # zsh plugin to load forgit via `git forgit`
         gitflow
+        ripgrep # recursively searches directories for a regex pattern
       ];
       hm.programs = {
 
@@ -305,7 +307,6 @@
         firefox
         zed
         helix
-        neovim
         vscode
       ];
     };

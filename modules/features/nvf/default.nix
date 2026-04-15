@@ -4,18 +4,18 @@
   ...
 }:
 {
-  flake.nixosModules.hyprland =
+  flake.nixosModules.nvf =
     { pkgs, lib, ... }:
 {
-  imports = [
+  hm.imports = [
     inputs.nvf.homeManagerModules.default
-    ./keymaps.nix
-    ./lsp-format.nix
-    ./lualine.nix
-    ./misc.nix
-    ./utility.nix
+    ./_keymaps.nix
+    ./_lsp-format.nix
+    ./_lualine.nix
+    ./_misc.nix
+    ./_utility.nix
   ];
-  programs.nvf = {
+  hm.programs.nvf = {
     enable = true;
     # most settings are documented in the appendix
     settings.vim = {
@@ -51,5 +51,5 @@
       };
     };
   };
-};
+  };
 }

@@ -36,7 +36,7 @@
           };
 
           monospace = {
-            package = pkgs.maple-mono.NF-CN;
+            package = pkgs.maple-mono.NF;
             name = "Maple Mono NF";
           };
 
