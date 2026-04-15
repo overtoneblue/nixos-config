@@ -7,7 +7,8 @@
       # import any other modules from here
       imports = [
         self.nixosModules.node0Hardware
-        # self.nixosModules.niri
+        self.nixosModules.base
+        self.nixosModules.niri
       ];
 
       nix.settings.experimental-features = [
