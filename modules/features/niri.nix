@@ -25,6 +25,10 @@
             noctaliaExe = (lib.getExe self'.packages.myNoctalia);
           in
           {
+            input = {
+              focus-follows-mouse = null;
+            };
+
             spawn-at-startup = [ noctaliaExe ];
 
             xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
@@ -51,7 +55,7 @@
                     y = 0;
                   };
                 };
-                mode = "2560x1440@239.9";
+                mode = "2560x1440@239.970";
               };
             };
 
