@@ -5,6 +5,10 @@
     {
       packages.myNoctalia = inputs.wrapper-modules.wrappers.noctalia-shell.wrap {
         inherit pkgs;
+        runtimeLibraries = with pkgs; [
+          wlsunset
+          cliphist
+        ];
         settings = { };
         # settings = (builtins.fromJSON (builtins.readFile ./noctalia.json)).settings;
       };

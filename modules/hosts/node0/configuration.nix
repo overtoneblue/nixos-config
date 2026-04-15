@@ -24,6 +24,7 @@
         self.nixosModules.theme
         self.nixosModules.hyprland
         self.nixosModules.nvf
+        self.nixosModules.firefox
       ];
 
       hm.home.username = "cenunix";

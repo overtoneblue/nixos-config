@@ -31,12 +31,6 @@
     in
     {
       hm.wayland.windowManager.hyprland = {
-        # extraConfig = ''
-        #   bind=CTRL,ALT_L,submap,passthrough
-        #   submap=passthrough
-        #   bindr=CTRL,Escape,submap,reset
-        #   submap=reset
-        # '';
         settings = {
           bindm = [
             "$mod, mouse:272, movewindow"
@@ -72,7 +66,8 @@
             "$mod, P, exec, grimblast --notify copysave output"
             "$mod SHIFT, P, exec, grimblast --notify copysave area"
             "$mod SHIFT, P, exec, ags -b hypr -r 'recorder.screenshot(true)'"
-            "$mod, SPACE, exec, dms ipc call spotlight toggle"
+            "$mod, SPACE, exec, ${noctaliaExe} ipc call launcher toggle"
+
           ]
           ++ workspaces;
 
