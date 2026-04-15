@@ -31,7 +31,11 @@
           allowPing = false;
           logReversePathDrops = true;
         };
-
+      };
+      services.tailscale = {
+        enable = true;
+        extraSetFlags = [ "--netfilter-mode=nodivert" ];
+        openFirewall = false;
       };
     };
 }
