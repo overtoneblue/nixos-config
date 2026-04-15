@@ -10,6 +10,7 @@
         self.nixosModules.base
         self.nixosModules.nix-settings
         self.nixosModules.network
+        self.nixosModules.sound
         self.nixosModules.niri
         self.nixosModules.gaming
       ];
