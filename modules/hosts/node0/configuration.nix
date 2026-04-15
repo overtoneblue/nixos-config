@@ -9,8 +9,9 @@
       ...
     }:
     {
-      # import any other modules from here
       imports = [
+        self.nixosModules.options
+        ./_system.nix
         self.nixosModules.node0Hardware
         self.nixosModules.base
         self.nixosModules.nix-settings

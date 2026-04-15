@@ -1,4 +1,11 @@
 { self, inputs, ... }:
 {
-  imports = ./_hardware.nix;
+  flake.nixosModules.options =
+    { lib, ... }:
+    let
+      inherit (lib) mkOption mkEnableOption types;
+    in
+    {
+      imports = [ ./_hardware.nix ];
+    };
 }
