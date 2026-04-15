@@ -13,6 +13,12 @@
     };
 
     hyprland.url = "github:hyprwm/hyprland?ref=v0.53.3";
+
+    stylix = {
+      url = "github:nix-community/stylix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);

@@ -1,14 +1,12 @@
 {
   self,
   inputs,
+  ...
 }:
 {
   flake.nixosModules.hyprland =
     { pkgs, lib, ... }:
     {
-      hm.imports = [
-        inputs.hyprland.homeManagerModules.default
-      ];
       imports = [
         ./_binds.nix
         ./_settings.nix
@@ -21,6 +19,9 @@
       };
 
       hm = {
+        imports = [
+          inputs.hyprland.homeManagerModules.default
+        ];
         wayland.windowManager.hyprland = {
           enable = true;
           package = null;
