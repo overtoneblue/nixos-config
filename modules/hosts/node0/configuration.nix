@@ -11,6 +11,7 @@
         self.nixosModules.nix-settings
         self.nixosModules.network
         self.nixosModules.niri
+        self.nixosModules.gaming
       ];
 
       nix.settings.experimental-features = [
