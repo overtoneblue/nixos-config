@@ -9,7 +9,6 @@
 
     {
       imports = [
-        ./_binds.nix
         ./_rules.nix
       ];
 

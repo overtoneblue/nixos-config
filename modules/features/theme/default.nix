@@ -18,7 +18,6 @@
     in
     {
       imports = [
-        ./gtk.nix
         inputs.stylix.nixosModules.stylix
       ];
       hm.stylix = {
