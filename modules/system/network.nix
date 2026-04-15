@@ -1,11 +1,9 @@
 {
-  self,
-  inputs,
-  ...
+  _,
 }:
 {
   flake.nixosModules.network =
-    { pkgs, lib, ... }:
+    { ... }:
     {
       networking = {
         networkmanager = {
