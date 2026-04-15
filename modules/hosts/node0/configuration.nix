@@ -22,7 +22,7 @@
         inputs.home-manager.nixosModules.home-manager
         (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
         self.nixosModules.theme
-        # self.nixosModules.hyprland
+        self.nixosModules.hyprland
       ];
 
       hm.home.username = "cenunix";
