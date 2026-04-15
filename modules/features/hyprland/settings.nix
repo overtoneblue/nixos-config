@@ -10,14 +10,18 @@
 }:
 {
   flake.nixosModules.hyprland =
-    { pkgs, lib, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     let
       inherit (lib) mkIf;
       inherit (config) modules;
       inherit (modules) device;
       inherit (modules.style) pointerCursor;
       noctaliaExe = (lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.myNoctalia);
-
     in
     {
       hm.wayland.windowManager.hyprland.extraConfig =
@@ -39,8 +43,6 @@
           "$mod" = "SUPER";
           exec-once = [
             "${noctaliaExe}"
-            "hyprctl setcursor ${pointerCursor.name} ${toString pointerCursor.size}"
-            # "hyprsunset --temperature 5700"
           ];
           input = {
             follow_mouse = 1;

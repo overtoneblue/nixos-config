@@ -1,18 +1,24 @@
 {
+  self,
   inputs,
-  pkgs,
-  config,
-  osConfig,
   ...
 }:
 
 {
   flake.nixosModules.theme =
-    { pkgs, lib, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
 
+    let
+      inherit (config.modules.style) pointerCursor;
+    in
     {
       imports = [
-        # ./gtk.nix
+        ./gtk.nix
         inputs.stylix.nixosModules.stylix
       ];
       hm.stylix = {
@@ -45,9 +51,9 @@
             name = "Noto Color Emoji";
           };
         };
-        # cursor = {
-        #   inherit (pointerCursor) package name size;
-        # };
+        cursor = {
+          inherit (pointerCursor) package name size;
+        };
       };
     };
 }
