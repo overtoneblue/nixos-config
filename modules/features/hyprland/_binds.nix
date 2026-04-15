@@ -55,7 +55,7 @@ in
         "$mod, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' false"
         "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
         "$mod, I, exec, dms ipc call lock lock"
-        "$mod, Return, exec, kitty"
+        "$mod, Return, exec, ${default.terminal} start --always-new-process"
         # "$mod SHIFT, Return, exec, ${default.terminal}"
         # "$mod, E, exec, ${default.fileManager}"
         # "$mod, R, exec, killall astal; astal; killall swww-daemon; swww-daemon"

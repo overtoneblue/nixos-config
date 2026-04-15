@@ -6,7 +6,7 @@
       inherit (lib) mkOption mkEnableOption types;
     in
     {
-      imports = [ ./_hardware.nix ];
+      imports = [ ./_hardware.nix ./_programs.nix ];
       options.modules.style = {
         forceGtk = mkEnableOption "Force GTK applications to use the GTK theme";
         useKvantum = mkEnableOption "Use Kvantum to theme QT applications";

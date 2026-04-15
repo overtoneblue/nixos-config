@@ -26,6 +26,30 @@
         hasBluetooth = true;
         hasSound = true;
       };
+      programs = {
+        cli.enable = true;
+        gui.enable = true;
+        gpu-screen-recorder.enable = true;
+        gaming = {
+          enable = true;
+          steam.enable = false;
+          chess.enable = false;
+          minecraft.enable = false;
+          gamescope.enable = false;
+        };
+        default = {
+          terminal = "wezterm";
+          fileManager = "thunar";
+        };
+        override = { };
+      };
+      style = {
+        pointerCursor = {
+          package = pkgs.bibata-cursors;
+          name = "Bibata-Modern-Ice";
+          size = 24;
+        };
+      };
     };
   };
 }
