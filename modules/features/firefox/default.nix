@@ -1,24 +1,26 @@
 {
-  config,
+  self,
   inputs,
-  lib,
-  pkgs,
-  osConfig,
   ...
 }:
 {
   flake.nixosModules.firefox =
-    { pkgs, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
     with lib;
     let
-      startpage = pkgs.substituteAll { src = ./startpage.html; };
+      # startpage = pkgs.substituteAll { src = ./startpage.html; };
       user = config.modules.system.username;
       addons = inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system};
       colors = config.lib.stylix.colors.withHashtag;
     in
     {
       hm.programs = {
-        librewolf = mkForce {
+        librewolf = lib.mkForce {
           enable = true;
           package = pkgs.librewolf;
           policies = {

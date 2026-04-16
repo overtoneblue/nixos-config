@@ -37,6 +37,7 @@
         zsh-forgit # zsh plugin to load forgit via `git forgit`
         gitflow
         ripgrep # recursively searches directories for a regex pattern
+        plexamp
       ];
       hm.programs = {
 
