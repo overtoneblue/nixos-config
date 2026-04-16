@@ -27,6 +27,7 @@
           stylua
           lua-language-server
           wakatime-cli
+          imagemagick
         ];
 
         # a few startup plugins
@@ -41,8 +42,13 @@
           toggleterm-nvim
           gitsigns-nvim
           aerial-nvim
-          # bufferline-nvim
+          bufferline-nvim
           vim-wakatime
+          nvim-web-devicons
+          luasnip
+          blink-cmp
+          friendly-snippets
+          nvim-autopairs
         ];
 
         # one example configured spec
@@ -72,6 +78,15 @@
             require("mini.base16").setup({
               palette = info,
             })
+
+            vim.api.nvim_set_hl(0, "Delimiter", { fg = info.base05 })
+            vim.api.nvim_set_hl(0, "@punctuation", { fg = info.base05 })
+            vim.api.nvim_set_hl(0, "@punctuation.bracket", { fg = info.base05 })
+            vim.api.nvim_set_hl(0, "@punctuation.delimiter", { fg = info.base05 })
+            vim.api.nvim_set_hl(0, "@punctuation.special", { fg = info.base05 })
+
+            vim.api.nvim_set_hl(0, "Comment", { fg = info.base04 })
+            vim.api.nvim_set_hl(0, "@comment", { fg = info.base04 })
           '';
         };
       };
