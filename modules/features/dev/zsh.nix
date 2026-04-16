@@ -63,6 +63,10 @@
             source ${pkgs.fzf}/share/fzf/completion.zsh
           fi
 
+          if command -v dircolors >/dev/null 2>&1; then
+            eval "$(dircolors -b)"
+          fi
+
           # autosuggestions / syntax highlighting from nixpkgs packages
           source ${pkgs.zsh-autosuggestions}/share/zsh-autosuggestions/zsh-autosuggestions.zsh
           source ${pkgs.zsh-syntax-highlighting}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

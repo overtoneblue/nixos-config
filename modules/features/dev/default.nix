@@ -7,6 +7,8 @@
         self.packages.${pkgs.system}.myNvf
         self.packages.${pkgs.system}.myZsh
         self.packages.${pkgs.system}.myStarship
+        self.packages.${pkgs.system}.myWezterm
+        pkgs.eza
       ];
 
       programs.zsh.enable = true;
@@ -17,7 +19,7 @@
   perSystem =
     { pkgs, self', ... }:
     {
-      devShells.default = pkgs.mkShell {
+      devShells.dev = pkgs.mkShell {
         packages = [
           self'.packages.myNvf
           self'.packages.myZsh

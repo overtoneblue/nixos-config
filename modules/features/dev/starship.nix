@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   flake.wrappers.starship =
     { pkgs, wlib, ... }:
@@ -30,14 +30,14 @@
       imports = [ wlib.modules.default ];
 
       config.package = pkgs.starship;
-      config.env.STARSHIP_CONFIG.value = starshipConfig;
+      config.env.STARSHIP_CONFIG.data = starshipConfig;
       config.meta.description = "Wrapped starship with personal config";
     };
 
   perSystem =
-    { pkgs, self', ... }:
+    { pkgs, ... }:
     {
-      packages.myStarship = self'.wrappers.starship.wrap {
+      packages.myStarship = self.wrappers.starship.wrap {
         inherit pkgs;
       };
     };
