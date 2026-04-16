@@ -1,19 +1,16 @@
 {
   self,
   inputs,
+  moduleWithSystem,
   ...
 }:
 
 {
-  flake.nixosModules.theme =
-    {
-      pkgs,
-      lib,
-      config,
-      ...
-    }:
-
+  flake.nixosModules.theme = moduleWithSystem (
+    perSystem@{ config, ... }:
+    { pkgs, config, ... }:
     let
+      colors = perSystem.config.myTheme.colors;
       inherit (config.modules.style) pointerCursor;
     in
     {
@@ -27,7 +24,7 @@
       };
       stylix = {
         enable = true;
-        base16Scheme = ./theme.yaml;
+        base16Scheme = colors;
         image = ./images/blue-sky.jpg;
         fonts = {
           serif = {
@@ -54,5 +51,6 @@
           inherit (pointerCursor) package name size;
         };
       };
-    };
+    }
+  );
 }

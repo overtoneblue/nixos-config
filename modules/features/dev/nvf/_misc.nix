@@ -54,6 +54,11 @@
         vim.api.nvim_set_hl(0, "@comment", { fg = "${colors.base04}" })      '';
     };
     telescope.enable = true;
+    tabline = {
+      nvimBufferline = {
+        enable = true;
+      };
+    };
     snippets = {
       luasnip.enable = true;
     };
@@ -79,17 +84,7 @@
             "buffer"
           ];
 
-          providers = {
-            minuet = {
-              name = "minuet";
-              module = "minuet.blink";
-              async = true;
-              #Should match minuet.config.request_timeout * 1000,
-              #since minuet.config.request_timeout is in seconds
-              timeout_ms = 3000;
-              score_offset = 50;
-            };
-          };
+          providers = { };
         };
         snippets = {
           preset = "luasnip";
@@ -109,8 +104,12 @@
         };
       };
       mappings = {
+        next = "<Tab>";
+        previous = "<S-Tab>";
         close = "<C-e>";
         confirm = "<C-y>";
+        scrollDocsUp = "C-b>";
+        scrollDocsDown = "C-f";
       };
     };
 

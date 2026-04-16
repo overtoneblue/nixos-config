@@ -24,7 +24,7 @@
         self.nixosModules.theme
         self.nixosModules.hyprland
         self.nixosModules.nvf
-        self.nixosModules.myNeovim
+        # self.nixosModules.myNeovim
         self.nixosModules.firefox
       ];
 

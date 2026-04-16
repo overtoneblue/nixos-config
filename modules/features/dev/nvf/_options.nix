@@ -4,7 +4,7 @@
   ...
 }:
 {
-  options.vim = {
+  config.vim = {
     viAlias = false;
     vimAlias = true;
     preventJunkFiles = true;

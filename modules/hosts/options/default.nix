@@ -14,11 +14,6 @@
         forceGtk = mkEnableOption "Force GTK applications to use the GTK theme";
         useKvantum = mkEnableOption "Use Kvantum to theme QT applications";
 
-        colors = mkOption {
-          type = types.attrsOf types.str;
-          default = { };
-        };
-
         pointerCursor = {
           package = mkOption {
             type = types.package;
