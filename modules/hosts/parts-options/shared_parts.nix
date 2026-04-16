@@ -9,7 +9,7 @@ in
     {
       options.myTheme.colors = mkOption {
         type = types.attrsOf types.str;
-        default = import ./blue-sky.nix;
+        default = import ./_theme.nix;
         description = "Shared palette for perSystem consumers.";
       };
     }
