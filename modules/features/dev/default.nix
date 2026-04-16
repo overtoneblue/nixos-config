@@ -8,6 +8,7 @@
         self.packages.${pkgs.system}.myZsh
         self.packages.${pkgs.system}.myStarship
         self.packages.${pkgs.system}.myWezterm
+        self.packages.${pkgs.system}.myGit
         pkgs.eza
       ];
 
@@ -24,6 +25,8 @@
           self'.packages.myNvf
           self'.packages.myZsh
           self'.packages.myStarship
+          self'.packages.myWezterm
+          self'.packages.myGit
           pkgs.git
           pkgs.direnv
           pkgs.nix-direnv

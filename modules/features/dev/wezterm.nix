@@ -9,6 +9,7 @@
     }:
     let
       colors = config.myTheme.colors;
+      fonts = config.myTheme.fonts;
     in
     {
       packages.myWezterm = inputs.wrapper-modules.wrappers.wezterm.wrap {
@@ -111,10 +112,11 @@
 
           -- Optional: match your general font setup
           config.font = wezterm.font_with_fallback({
-            "Maple Mono NF",
-            "Noto Color Emoji",
+            "${fonts.monospace.name}",
+            "${fonts.emoji.name}",
           })
-          config.font_size = 14.0
+          config.font_size = ${toString fonts.sizes.terminal}
+          config.command_palette_font_size = ${toString fonts.sizes.popups}
 
           -- Optional opacity
           -- config.window_background_opacity = 1.0
