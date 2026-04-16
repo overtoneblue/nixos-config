@@ -18,7 +18,7 @@ let
   };
 in
 {
-  programs.nvf.settings.vim = {
+  config.vim = {
     binds.whichKey = {
       enable = true;
       register = {

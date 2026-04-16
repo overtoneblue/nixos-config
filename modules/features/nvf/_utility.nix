@@ -8,7 +8,7 @@
   ...
 }:
 {
-  programs.nvf.settings.vim.utility = {
+  config.vim.utility = {
     preview = {
       markdownPreview = {
         enable = true;

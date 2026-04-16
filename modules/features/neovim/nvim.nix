@@ -58,6 +58,8 @@
           blink-cmp
           friendly-snippets
           nvim-autopairs
+          nvim-lspconfig
+          conform-nvim
         ];
         # one example configured spec
         specs.colors = {

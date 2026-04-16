@@ -8,7 +8,7 @@
   ...
 }:
 {
-  programs.nvf.settings.vim = {
+  config.vim = {
     statusline.lualine = {
       enable = true;
       theme = "base16";

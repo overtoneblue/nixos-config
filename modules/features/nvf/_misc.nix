@@ -1,17 +1,13 @@
 {
   inputs,
-  outputs,
-  lib,
-  config,
+  colors,
   pkgs,
-  osConfig,
   ...
 }:
-let
-  colors = config.lib.stylix.colors.withHashtag;
-in
+{ lib, config, ... }:
+
 {
-  programs.nvf.settings.vim = {
+  config.vim = {
     extraPackages = with pkgs; [
       fd
       imagemagick
