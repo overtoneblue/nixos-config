@@ -37,7 +37,7 @@
           mTertiary = colors.base0C;
         };
         # To update these settings heres the command from root of the flake/config:
-        # nix run nixpkgs#noctalia-shell ipc call state all > ./modules/features/noctalia/noctalia.json
+        # nix run nixpkgs#noctalia-shell ipc call state all > ./modules/features/desktop/noctalia/noctalia.json
         settings = (builtins.fromJSON (builtins.readFile ./noctalia.json)).settings;
       };
     };

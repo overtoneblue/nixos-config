@@ -14,14 +14,13 @@
 
     {
 
-      programs.zsh.enable = true;
+      # programs.zsh.enable = true;
 
       users.users = {
         cenunix = {
 
           initialPassword = "changeme";
           isNormalUser = true;
-          shell = pkgs.zsh;
 
           extraGroups = [
             "wheel"
