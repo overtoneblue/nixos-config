@@ -1,12 +1,20 @@
 { self, inputs, ... }:
 {
   perSystem =
-    { pkgs, self', ... }:
+    {
+      pkgs,
+      self',
+      config,
+      ...
+    }:
+    let
+      colors = config.myTheme.colors;
+    in
     {
       packages.myWezterm = inputs.wrapper-modules.wrappers.wezterm.wrap {
         inherit pkgs;
 
-        wezterm.lua.content = ''
+        "wezterm.lua".content = ''
           local wezterm = require 'wezterm'
           local mux = wezterm.mux
           local config = wezterm.config_builder()
@@ -19,6 +27,97 @@
           config.use_fancy_tab_bar = false
           config.front_end = "OpenGL"
           config.enable_wayland = true
+
+          config.color_schemes = {
+            stylix = {
+              ansi = {
+                "${colors.base00}",
+                "${colors.base08}",
+                "${colors.base0B}",
+                "${colors.base0A}",
+                "${colors.base0D}",
+                "${colors.base0E}",
+                "${colors.base0C}",
+                "${colors.base05}",
+              },
+              brights = {
+                "${colors.base03}",
+                "${colors.base08}",
+                "${colors.base0B}",
+                "${colors.base0A}",
+                "${colors.base0D}",
+                "${colors.base0E}",
+                "${colors.base0C}",
+                "${colors.base07}",
+              },
+              background = "${colors.base00}",
+              foreground = "${colors.base05}",
+              cursor_bg = "${colors.base05}",
+              cursor_fg = "${colors.base00}",
+              compose_cursor = "${colors.base06}",
+              scrollbar_thumb = "${colors.base01}",
+              selection_bg = "${colors.base05}",
+              selection_fg = "${colors.base00}",
+              split = "${colors.base03}",
+              visual_bell = "${colors.base09}",
+              tab_bar = {
+                background = "${colors.base01}",
+                inactive_tab_edge = "${colors.base01}",
+                active_tab = {
+                  bg_color = "${colors.base00}",
+                  fg_color = "${colors.base05}",
+                },
+                inactive_tab = {
+                  bg_color = "${colors.base03}",
+                  fg_color = "${colors.base05}",
+                },
+                inactive_tab_hover = {
+                  bg_color = "${colors.base05}",
+                  fg_color = "${colors.base00}",
+                },
+                new_tab = {
+                  bg_color = "${colors.base03}",
+                  fg_color = "${colors.base05}",
+                },
+                new_tab_hover = {
+                  bg_color = "${colors.base05}",
+                  fg_color = "${colors.base00}",
+                },
+              },
+            },
+          }
+
+          config.color_scheme = "stylix"
+
+          config.window_frame = {
+            active_titlebar_bg = "${colors.base03}",
+            active_titlebar_fg = "${colors.base05}",
+            active_titlebar_border_bottom = "${colors.base03}",
+            border_left_color = "${colors.base01}",
+            border_right_color = "${colors.base01}",
+            border_bottom_color = "${colors.base01}",
+            border_top_color = "${colors.base01}",
+            button_bg = "${colors.base01}",
+            button_fg = "${colors.base05}",
+            button_hover_bg = "${colors.base05}",
+            button_hover_fg = "${colors.base03}",
+            inactive_titlebar_bg = "${colors.base01}",
+            inactive_titlebar_fg = "${colors.base05}",
+            inactive_titlebar_border_bottom = "${colors.base03}",
+          }
+
+          config.command_palette_bg_color = "${colors.base01}"
+          config.command_palette_fg_color = "${colors.base05}"
+
+          -- Optional: match your general font setup
+          config.font = wezterm.font_with_fallback({
+            "Maple Mono NF",
+            "Noto Color Emoji",
+          })
+          config.font_size = 14.0
+
+          -- Optional opacity
+          -- config.window_background_opacity = 1.0
 
           config.keys = {
             {

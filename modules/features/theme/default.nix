@@ -27,6 +27,12 @@
         base16Scheme = colors;
         image = ./images/blue-sky.jpg;
         fonts = {
+          sizes = {
+            applications = 12;
+            desktop = 10;
+            popups = 10;
+            terminal = 12;
+          };
           serif = {
             package = pkgs.inter-nerdfont;
             name = "Inter Nerd Font";
