@@ -26,6 +26,7 @@
           fd
           stylua
           lua-language-server
+          wakatime-cli
         ];
 
         # a few startup plugins
@@ -40,7 +41,8 @@
           toggleterm-nvim
           gitsigns-nvim
           aerial-nvim
-          bufferline-nvim
+          # bufferline-nvim
+          vim-wakatime
         ];
 
         # one example configured spec
