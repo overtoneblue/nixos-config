@@ -1,0 +1,29 @@
+vim.loader.enable()
+
+vim.opt.shell = "zsh"
+vim.opt.guifont = "Inter Nerd Font:h14"
+vim.opt.termguicolors = true
+vim.opt.undofile = true
+vim.opt.smartindent = true
+vim.opt.tabstop = 2
+vim.opt.shiftwidth = 2
+vim.opt.shiftround = true
+vim.opt.expandtab = true
+vim.opt.cursorline = true
+vim.opt.wrap = true
+vim.opt.linebreak = true
+vim.opt.relativenumber = true
+vim.opt.number = true
+vim.opt.viminfo = ""
+vim.opt.viminfofile = "NONE"
+vim.opt.clipboard = "unnamedplus"
+vim.opt.splitright = true
+vim.opt.splitbelow = true
+vim.opt.laststatus = 0
+vim.opt.cmdheight = 1
+vim.opt.winborder = "rounded"
+
+vim.opt.shortmess:append("I")
+
+vim.cmd("filetype plugin indent on")
+vim.cmd("syntax on")

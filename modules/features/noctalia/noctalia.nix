@@ -17,10 +17,7 @@
     {
       packages.myNoctalia = inputs.wrapper-modules.wrappers.noctalia-shell.wrap {
         inherit pkgs;
-        # runtimeLibraries = with pkgs; [
-        #   wlsunset
-        #   cliphist
-        # ];
+
         colors = {
           mError = colors.base08;
           mHover = colors.base0C;
@@ -39,7 +36,8 @@
           mSurfaceVariant = colors.base02;
           mTertiary = colors.base0C;
         };
-        # settings = { };
+        # To update these settings heres the command from root of the flake/config:
+        # nix run nixpkgs#noctalia-shell ipc call state all > ./modules/features/noctalia/noctalia.json
         settings = (builtins.fromJSON (builtins.readFile ./noctalia.json)).settings;
       };
     };

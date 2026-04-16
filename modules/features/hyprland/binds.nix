@@ -54,10 +54,11 @@
             "$mod SHIFT, j, movewindow, d"
             "$mod, B, movecurrentworkspacetomonitor, DP-2"
             "$mod SHIFT, B, movecurrentworkspacetomonitor, DP-1"
+            "$mod, V, exec, ${noctaliaExe} ipc call bluetooth togglePanel"
 
-            "$mod, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' false"
-            "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
-            "$mod, I, exec, dms ipc call lock lock"
+            # "$mod, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' false"
+            # "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
+            "$mod, I, exec, ${noctaliaExe} ipc call lockScreen lock"
             "$mod, Return, exec, ${default.terminal} start --always-new-process"
             "$mod SHIFT, Return, exec, ${default.terminal}"
             "$mod, E, exec, ${default.fileManager}"
@@ -72,11 +73,11 @@
           ++ workspaces;
 
           bindle = [
-            ", XF86MonBrightnessUp, exec, dms ipc call brightness increment 5"
-            ", XF86MonBrightnessDown, exec, dms ipc call brightness decrement 5"
-            ", XF86AudioRaiseVolume, exec, dms ipc call audio increment 3"
-            ", XF86AudioLowerVolume, exec, dms ipc call audio decrement 3"
-            ", XF86AudioMute, exec, dms ipc call audio mute"
+            ", XF86MonBrightnessUp, exec, ${noctaliaExe} ipc call brightness increase"
+            ", XF86MonBrightnessDown, exec, ${noctaliaExe} ipc call brightness decrease"
+            ", XF86AudioRaiseVolume, exec, ${noctaliaExe} ipc call volume increase"
+            ", XF86AudioLowerVolume, exec, ${noctaliaExe} ipc call volume decrease"
+            ", XF86AudioMute, exec, ${noctaliaExe} ipc call volume muteOutput"
           ];
         };
       };

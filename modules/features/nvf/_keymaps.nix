@@ -54,20 +54,9 @@ in
       (mkKeymap "n" "<leader>w" "<cmd>w<cr>" "Save Buffer")
       (mkKeymap "n" "<leader>q" "<cmd>q<cr>" "Quit")
       (mkKeymap "n" "<leader>e" "<cmd>lua require('snacks').explorer()<cr>" "Explorer")
-      # (mkKeymap "n" "<leader>e" ":Neotree action=focus reveal toggle<cr>" "Toggle Neotree")
       (mkKeymap "n" "<leader>c" ":bdelete!<CR>" "Close Buffer")
       (mkKeymap "n" "gb" "<cmd>lua require('snipe').open_buffer_menu()<cr>" "Snipe Buffers")
-      # Telescope
-      # (mkKeymap "n" "<leader>ff" "<cmd>Telescope find_files<cr>" "Find File")
-      # (mkKeymap "n" "<leader>fr" "<cmd>Telescope oldfiles<cr>" "Open Recent File")
-      # (mkKeymap "n" "<leader>fn" "<cmd>enew<cr>" "New File")
-      # (mkKeymap "n" "<leader>fw" "<cmd>Telescope live_grep<cr>" "Grep Files")
-      # (mkKeymap "n" "<leader>fb" "<cmd>Telescope buffers<cr>" "Grep Buffers")
-      # (mkKeymap "n" "<leader>fh" "<cmd>Telescope help_tags<cr>" "Grep Help Tags")
-      # (mkKeymap "n" "<leader>fd" "<cmd>Telescope diagnostics<cr>" "Grep Diagnostics")
-      # (mkKeymap "n" "<leader>fg" "<cmd>Telescope git_files<cr>" "Grep Git Files")
 
-      # Snacks Picker Replaces Telescope!?
       (mkKeymap "n" "<leader>ff" "<cmd>lua require('snacks').picker.files()<cr>" "Find File")
       (mkKeymap "n" "<leader>fr" "<cmd>lua require('snacks').picker.recent()<cr>" "Open Recent File")
       (mkKeymap "n" "<leader>fn" "<cmd>enew<cr>" "New File")
