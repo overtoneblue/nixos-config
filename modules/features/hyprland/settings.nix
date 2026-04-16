@@ -39,7 +39,6 @@
 
       hm.wayland.windowManager.hyprland = {
         settings = {
-
           "$mod" = "SUPER";
           exec-once = [
             "${noctaliaExe}"
