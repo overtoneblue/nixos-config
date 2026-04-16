@@ -27,7 +27,6 @@
           self'.packages.myStarship
           self'.packages.myWezterm
           self'.packages.myGit
-          pkgs.git
           pkgs.direnv
           pkgs.nix-direnv
           pkgs.fd
