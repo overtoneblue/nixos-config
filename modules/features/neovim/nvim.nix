@@ -28,6 +28,15 @@
           lua-language-server
           wakatime-cli
           imagemagick
+          # nix
+          nil
+          nixfmt-rfc-style
+
+          # python
+          pyright
+          ruff
+          black
+          isort
         ];
 
         # a few startup plugins
@@ -50,10 +59,9 @@
           friendly-snippets
           nvim-autopairs
         ];
-
         # one example configured spec
         specs.colors = {
-          data = pkgs.vimPlugins.mini-base16;
+          data = pkgs.vimPlugins.base16-nvim;
           before = [ "INIT_MAIN" ];
           info = {
             base00 = "#0b0e14";
@@ -75,8 +83,24 @@
           };
           config = /* lua */ ''
             local info = ...
-            require("mini.base16").setup({
-              palette = info,
+
+            require("base16-colorscheme").setup({
+              base00 = info.base00,
+              base01 = info.base01,
+              base02 = info.base02,
+              base03 = info.base03,
+              base04 = info.base04,
+              base05 = info.base05,
+              base06 = info.base06,
+              base07 = info.base07,
+              base08 = info.base08,
+              base09 = info.base09,
+              base0A = info.base0A,
+              base0B = info.base0B,
+              base0C = info.base0C,
+              base0D = info.base0D,
+              base0E = info.base0E,
+              base0F = info.base0F,
             })
 
             vim.api.nvim_set_hl(0, "Delimiter", { fg = info.base05 })
