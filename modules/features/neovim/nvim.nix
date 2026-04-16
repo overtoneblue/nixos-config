@@ -35,6 +35,12 @@
           nvim-treesitter
           lualine-nvim
           which-key-nvim
+          snacks-nvim
+          snipe-nvim
+          toggleterm-nvim
+          gitsigns-nvim
+          aerial-nvim
+          bufferline-nvim
         ];
 
         # one example configured spec
