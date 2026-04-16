@@ -38,6 +38,7 @@
           # history
           HISTSIZE=1000
           SAVEHIST=1000
+          setopt nonomatch
           setopt HIST_IGNORE_DUPS
           setopt HIST_IGNORE_SPACE
           setopt HIST_EXPIRE_DUPS_FIRST
