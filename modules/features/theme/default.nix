@@ -20,15 +20,23 @@
       ];
 
       hm.stylix = {
-        targets.nvf.enable = false;
-        targets.firefox.enable = false;
-        targets.librewolf.enable = false;
+        targets = {
+          gtksourceview.enable = false;
+          nixos-icons.enable = false;
+          nvf.enable = false;
+          firefox.enable = false;
+          librewolf.enable = false;
+        };
       };
 
       stylix = {
+        targets = {
+          gtksourceview.enable = false;
+          nixos-icons.enable = false;
+        };
         enable = true;
         base16Scheme = colors;
-        image = ./images/blue-sky.jpg;
+        image = ./images/Greek.jpg;
         inherit fonts;
 
         cursor = {
