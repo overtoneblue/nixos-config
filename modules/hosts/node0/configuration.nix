@@ -25,6 +25,7 @@
         self.nixosModules.hyprland
         self.nixosModules.dev
         self.nixosModules.firefox
+        self.nixosModules.signal
       ];
 
       hm.home.username = "cenunix";
@@ -75,9 +76,9 @@
           efi.canTouchEfiVariables = true;
         };
       };
-
+      services.gnome.gnome-keyring.enable = true;
+      programs.seahorse.enable = true;
       networking.hostName = "node0"; # Define your hostname.
-
       environment.systemPackages = with pkgs; [
         thunar
         vscode

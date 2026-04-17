@@ -20,10 +20,11 @@
     in
     {
       hm.programs = {
-        librewolf = lib.mkForce {
+        firefox = lib.mkForce {
           enable = true;
-          package = pkgs.librewolf;
+          # package = pkgs.firefox;
           policies = {
+            DisableFirefoxAccounts = true;
             Cookies = {
               Allow = [
                 "https://Kagi.com"
@@ -42,10 +43,12 @@
               Locked = true;
 
               Additional = [
-                "https://boot.dev/"
-                "https://docs.aws.amazon.com"
-                "https://kubernetes.io/docs/home/"
-                "file:///home/youruser/notes/today.md"
+                "https://docs.python.org/3/"
+                "https://discourse.nixos.org/"
+                # "https://docs.aws.amazon.com"
+                # "https://kubernetes.io/docs/home/"
+                # "file:///home/youruser/notes/today.md"
+                # "https://chatgpt.com"
               ];
             };
           };
@@ -84,7 +87,7 @@
                     theme = {
                       mode = 1;
                       darkSchemeBackgroundColor = colors.base00;
-                      darkSchemeTextColor = colors.base05;
+                      # darkSchemeTextColor = colors.base05;
                     };
                     previewNewDesign = true;
                   };
@@ -93,12 +96,23 @@
             };
             bookmarks = { };
             settings = {
+              # ===========================================================================
+              # Core UI / Theme / Layout
+              # ===========================================================================
+
               "extensions.autoDisableScopes" = 0;
               "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
-              # ctrl_alt Z to toggle sidebar expansions
+
+              "layout.css.prefers-color-scheme.content-override" = 0;
+              "ui.systemUsesDarkTheme" = 1;
+              "browser.compactmode.show" = true;
+
+              # Sidebar / vertical tabs
               "sidebar.verticalTabs" = true;
               "sidebar.revamp" = true;
-              # "browser.startup.homepage" = "https://docs.python.org/3/";
+              "sidebar.main.tools" = "history";
+
+              # Firefox toolbar / UI layout
               "browser.uiCustomization.state" = builtins.toJSON {
                 currentVersion = 20;
                 newElementCount = 5;
@@ -138,6 +152,203 @@
                   "_testpilot-containers-browser-action"
                 ];
               };
+
+              # ===========================================================================
+              # Startup / Session / New Tab
+              # ===========================================================================
+
+              "browser.startup.page" = 1;
+              "browser.sessionstore.resume_from_crash" = false;
+              "browser.sessionstore.resume_session_once" = false;
+              "browser.sessionstore.interval" = 60000;
+              "browser.startup.homepage_override.mstone" = "ignore";
+              "browser.aboutwelcome.enabled" = false;
+
+              # New tab cleanup
+              "browser.newtabpage.enabled" = false;
+              "browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar" = false;
+              "browser.newtabpage.activity-stream.default.sites" = "";
+              "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
+              "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
+              "browser.newtabpage.activity-stream.showSponsored" = false;
+              "browser.newtabpage.activity-stream.showSponsoredCheckboxes" = false;
+
+              # ===========================================================================
+              # Search / URL Bar
+              # ===========================================================================
+
+              "browser.search.separatePrivateDefault.ui.enabled" = true;
+              "browser.search.update" = false;
+
+              "browser.urlbar.trimHttps" = true;
+              "browser.urlbar.untrimOnUserInteraction.featureGate" = true;
+              "browser.urlbar.quicksuggest.enabled" = false;
+              "browser.urlbar.groupLabels.enabled" = false;
+              "browser.urlbar.suggest.engines" = false;
+              "browser.urlbar.trending.featureGate" = false;
+
+              # Left as your current choice
+              # "browser.search.suggest.enabled" = false;
+
+              "browser.formfill.enable" = false;
+              "network.IDN_show_punycode" = true;
+
+              # ===========================================================================
+              # Privacy / Security / Anti-Tracking
+              # ===========================================================================
+
+              "browser.contentblocking.category" = "strict";
+              "privacy.globalprivacycontrol.enabled" = true;
+              "privacy.antitracking.isolateContentScriptResources" = true;
+              "privacy.history.custom" = true;
+              "privacy.userContext.ui.enabled" = true;
+
+              "security.OCSP.enabled" = 0;
+              "security.csp.reporting.enabled" = false;
+              "security.ssl.treat_unsafe_negotiation_as_broken" = true;
+              "security.tls.enable_0rtt_data" = false;
+              "browser.xul.error_pages.expert_bad_cert" = true;
+
+              # Left as your current choice
+              # "dom.security.https_only_mode" = true;
+              "dom.security.https_only_mode_error_page_user_suggestions" = true;
+
+              "network.http.referer.XOriginTrimmingPolicy" = 2;
+
+              "permissions.default.desktop-notification" = 2;
+              "permissions.default.geo" = 2;
+              "geo.provider.network.url" = "https://beacondb.net/v1/geolocate";
+              "permissions.manager.defaultsUrl" = "";
+
+              # ===========================================================================
+              # Network / Speculative Loading / Performance
+              # ===========================================================================
+
+              "gfx.canvas.accelerated.cache-size" = 256;
+
+              # Left as your current choice
+              # "browser.cache.disk.enable" = false;
+
+              "browser.privatebrowsing.forceMediaMemoryCache" = true;
+              "media.memory_cache_max_size" = 65536;
+
+              "browser.download.start_downloads_in_tmp_dir" = true;
+
+              "network.http.speculative-parallel-limit" = 0;
+              "network.dns.disablePrefetch" = true;
+              "network.dns.disablePrefetchFromHTTPS" = true;
+              "browser.urlbar.speculativeConnect.enabled" = false;
+              "browser.places.speculativeConnect.enabled" = false;
+              "network.prefetch-next" = false;
+
+              # ===========================================================================
+              # Passwords / Auth / Forms
+              # ===========================================================================
+
+              "signon.formlessCapture.enabled" = false;
+              "signon.privateBrowsingCapture.enabled" = false;
+              "network.auth.subresource-http-auth-allow" = 1;
+              "editor.truncate_user_pastes" = false;
+
+              # ===========================================================================
+              # Extensions / Mozilla UX / Annoyance Removal
+              # ===========================================================================
+
+              "extensions.enabledScopes" = 5;
+              "extensions.getAddons.cache.enabled" = false;
+              "extensions.getAddons.showPane" = false;
+              "extensions.htmlaboutaddons.recommendations.enabled" = false;
+
+              "browser.discovery.enabled" = false;
+              "browser.shell.checkDefaultBrowser" = false;
+              "browser.preferences.moreFromMozilla" = false;
+              "browser.aboutConfig.showWarning" = false;
+              "browser.profiles.enabled" = false;
+              "browser.uitour.enabled" = false;
+
+              "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons" = false;
+              "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features" = false;
+
+              # ===========================================================================
+              # Mozilla Telemetry / Experiments / Crash Reports
+              # ===========================================================================
+
+              "datareporting.policy.dataSubmissionEnabled" = false;
+              "datareporting.healthreport.uploadEnabled" = false;
+              "datareporting.usage.uploadEnabled" = false;
+
+              "toolkit.telemetry.unified" = false;
+              "toolkit.telemetry.enabled" = false;
+              "toolkit.telemetry.server" = "data:,";
+              "toolkit.telemetry.archive.enabled" = false;
+              "toolkit.telemetry.newProfilePing.enabled" = false;
+              "toolkit.telemetry.shutdownPingSender.enabled" = false;
+              "toolkit.telemetry.updatePing.enabled" = false;
+              "toolkit.telemetry.bhrPing.enabled" = false;
+              "toolkit.telemetry.firstShutdownPing.enabled" = false;
+              "toolkit.telemetry.coverage.opt-out" = true;
+              "toolkit.coverage.opt-out" = true;
+              "toolkit.coverage.endpoint.base" = "";
+
+              "browser.newtabpage.activity-stream.feeds.telemetry" = false;
+              "browser.newtabpage.activity-stream.telemetry" = false;
+
+              "app.shield.optoutstudies.enabled" = false;
+              "app.normandy.enabled" = false;
+              "app.normandy.api_url" = "";
+
+              "breakpad.reportURL" = "";
+              "browser.tabs.crashReporting.sendReport" = false;
+
+              # ===========================================================================
+              # AI / ML / Smart Features
+              # ===========================================================================
+
+              "browser.ai.control.default" = "blocked";
+              "browser.ml.enable" = false;
+              "browser.tabs.groups.smart.enabled" = false;
+              "browser.ml.linkPreview.enabled" = false;
+              "browser.ml.chat.enabled" = false;
+              "browser.ml.chat.menu" = false;
+
+              # ===========================================================================
+              # Downloads / PDFs
+              # ===========================================================================
+
+              "browser.download.manager.addToRecentDocs" = false;
+              "browser.download.open_pdf_attachments_inline" = true;
+              "browser.safebrowsing.downloads.remote.enabled" = false;
+              "pdfjs.enableScripting" = false;
+
+              # ===========================================================================
+              # Fullscreen / Tab / Interaction Niceties
+              # ===========================================================================
+
+              "full-screen-api.transition-duration.enter" = "0 0";
+              "full-screen-api.transition-duration.leave" = "0 0";
+
+              "browser.bookmarks.openInTabClosesMenu" = false;
+              "browser.menu.showViewImageInfo" = true;
+              "findbar.highlightAll" = true;
+              "layout.word_select.eat_space_to_next_word" = false;
+
+              # ===========================================================================
+              # Private Browsing Behavior
+              # ===========================================================================
+
+              "browser.privatebrowsing.resetPBM.enabled" = true;
+
+              "general.smoothScroll" = true;
+              "general.smoothScroll.msdPhysics.continuousMotionMaxDeltaMS" = 12;
+              "general.smoothScroll.msdPhysics.enabled" = true;
+              "general.smoothScroll.msdPhysics.motionBeginSpringConstant" = 600;
+              "general.smoothScroll.msdPhysics.regularSpringConstant" = 650;
+              "general.smoothScroll.msdPhysics.slowdownMinDeltaMS" = 25;
+              "general.smoothScroll.msdPhysics.slowdownMinDeltaRatio" = "2";
+              "general.smoothScroll.msdPhysics.slowdownSpringConstant" = 250;
+              "general.smoothScroll.currentVelocityWeighting" = "1";
+              "general.smoothScroll.stopDecelerationWeighting" = "1";
+              "mousewheel.default.delta_multiplier_y" = 300;
             };
             userContent = ''
               /* All internal about: pages */
@@ -240,7 +451,7 @@
 
                 /* NEW: Firefox 146-ish vertical-tabs / sidebar pane surface */
                 --tabpane-background-color: var(--my-bg) !important;     /* this was #2b2a33 in your screenshot */
-                --tabpanel-background-color: var(--my-bg) !important;    /* sometimes used alongside tabpane */
+                --tabpanel-background-color: var(--my-bg) !important;    
                 --tab-hover-background-color: var(--my-bg-2) !important; /* hover blend that can look “default” */
 
                 /* Buttons / hover states (often the “mystery gray”) */
