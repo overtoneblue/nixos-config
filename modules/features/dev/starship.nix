@@ -1,5 +1,11 @@
-{ self, ... }:
+{ ... }:
 {
+  perSystem =
+    { config, ... }:
+    {
+      packages.myStarship = config.packages.starship;
+    };
+
   flake.wrappers.starship =
     { pkgs, wlib, ... }:
     let
@@ -32,13 +38,5 @@
       config.package = pkgs.starship;
       config.env.STARSHIP_CONFIG.data = starshipConfig;
       config.meta.description = "Wrapped starship with personal config";
-    };
-
-  perSystem =
-    { pkgs, ... }:
-    {
-      packages.myStarship = self.wrappers.starship.wrap {
-        inherit pkgs;
-      };
     };
 }

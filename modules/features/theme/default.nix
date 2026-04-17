@@ -36,7 +36,7 @@
         };
         enable = true;
         base16Scheme = colors;
-        image = ./images/Greek.jpg;
+        image = ./images/Greek.png;
         inherit fonts;
 
         cursor = {

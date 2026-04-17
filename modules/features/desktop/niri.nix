@@ -91,43 +91,6 @@
               "Mod+F".fullscreen-window = _: { };
               "Mod+Shift+Space".toggle-window-floating = _: { };
               "Mod+C".center-column = _: { };
-              # "Mod+d".spawn-sh = self.mkWhichKeyExe config.pkgs [
-              #   {
-              #     key = "b";
-              #     desc = "Bluetooth";
-              #     cmd = "${noctaliaExe} ipc call bluetooth togglePanel";
-              #   }
-              #   {
-              #     key = "w";
-              #     desc = "Wifi";
-              #     cmd = "${noctaliaExe} ipc call wifi togglePanel";
-              #   }
-              #   {
-              #     key = "f";
-              #     desc = "Firefox";
-              #     cmd = "firefox";
-              #   }
-              #   {
-              #     key = "t";
-              #     desc = "Telegram";
-              #     cmd = "Telegram";
-              #   }
-              #   {
-              #     key = "d";
-              #     desc = "Discord";
-              #     cmd = "vesktop";
-              #   }
-              #   {
-              #     key = "m";
-              #     desc = "Youtube Music";
-              #     cmd = "pear-desktop";
-              #   }
-              #   {
-              #     key = "s";
-              #     desc = "Pavucontrol";
-              #     cmd = "${lib.getExe pkgs.pavucontrol}";
-              #   }
-              # ];
 
               "Mod+B".move-workspace-to-monitor-next = _: { };
 

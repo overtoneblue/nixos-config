@@ -103,7 +103,7 @@
               "extensions.autoDisableScopes" = 0;
               "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
 
-              "layout.css.prefers-color-scheme.content-override" = 0;
+              "layout.css.prefers-color-scheme.content-override" = 2;
               "ui.systemUsesDarkTheme" = 1;
               "browser.compactmode.show" = true;
 

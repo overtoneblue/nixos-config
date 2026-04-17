@@ -114,7 +114,14 @@
           user = "greeter";
         };
       };
-      programs.regreet.enable = true;
+      programs.regreet = {
+        enable = true;
+        settings = {
+          GTK = {
+            application_prefer_dark_theme = lib.mkForce true;
+          };
+        };
+      };
       services.gnome.gnome-keyring.enable = true;
       security.pam.services.greetd.enableGnomeKeyring = true;
       security.polkit.enable = true;
