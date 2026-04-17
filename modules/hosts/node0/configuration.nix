@@ -82,6 +82,7 @@
       environment.systemPackages = with pkgs; [
         thunar
         vscode
+        fractal
       ];
     };
 }
