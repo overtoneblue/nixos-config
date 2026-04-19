@@ -31,6 +31,7 @@
         self.nixosModules.dev
         self.nixosModules.firefox
         self.nixosModules.signal
+        self.nixosModules.discord
       ];
 
       hm.home.username = "cenunix";
@@ -44,6 +45,7 @@
         gitflow
         ripgrep # recursively searches directories for a regex pattern
         plexamp
+        kew
       ];
       hm.programs = {
 
@@ -131,6 +133,7 @@
         thunar
         vscode
         fractal
+        cinny
       ];
     };
 }

@@ -39,7 +39,7 @@
             };
             Homepage = {
               StartPage = "homepage";
-              URL = "https://my.wgu.edu/";
+              URL = "https://lobste.rs/";
               Locked = true;
 
               Additional = [
