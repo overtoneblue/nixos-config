@@ -22,8 +22,15 @@
       inherit (modules) device;
       inherit (modules.style) pointerCursor;
       noctaliaExe = (lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.myNoctalia);
+      restartNoctalia = pkgs.writeShellScriptBin "restart-noctalia" ''
+        pkill -f ${lib.escapeShellArg noctaliaExe} || true
+        nohup ${lib.escapeShellArg noctaliaExe} >/tmp/noctalia-shell.log 2>&1 &
+      '';
     in
     {
+      hm.home.packages = [
+        restartNoctalia
+      ];
       hm.wayland.windowManager.hyprland.extraConfig =
         let
 
@@ -132,7 +139,7 @@
             disable_splash_rendering = true;
             mouse_move_enables_dpms = true;
             key_press_enables_dpms = true;
-            vfr = 1;
+            # vfr = 1;
             vrr = 1;
           };
         };

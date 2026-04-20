@@ -9,6 +9,7 @@
 
     {
       imports = [
+        inputs.hyprland.nixosModules.default
         ./_rules.nix
       ];
 

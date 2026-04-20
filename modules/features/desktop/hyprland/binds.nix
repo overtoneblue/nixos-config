@@ -11,6 +11,7 @@
       inherit (config) modules;
       inherit (modules.programs) default;
       noctaliaExe = (lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.myNoctalia);
+      grimblast = lib.getExe pkgs.grimblast;
       workspaces = builtins.concatLists (
         builtins.genList (
           x:
@@ -64,8 +65,8 @@
             "$mod, E, exec, ${default.fileManager}"
             # "$mod, R, exec, killall astal; astal; killall swww-daemon; swww-daemon"
             "$mod, U, exec, ags -b hypr -r 'recorder.start()'"
-            "$mod, P, exec, grimblast --notify copysave output"
-            "$mod SHIFT, P, exec, grimblast --notify copysave area"
+            "$mod, P, exec, ${grimblast} --notify copysave output"
+            "$mod SHIFT, P, exec, ${grimblast} --notify copysave area"
             "$mod SHIFT, P, exec, ags -b hypr -r 'recorder.screenshot(true)'"
             "$mod, SPACE, exec, ${noctaliaExe} ipc call launcher toggle"
 

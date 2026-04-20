@@ -34,6 +34,9 @@
         self.nixosModules.discord
       ];
 
+      nixpkgs.config.allowUnfree = true;
+      home-manager.useGlobalPkgs = true;
+      home-manager.useUserPackages = true;
       hm.home.username = "cenunix";
       hm.home.homeDirectory = "/home/cenunix";
       hm.home.stateVersion = "25.11";
@@ -46,7 +49,9 @@
         ripgrep # recursively searches directories for a regex pattern
         plexamp
         kew
+        element-desktop
       ];
+
       hm.programs = {
 
         bash = {
@@ -71,10 +76,6 @@
         };
 
       };
-      nix.settings.experimental-features = [
-        "nix-command"
-        "flakes"
-      ];
 
       boot = {
         kernelPackages = pkgs.linuxPackages;
@@ -128,12 +129,31 @@
       security.pam.services.greetd.enableGnomeKeyring = true;
       security.polkit.enable = true;
       programs.seahorse.enable = true;
+
+      services.displayManager.sessionPackages = [
+        (pkgs.writeTextFile {
+          name = "hyprland-uwsm-gnome-session";
+          destination = "/share/wayland-sessions/hyprland-uwsm-gnome.desktop";
+          text = ''
+            [Desktop Entry]
+            Name=Hyprland (UWSM, GNOME desktop names)
+            Comment=Hyprland compositor managed by UWSM
+            Exec=${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop
+            TryExec=${lib.getExe config.programs.uwsm.package}
+            Type=Application
+            DesktopNames=Hyprland;GNOME
+            Keywords=tiling;wayland;compositor;
+          '';
+          derivationArgs = {
+            passthru.providedSessions = [ "hyprland-uwsm-gnome" ];
+          };
+        })
+      ];
+
       networking.hostName = "node0"; # Define your hostname.
       environment.systemPackages = with pkgs; [
         thunar
         vscode
-        fractal
-        cinny
       ];
     };
 }

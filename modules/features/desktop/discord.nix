@@ -5,11 +5,9 @@
 }:
 {
   flake.nixosModules.discord =
-    { pkgs, lib, ... }:
-    with lib;
+    { pkgs, ... }:
     {
-
-      hm = mkIf (builtins.elem device.type acceptedTypes) {
+      hm = {
         imports = [
           inputs.nixcord.homeModules.nixcord
         ];
