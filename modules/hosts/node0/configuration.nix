@@ -22,7 +22,6 @@
         self.nixosModules.nix-settings
         self.nixosModules.network
         self.nixosModules.sound
-        # self.nixosModules.niri
         self.nixosModules.gaming
         inputs.home-manager.nixosModules.home-manager
         (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
@@ -33,6 +32,7 @@
         self.nixosModules.signal
         self.nixosModules.discord
         self.nixosModules.element
+        self.nixosModules.noctalia
       ];
 
       nixpkgs.config.allowUnfree = true;
@@ -51,6 +51,7 @@
         plexamp
         kew
         element-desktop
+        strawberry
       ];
 
       hm.programs = {

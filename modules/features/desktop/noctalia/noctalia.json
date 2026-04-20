@@ -687,7 +687,7 @@
         "y": 0,
         "active_workspace": 7,
         "vrr": true,
-        "focused": true
+        "focused": false
       },
       "DP-2": {
         "name": "DP-2",
@@ -697,13 +697,13 @@
         "refresh_rate": 239.97,
         "x": 1080,
         "y": 0,
-        "active_workspace": 2,
+        "active_workspace": 4,
         "vrr": true,
-        "focused": false
+        "focused": true
       }
     },
     "notificationsState": {
-      "lastSeenTs": 1776307223000
+      "lastSeenTs": 1776658624000
     },
     "changelogState": {
       "lastSeenVersion": "v4.7.5"

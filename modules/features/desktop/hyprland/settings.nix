@@ -21,7 +21,7 @@
       inherit (config) modules;
       inherit (modules) device;
       inherit (modules.style) pointerCursor;
-      noctaliaExe = (lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.myNoctalia);
+      noctaliaExe = (lib.getExe config.modules.desktop.noctalia.package);
       restartNoctalia = pkgs.writeShellScriptBin "restart-noctalia" ''
         pkill -f ${lib.escapeShellArg noctaliaExe} || true
         nohup ${lib.escapeShellArg noctaliaExe} >/tmp/noctalia-shell.log 2>&1 &

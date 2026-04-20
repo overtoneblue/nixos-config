@@ -10,7 +10,7 @@
     let
       inherit (config) modules;
       inherit (modules.programs) default;
-      noctaliaExe = (lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.myNoctalia);
+      noctaliaExe = (lib.getExe config.modules.desktop.noctalia.package);
       grimblast = lib.getExe pkgs.grimblast;
       workspaces = builtins.concatLists (
         builtins.genList (

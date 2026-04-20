@@ -3,19 +3,21 @@
   inputs,
   ...
 }:
-
 {
-  perSystem =
+  flake.nixosModules.noctalia =
     {
+      lib,
       pkgs,
       config,
       ...
     }:
     let
-      colors = config.myTheme.colors;
-    in
-    {
-      packages.myNoctalia = inputs.wrapper-modules.wrappers.noctalia-shell.wrap {
+      inherit (config) modules;
+      inherit (modules) device style;
+
+      colors = config.lib.stylix.colors.withHashtag;
+
+      noctaliaPkg = inputs.wrapper-modules.wrappers.noctalia-shell.wrap {
         inherit pkgs;
 
         colors = {
@@ -39,6 +41,17 @@
         # To update these settings heres the command from root of the flake/config:
         # nix run nixpkgs#noctalia-shell ipc call state all > ./modules/features/desktop/noctalia/noctalia.json
         settings = (builtins.fromJSON (builtins.readFile ./noctalia.json)).settings;
+      };
+    in
+    {
+      options.modules.desktop.noctalia.package = lib.mkOption {
+        type = lib.types.package;
+        readOnly = true;
+      };
+
+      config = {
+        modules.desktop.noctalia.package = noctaliaPkg;
+        environment.systemPackages = [ noctaliaPkg ];
       };
     };
 }
