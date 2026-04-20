@@ -32,6 +32,7 @@
         self.nixosModules.firefox
         self.nixosModules.signal
         self.nixosModules.discord
+        self.nixosModules.element
       ];
 
       nixpkgs.config.allowUnfree = true;

@@ -16,6 +16,7 @@
       signalCss = pkgs.writeText "signal-theme.css" ''
         :root {
           --color-elevated-background-tertiary: ${colors.base02};
+          --default-scrollbar-thumb: ${colors.base03};
         }
         body.dark-theme {
           background-color: ${colors.base00};
@@ -122,12 +123,18 @@
           background-color: ${colors.base01} !important;
           color: ${colors.base05} !important;
         }
+        .dark-theme .module-message__text--incoming {
+          color: ${colors.base05} !important;
+        }
         /* outgoing */
         .dark-theme .module-message__container--outgoing,
         .dark-theme .module-message__container--outgoing-ultramarine {
           background-image: none !important;
           background-color: ${colors.base03} !important;
           color: ${colors.base05} !important;
+        }
+        .dark-theme .module-message__text {
+          color: ${colors.base05};
         }
 
         /* replying box */

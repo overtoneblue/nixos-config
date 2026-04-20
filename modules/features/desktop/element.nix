@@ -12,7 +12,7 @@
       ...
     }:
     let
-      inherit (config.lib.stylix) colors;
+      colors = config.lib.stylix.colors.withHashtag;
 
       elementThemeJson = pkgs.writeText "element-config.json" (
         builtins.toJSON {
@@ -22,7 +22,7 @@
                 name = "base16 dark";
                 is_dark = true;
                 colors = {
-                  "accent-color" = colors.base0D;
+                  "accent-color" = colors.base03;
                   accent = colors.base0D;
                   "primary-color" = colors.base0B;
                   "warning-color" = colors.base08;
