@@ -7,14 +7,17 @@
         inherit pkgs;
 
         settings = {
+
           user = {
-            name = "cenunix";
+            name = "overtoneblue";
             email = "user55596@protonmail.com";
           };
 
           init.defaultBranch = "main";
-          # credential.helper = "oauth";
 
+          credential = {
+            "https://github.com".helper = "!${pkgs.gh}/bin/gh auth git-credential";
+          };
           delta = {
             enable = true;
             line-numbers = true;
@@ -128,6 +131,7 @@
           delta
           fzf
           peco
+          git-credential-oauth
         ];
 
         meta.description = "Wrapped git with personal config";
