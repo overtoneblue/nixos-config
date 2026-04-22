@@ -9,6 +9,7 @@
         self.packages.${pkgs.system}.myStarship
         self.packages.${pkgs.system}.myWezterm
         self.packages.${pkgs.system}.myGit
+        pkgs.git-filter-repo
         pkgs.eza
         pkgs.btop
       ];
@@ -28,6 +29,7 @@
           self'.packages.myStarship
           self'.packages.myWezterm
           self'.packages.myGit
+          pkgs.git-filter-repo
           pkgs.direnv
           pkgs.nix-direnv
           pkgs.fd
