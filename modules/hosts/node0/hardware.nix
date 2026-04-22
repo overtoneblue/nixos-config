@@ -64,6 +64,13 @@
 
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
       services.xserver.videoDrivers = [ "nvidia" ];
+      boot.kernelParams = [
+        # "nvidia-drm.modeset=1"
+        # "nvidia-drm.fbdev=1"
+        "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+        # "nvidia.NVreg_TemporaryFilePath=/var/tmp"
+        # "mem_sleep_default=deep"
+      ];
       hardware = {
         cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
@@ -71,7 +78,8 @@
           package = lib.mkDefault config.boot.kernelPackages.nvidiaPackages.beta;
 
           modesetting.enable = lib.mkDefault true;
-
+          powerManagement.enable = true;
+          powerManagement.kernelSuspendNotifier = true;
           open = true;
           nvidiaSettings = false;
         };

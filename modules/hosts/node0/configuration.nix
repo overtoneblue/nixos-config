@@ -26,13 +26,8 @@
         inputs.home-manager.nixosModules.home-manager
         (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
         self.nixosModules.theme
-        self.nixosModules.hyprland
         self.nixosModules.dev
-        self.nixosModules.firefox
-        self.nixosModules.signal
-        self.nixosModules.discord
-        self.nixosModules.element
-        self.nixosModules.noctalia
+        self.nixosModules.desktop
       ];
 
       nixpkgs.config.allowUnfree = true;
@@ -49,13 +44,19 @@
         gitflow
         ripgrep # recursively searches directories for a regex pattern
         plexamp
-        kew
         element-desktop
-        strawberry
       ];
 
       hm.programs = {
-
+        obsidian = {
+          enable = true;
+          vaults = {
+            Janaru = {
+              enable = true;
+              target = "/home/cenunix/Personal/Janaru/";
+            };
+          };
+        };
         bash = {
           enable = true;
           initExtra = "SHELL=${pkgs.bash}";

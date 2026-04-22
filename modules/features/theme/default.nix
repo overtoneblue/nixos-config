@@ -20,12 +20,15 @@
       ];
 
       hm.stylix = {
+        polarity = "dark"; # Required for obsidian i guess
         targets = {
-          gtksourceview.enable = false;
-          nixos-icons.enable = false;
+          # gtksourceview.enable = false;
+          # nixos-icons.enable = false;
           nvf.enable = false;
           firefox.enable = false;
           librewolf.enable = false;
+          # obsidian.enable = false;
+          obsidian.vaultNames = [ "Janaru" ];
         };
       };
 

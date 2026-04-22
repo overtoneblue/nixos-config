@@ -10,6 +10,7 @@
         self.packages.${pkgs.system}.myWezterm
         self.packages.${pkgs.system}.myGit
         pkgs.eza
+        pkgs.btop
       ];
 
       programs.zsh.enable = true;
@@ -35,6 +36,7 @@
           pkgs.bat
           pkgs.zoxide
           pkgs.fzf
+          pkgs.btop
         ];
 
         shellHook = ''

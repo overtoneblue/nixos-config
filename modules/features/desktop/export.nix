@@ -12,6 +12,7 @@
         self.nixosModules.signal
         self.nixosModules.element
         self.nixosModules.noctalia
+        self.nixosModules.firefox
       ];
     };
 }
