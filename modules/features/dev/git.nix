@@ -15,9 +15,7 @@
 
           init.defaultBranch = "main";
 
-          credential = {
-            "https://github.com".helper = "!${pkgs.gh}/bin/gh auth git-credential";
-          };
+          credential.helper = "oauth";
           delta = {
             enable = true;
             line-numbers = true;

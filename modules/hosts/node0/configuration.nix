@@ -22,7 +22,6 @@
         self.nixosModules.nix-settings
         self.nixosModules.network
         self.nixosModules.sound
-        self.nixosModules.gaming
         inputs.home-manager.nixosModules.home-manager
         (lib.mkAliasOptionModule [ "hm" ] [ "home-manager" "users" "cenunix" ])
         self.nixosModules.theme
@@ -65,7 +64,7 @@
         # a command-line tool for github
         gh = {
           enable = true;
-          gitCredentialHelper.enable = true;
+          # gitCredentialHelper.enable = true;
           extensions = with pkgs; [
             gh-dash # dashboard with pull requests and issues
             gh-eco # explore the ecosystem
