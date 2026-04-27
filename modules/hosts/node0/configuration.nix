@@ -44,6 +44,8 @@
         ripgrep # recursively searches directories for a regex pattern
         plexamp
         element-desktop
+        thunderbird
+        whois
       ];
 
       hm.programs = {

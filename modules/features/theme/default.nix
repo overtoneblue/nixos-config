@@ -22,6 +22,7 @@
       hm.stylix = {
         polarity = "dark"; # Required for obsidian i guess
         targets = {
+          # qt.enable = false;
           # gtksourceview.enable = false;
           # nixos-icons.enable = false;
           nvf.enable = false;
@@ -34,8 +35,9 @@
 
       stylix = {
         targets = {
-          gtksourceview.enable = false;
-          nixos-icons.enable = false;
+          # qt.enable = false;
+          # gtksourceview.enable = false;
+          # nixos-icons.enable = false;
         };
         enable = true;
         base16Scheme = colors;
