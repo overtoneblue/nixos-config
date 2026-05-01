@@ -46,6 +46,9 @@
         element-desktop
         thunderbird
         whois
+        appimage-run
+        unzip
+        plex-htpc
       ];
 
       hm.programs = {

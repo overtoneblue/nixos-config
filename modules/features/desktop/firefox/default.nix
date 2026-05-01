@@ -96,6 +96,10 @@
             };
             bookmarks = { };
             settings = {
+
+              #NVIDIA
+              "media.hardware-video-decoding.force-enabled" = true;
+              "gfx.x11-egl.force-enabled" = true;
               # ===========================================================================
               # Core UI / Theme / Layout
               # ===========================================================================

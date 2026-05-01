@@ -22,22 +22,19 @@
       hm.stylix = {
         polarity = "dark"; # Required for obsidian i guess
         targets = {
-          # qt.enable = false;
-          # gtksourceview.enable = false;
-          # nixos-icons.enable = false;
+          gtksourceview.enable = false;
+          nixos-icons.enable = false;
           nvf.enable = false;
           firefox.enable = false;
           librewolf.enable = false;
-          # obsidian.enable = false;
           obsidian.vaultNames = [ "Janaru" ];
         };
       };
 
       stylix = {
         targets = {
-          # qt.enable = false;
-          # gtksourceview.enable = false;
-          # nixos-icons.enable = false;
+          gtksourceview.enable = false;
+          nixos-icons.enable = false;
         };
         enable = true;
         base16Scheme = colors;

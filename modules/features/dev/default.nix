@@ -15,9 +15,19 @@
       ];
 
       programs.zsh.enable = true;
-      environment.pathsToLink = [ "/share/zsh" ];
-
+      environment.pathsToLink = [
+        "/share/zsh"
+        "/share/nix-direnv"
+      ];
       users.users.cenunix.shell = self.packages.${pkgs.system}.myZsh;
+      hm.programs = {
+        direnv = {
+          enable = true;
+          enableZshIntegration = true;
+          nix-direnv.enable = true;
+        };
+      };
+
     };
   perSystem =
     { pkgs, self', ... }:

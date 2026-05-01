@@ -15,7 +15,9 @@
 
           init.defaultBranch = "main";
 
-          credential.helper = "oauth";
+          credential = {
+            helper = "oauth";
+          };
           delta = {
             enable = true;
             line-numbers = true;

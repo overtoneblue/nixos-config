@@ -13,7 +13,7 @@
         self.nixosModules.element
         self.nixosModules.noctalia
         self.nixosModules.firefox
-        # self.nixosModules.gaming
+        self.nixosModules.gaming
       ];
     };
 }

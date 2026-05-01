@@ -28,7 +28,10 @@
         "sd_mod"
       ];
       boot.initrd.kernelModules = [ ];
-      boot.kernelModules = [ "kvm-amd" ];
+      boot.kernelModules = [
+        "kvm-amd"
+        "nvidia-uvm"
+      ];
       boot.extraModulePackages = with config.boot.kernelPackages; [ xone ];
 
       fileSystems."/" = {
@@ -71,6 +74,19 @@
         # "nvidia.NVreg_TemporaryFilePath=/var/tmp"
         # "mem_sleep_default=deep"
       ];
+      environment = {
+        sessionVariables = {
+          MOZ_DISABLE_RDD_SANDBOX = "1"; # ONLY THING REQUIRED FOR FIREFOX VID DEC
+        };
+
+        systemPackages = with pkgs; [
+          mesa-demos
+          libva
+          libva-utils
+          xorg.libxcb
+          cudaPackages.cudatoolkit
+        ];
+      };
       hardware = {
         cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
