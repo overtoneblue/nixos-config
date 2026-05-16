@@ -49,6 +49,16 @@
         appimage-run
         unzip
         plex-htpc
+        #new
+        imv
+        mediainfo
+        geeqie
+        imagemagick
+        exiftool
+        fd
+        ueberzugpp
+        nextcloud-client
+        pandoc
       ];
 
       hm.programs = {
@@ -81,7 +91,57 @@
             prompt = "enabled";
           };
         };
+        yazi = {
+          enable = true;
+          plugins = {
+            mediainfo = pkgs.yaziPlugins.mediainfo;
+            wl-clipboard = pkgs.yaziPlugins.wl-clipboard;
+          };
+          settings = {
+            plugin = {
+              prepend_preloaders = [
+                {
+                  mime = "image/*";
+                  run = "mediainfo";
+                }
+                {
+                  mime = "video/*";
+                  run = "mediainfo";
+                }
+              ];
 
+              prepend_previewers = [
+                {
+                  mime = "image/*";
+                  run = "mediainfo";
+                }
+                {
+                  mime = "video/*";
+                  run = "mediainfo";
+                }
+              ];
+            };
+          };
+          keymap = {
+            mgr.prepend_keymap = [
+              {
+                on = [ "<C-y>" ];
+                run = "plugin wl-clipboard";
+                desc = "wl-clipboard";
+              }
+              {
+                on = [ "H" ];
+                run = "tab_switch -1 --relative";
+                desc = "Previous tab";
+              }
+              {
+                on = [ "L" ];
+                run = "tab_switch 1 --relative";
+                desc = "Next tab";
+              }
+            ];
+          };
+        };
       };
 
       boot = {
@@ -156,11 +216,22 @@
           };
         })
       ];
+      virtualisation.podman = {
+        enable = true;
 
+        # Gives you a `docker` compatibility CLI if something expects Docker.
+        dockerCompat = true;
+
+        # Useful for DNS/networking in containers.
+        defaultNetwork.settings.dns_enabled = true;
+      };
+      hardware.nvidia-container-toolkit.enable = true;
       networking.hostName = "node0"; # Define your hostname.
       environment.systemPackages = with pkgs; [
         thunar
         vscode
+        podman
+        podman-compose
       ];
     };
 }
