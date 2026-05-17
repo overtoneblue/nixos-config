@@ -80,11 +80,11 @@
         };
 
         systemPackages = with pkgs; [
-          mesa-demos
+          # mesa-demos
           libva
           libva-utils
           xorg.libxcb
-          cudaPackages.cudatoolkit
+          # cudaPackages.cudatoolkit
         ];
       };
       hardware = {

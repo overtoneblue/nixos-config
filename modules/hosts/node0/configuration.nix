@@ -145,7 +145,7 @@
       };
 
       boot = {
-        kernelPackages = pkgs.linuxPackages;
+        kernelPackages = pkgs.linuxPackages_latest;
         loader = {
           systemd-boot.enable = true;
           efi.canTouchEfiVariables = true;
@@ -180,16 +180,14 @@
       services.greetd = {
         enable = true;
         settings.default_session = {
-          command = "${pkgs.dbus}/bin/dbus-run-session ${pkgs.sway}/bin/sway --unsupported-gpu --config /etc/greetd/sway-regreet.conf";
           user = "greeter";
-        };
-      };
-      programs.regreet = {
-        enable = true;
-        settings = {
-          GTK = {
-            application_prefer_dark_theme = lib.mkForce true;
-          };
+          command = ''
+            ${pkgs.greetd.tuigreet}/bin/tuigreet \
+              --time \
+              --remember \
+              --remember-user-session \
+              --cmd "${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop"
+          '';
         };
       };
       services.gnome.gnome-keyring.enable = true;
@@ -197,25 +195,25 @@
       security.polkit.enable = true;
       programs.seahorse.enable = true;
 
-      services.displayManager.sessionPackages = [
-        (pkgs.writeTextFile {
-          name = "hyprland-uwsm-gnome-session";
-          destination = "/share/wayland-sessions/hyprland-uwsm-gnome.desktop";
-          text = ''
-            [Desktop Entry]
-            Name=Hyprland (UWSM, GNOME desktop names)
-            Comment=Hyprland compositor managed by UWSM
-            Exec=${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop
-            TryExec=${lib.getExe config.programs.uwsm.package}
-            Type=Application
-            DesktopNames=Hyprland;GNOME
-            Keywords=tiling;wayland;compositor;
-          '';
-          derivationArgs = {
-            passthru.providedSessions = [ "hyprland-uwsm-gnome" ];
-          };
-        })
-      ];
+      # services.displayManager.sessionPackages = [
+      #   (pkgs.writeTextFile {
+      #     name = "hyprland-uwsm-gnome-session";
+      #     destination = "/share/wayland-sessions/hyprland-uwsm-gnome.desktop";
+      #     text = ''
+      #       [Desktop Entry]
+      #       Name=Hyprland (UWSM, GNOME desktop names)
+      #       Comment=Hyprland compositor managed by UWSM
+      #       Exec=${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop
+      #       TryExec=${lib.getExe config.programs.uwsm.package}
+      #       Type=Application
+      #       DesktopNames=Hyprland;GNOME
+      #       Keywords=tiling;wayland;compositor;
+      #     '';
+      #     derivationArgs = {
+      #       passthru.providedSessions = [ "hyprland-uwsm-gnome" ];
+      #     };
+      #   })
+      # ];
       virtualisation.podman = {
         enable = true;
 

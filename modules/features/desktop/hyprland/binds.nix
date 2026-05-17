@@ -10,7 +10,7 @@
     let
       inherit (config) modules;
       inherit (modules.programs) default;
-      noctaliaExe = (lib.getExe config.modules.desktop.noctalia.package);
+      noctaliaExe = lib.getExe config.hm.programs.noctalia.package;
       grimblast = lib.getExe pkgs.grimblast;
       workspaces = builtins.concatLists (
         builtins.genList (
@@ -55,11 +55,11 @@
             "$mod SHIFT, j, movewindow, d"
             "$mod, B, movecurrentworkspacetomonitor, DP-2"
             "$mod SHIFT, B, movecurrentworkspacetomonitor, DP-1"
-            "$mod, V, exec, ${noctaliaExe} ipc call bluetooth togglePanel"
+            # "$mod, V, exec, ${noctaliaExe} msg bluetooth togglePanel"
 
             # "$mod, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' false"
             # "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
-            "$mod, I, exec, ${noctaliaExe} ipc call lockScreen lock"
+            "$mod, I, exec, ${noctaliaExe} msg screen-lock"
             "$mod, Return, exec, ${default.terminal} start --always-new-process"
             "$mod SHIFT, Return, exec, ${default.terminal}"
             "$mod, E, exec, ${default.fileManager}"
@@ -67,18 +67,18 @@
             "$mod, U, exec, ags -b hypr -r 'recorder.start()'"
             "$mod, P, exec, ${grimblast} --notify copysave output"
             "$mod SHIFT, P, exec, ${grimblast} --notify copysave area"
-            "$mod SHIFT, P, exec, ags -b hypr -r 'recorder.screenshot(true)'"
-            "$mod, SPACE, exec, ${noctaliaExe} ipc call launcher toggle"
+            # "$mod SHIFT, P, exec, ags -b hypr -r 'recorder.screenshot(true)'"
+            "$mod, SPACE, exec, ${noctaliaExe} msg panel-toggle launcher"
 
           ]
           ++ workspaces;
 
           bindle = [
-            ", XF86MonBrightnessUp, exec, ${noctaliaExe} ipc call brightness increase"
-            ", XF86MonBrightnessDown, exec, ${noctaliaExe} ipc call brightness decrease"
-            ", XF86AudioRaiseVolume, exec, ${noctaliaExe} ipc call volume increase"
-            ", XF86AudioLowerVolume, exec, ${noctaliaExe} ipc call volume decrease"
-            ", XF86AudioMute, exec, ${noctaliaExe} ipc call volume muteOutput"
+            ", XF86MonBrightnessUp, exec, ${noctaliaExe} msg brightness-up"
+            ", XF86MonBrightnessDown, exec, ${noctaliaExe} msg brightness-down"
+            ", XF86AudioRaiseVolume, exec, ${noctaliaExe} msg volume-up"
+            ", XF86AudioLowerVolume, exec, ${noctaliaExe} msg volume-down"
+            ", XF86AudioMute, exec, ${noctaliaExe} msg volume-mute"
           ];
         };
       };

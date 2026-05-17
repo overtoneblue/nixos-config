@@ -28,7 +28,10 @@
       url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
+    noctalia = {
+      url = "github:noctalia-dev/noctalia-shell/v5";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nixcord = {
       url = "github:kaylorben/nixcord";
       inputs.nixpkgs.follows = "nixpkgs";

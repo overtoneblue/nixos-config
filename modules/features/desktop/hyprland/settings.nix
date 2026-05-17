@@ -21,28 +21,28 @@
       inherit (config) modules;
       inherit (modules) device;
       inherit (modules.style) pointerCursor;
-      noctaliaExe = (lib.getExe config.modules.desktop.noctalia.package);
+      # noctaliaExe = (lib.getExe config.modules.desktop.noctalia.package);
 
-      restartNoctalia = pkgs.writeShellScriptBin "restart-noctalia" ''
-        set -eu
-
-        pattern='/share/noctalia-shell'
-
-        pkill -f "$pattern" || true
-
-        for _ in $(seq 1 50); do
-          if ! pgrep -f "$pattern" >/dev/null; then
-            break
-          fi
-          sleep 0.1
-        done
-
-        hyprctl dispatch exec "${noctaliaExe}"
-      '';
+      # restartNoctalia = pkgs.writeShellScriptBin "restart-noctalia" ''
+      #   set -eu
+      #
+      #   pattern='/share/noctalia-shell'
+      #
+      #   pkill -f "$pattern" || true
+      #
+      #   for _ in $(seq 1 50); do
+      #     if ! pgrep -f "$pattern" >/dev/null; then
+      #       break
+      #     fi
+      #     sleep 0.1
+      #   done
+      #
+      #   hyprctl dispatch exec "${noctaliaExe}"
+      # '';
     in
     {
       hm.home.packages = [
-        restartNoctalia
+        # restartNoctalia
       ];
       hm.wayland.windowManager.hyprland.extraConfig =
         let
@@ -61,7 +61,7 @@
         settings = {
           "$mod" = "SUPER";
           exec-once = [
-            "${noctaliaExe}"
+            # "${noctaliaExe}"
           ];
           input = {
             follow_mouse = 1;
@@ -121,7 +121,7 @@
 
           };
           dwindle = {
-            pseudotile = false; # enable pseudotiling on dwindle
+            # pseudotile = false; # enable pseudotiling on dwindle
           };
           quirks = {
             prefer_hdr = 0;

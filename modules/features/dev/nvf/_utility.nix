@@ -19,7 +19,9 @@
     };
     vim-wakatime = {
       enable = true;
-      cli-package = pkgs.wakatime-cli;
+      setupOpts = {
+        cli_path = "${pkgs.wakatime-cli}/bin/wakatime-cli";
+      };
     };
     snacks-nvim = {
       enable = true;
