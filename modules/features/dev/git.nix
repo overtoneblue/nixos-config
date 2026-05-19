@@ -5,7 +5,15 @@
     {
       packages.myGit = inputs.wrapper-modules.wrappers.git.wrap {
         inherit pkgs;
+        configFile.content = ''
+          [credential]
+            helper = libsecret
+            helper = oauth
 
+          [credential "https://github.com"]
+            helper =
+            helper = !${pkgs.gh}/bin/gh auth git-credential
+        '';
         settings = {
 
           user = {
@@ -15,9 +23,6 @@
 
           init.defaultBranch = "main";
 
-          credential = {
-            helper = "oauth";
-          };
           delta = {
             enable = true;
             line-numbers = true;
