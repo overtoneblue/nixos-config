@@ -12,7 +12,7 @@
         enable = true;
         clean.enable = true;
         clean.extraArgs = "--keep-since 4d --keep 5";
-        flake = "/home/cenunix/Dendritic-Nixland";
+        flake = "/home/cenunix/nixos-config";
       };
       nixpkgs.config = {
         allowUnfree = true;
