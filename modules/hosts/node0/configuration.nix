@@ -49,6 +49,7 @@
         appimage-run
         unzip
         plex-htpc
+        calibre
         #new
         imv
         mediainfo
@@ -181,19 +182,18 @@
         enable = true;
         settings.default_session = {
           user = "greeter";
-          command = ''
-            ${pkgs.greetd.tuigreet}/bin/tuigreet \
-              --time \
-              --remember \
-              --remember-user-session \
-              --cmd "${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop"
-          '';
+          command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --remember-user-session --cmd '${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop'";
         };
       };
       services.gnome.gnome-keyring.enable = true;
+      services.gvfs.enable = true;
+      services.udisks2.enable = true;
       security.pam.services.greetd.enableGnomeKeyring = true;
       security.polkit.enable = true;
       programs.seahorse.enable = true;
+      programs.nix-ld = {
+        enable = true;
+      };
 
       # services.displayManager.sessionPackages = [
       #   (pkgs.writeTextFile {
@@ -230,6 +230,7 @@
         vscode
         podman
         podman-compose
+        usbutils
       ];
     };
 }

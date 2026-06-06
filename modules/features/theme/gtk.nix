@@ -21,10 +21,10 @@
         gtk = {
           enable = true;
 
-          # iconTheme = {
-          #   package = pkgs.catppuccin-papirus-folders;
-          #   name = "Papirus";
-          # };
+          iconTheme = {
+            package = pkgs.catppuccin-papirus-folders;
+            name = "Papirus";
+          };
 
           gtk3.extraConfig = {
             gtk-toolbar-style = "GTK_TOOLBAR_BOTH";

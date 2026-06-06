@@ -106,7 +106,7 @@
               "pace, 0.46, 1, 0.29, 0.99"
               "overshot, 0.13, 0.99, 0.29, 1.1"
               "md3_decel, 0.05, 0.7, 0.1, 1"
-              "custom, 0.5, 0.5, 0.6, 0.3"
+              "custom, 0.5, 0.5, 0.4, 0.3"
             ];
             animation = [
               "windowsIn, 1, 1, custom, slide"

@@ -59,7 +59,8 @@
 
             # "$mod, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' false"
             # "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
-            "$mod, I, exec, ${noctaliaExe} msg screen-lock"
+            "$mod, I, exec, ${noctaliaExe} msg session lock"
+            "$mod SHIFT, I, exec, ${noctaliaExe} msg session lock-and-suspend"
             "$mod, Return, exec, ${default.terminal} start --always-new-process"
             "$mod SHIFT, Return, exec, ${default.terminal}"
             "$mod, E, exec, ${default.fileManager}"
