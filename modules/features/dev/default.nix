@@ -4,7 +4,7 @@
     { pkgs, ... }:
     let
       devinit = pkgs.writeShellScriptBin "devinit" ''
-        nix flake init --template "github:overtoneblue/nixos-config#$1" && direnv allow
+        nix flake init --refresh --template "github:overtoneblue/nixos-config#$1" && direnv allow
       '';
     in
     {
