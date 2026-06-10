@@ -1,20 +1,22 @@
-{ self, ... }:
+{ ... }:
 
+let
+  pythonTemplate = {
+    path = ../templates/python;
+    description = "Python dev shell with venv and my configured packages/configs";
+    welcomeText = ''
+      Created Python dev template.
+
+      Next:
+        direnv allow
+        which git
+        python --version
+    '';
+  };
+in
 {
-  templates = {
-    python = {
-      path = ./python;
-      description = "Python dev shell with venv and my configured packages/configs";
-      welcomeText = ''
-        Created Python dev template.
-
-        Next:
-          direnv allow
-          which git
-          python --version
-      '';
-    };
-
-    default = self.templates.python;
+  flake.templates = {
+    python = pythonTemplate;
+    default = pythonTemplate;
   };
 }
