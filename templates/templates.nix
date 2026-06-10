@@ -2,7 +2,7 @@
 
 {
   templates = {
-    python-dev = {
+    python = {
       path = ./python/flake.nix;
       description = "Python dev shell with venv and my configured packages/configs";
       welcomeText = ''
