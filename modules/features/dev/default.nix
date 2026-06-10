@@ -2,8 +2,14 @@
 {
   flake.nixosModules.dev =
     { pkgs, ... }:
+    let
+      devinit = pkgs.writeShellScriptBin "devinit" ''
+        nix flake init --template "github:overtoneblue/nixos-config#$1" && direnv allow
+      '';
+    in
     {
       environment.systemPackages = [
+        devinit
         self.packages.${pkgs.system}.myNvf
         self.packages.${pkgs.system}.myZsh
         self.packages.${pkgs.system}.myStarship
@@ -12,6 +18,7 @@
         pkgs.git-filter-repo
         pkgs.eza
         pkgs.btop
+        pkgs.jq
       ];
 
       programs.zsh.enable = true;
@@ -45,6 +52,7 @@
           pkgs.zoxide
           pkgs.fzf
           pkgs.btop
+          pkgs.jq
         ];
 
         shellHook = ''

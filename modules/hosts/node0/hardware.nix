@@ -83,7 +83,7 @@
           # mesa-demos
           libva
           libva-utils
-          xorg.libxcb
+          libxcb
           # cudaPackages.cudatoolkit
         ];
       };
