@@ -64,9 +64,10 @@
                 "bing".metaData.hidden = true;
               };
               force = true;
-              default = "kagi";
-              privateDefault = "kagi";
+              default = "ddg";
+              privateDefault = "ddg";
               order = [
+                "ddg"
                 "kagi"
               ];
             };
