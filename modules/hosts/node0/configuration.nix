@@ -53,6 +53,7 @@
         #new
         imv
         mediainfo
+        mpv
         geeqie
         imagemagick
         exiftool
@@ -214,6 +215,30 @@
       #     };
       #   })
       # ];
+      virtualisation.oci-containers.backend = "podman";
+      virtualisation.oci-containers.containers.comfyui = {
+        image = "ghcr.io/utensils/comfyui-nix:latest-cuda";
+        autoStart = false;
+
+        ports = [
+          "127.0.0.1:8188:8188"
+        ];
+
+        volumes = [
+          "/home/cenunix/ai/comfyui-nix-data:/data"
+        ];
+
+        extraOptions = [
+          "--device=nvidia.com/gpu=all"
+        ];
+
+        cmd = [
+          "--listen"
+          "0.0.0.0"
+          "--enable-manager"
+          "--lowvram"
+        ];
+      };
       virtualisation.podman = {
         enable = true;
 
