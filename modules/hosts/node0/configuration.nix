@@ -47,9 +47,9 @@
         thunderbird
         whois
         appimage-run
-        unzip
         plex-htpc
         calibre
+        gthumb
         #new
         imv
         mediainfo
@@ -188,6 +188,7 @@
       };
       services.gnome.gnome-keyring.enable = true;
       services.gvfs.enable = true;
+      services.tumbler.enable = true;
       services.udisks2.enable = true;
       security.pam.services.greetd.enableGnomeKeyring = true;
       security.polkit.enable = true;
@@ -228,6 +229,13 @@
           "/home/cenunix/ai/comfyui-nix-data:/data"
         ];
 
+        environment = {
+          USER = "comfyui";
+          LOGNAME = "comfyui";
+          HOME = "/data/user";
+          TORCHINDUCTOR_CACHE_DIR = "/data/user/.cache/torchinductor";
+        };
+
         extraOptions = [
           "--device=nvidia.com/gpu=all"
         ];
@@ -250,9 +258,18 @@
       };
       hardware.nvidia-container-toolkit.enable = true;
       networking.hostName = "node0"; # Define your hostname.
+      programs.thunar = {
+        enable = true;
+        plugins = with pkgs; [
+          thunar-archive-plugin
+        ];
+      };
       environment.systemPackages = with pkgs; [
-        thunar
+        xarchiver
+        zip
+        unzip
         vscode
+        jetbrains.idea
         podman
         podman-compose
         usbutils
