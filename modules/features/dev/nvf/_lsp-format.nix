@@ -73,7 +73,9 @@
       lua = {
         enable = true;
       };
-
+      java = {
+        enable = true;
+      };
     };
   };
 }

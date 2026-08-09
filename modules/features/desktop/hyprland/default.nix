@@ -22,14 +22,17 @@
         imports = [
           inputs.hyprland.homeManagerModules.default
         ];
+
         wayland.windowManager.hyprland = {
           enable = true;
           package = null;
           portalPackage = null;
 
-          systemd = {
-            enable = false;
-          };
+          # Hyprland 0.55+ uses Lua as the primary configuration language.
+          configType = "lua";
+
+          # UWSM owns the graphical systemd session.
+          systemd.enable = false;
         };
       };
     };

@@ -27,6 +27,7 @@
         self.nixosModules.theme
         self.nixosModules.dev
         self.nixosModules.desktop
+        inputs.hermes-agent.nixosModules.default
       ];
 
       nixpkgs.config.allowUnfree = true;
@@ -186,15 +187,55 @@
           command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --remember-user-session --cmd '${lib.getExe config.programs.uwsm.package} start -eD Hyprland:GNOME -- hyprland.desktop'";
         };
       };
+      services.hermes-agent = {
+        enable = true;
+        addToSystemPackages = true;
+        settings = {
+          display = {
+            streaming = true;
+            show_cost = true;
+          };
+          memory.write_approval = true;
+          skills.write_approval = true;
+        };
+      };
       services.gnome.gnome-keyring.enable = true;
       services.gvfs.enable = true;
       services.tumbler.enable = true;
       services.udisks2.enable = true;
       security.pam.services.greetd.enableGnomeKeyring = true;
       security.polkit.enable = true;
+      security.sudo.extraConfig = ''
+        Defaults:cenunix timestamp_type=global, timestamp_timeout=120
+      '';
       programs.seahorse.enable = true;
+
+      #Hermes-agent
+      services.gnome.at-spi2-core.enable = true;
+      services.envfs.enable = true;
       programs.nix-ld = {
         enable = true;
+        libraries = with pkgs; [
+          stdenv.cc.cc
+          zlib
+          glib
+          dbus
+          libGL
+          libxkbcommon
+          fontconfig
+          freetype
+
+          xorg.libX11
+          xorg.libXext
+          xorg.libXrender
+          xorg.libXrandr
+          xorg.libXi
+          xorg.libXtst
+          xorg.libXfixes
+          xorg.libXcursor
+          xorg.libXinerama
+          xorg.libxcb
+        ];
       };
 
       # services.displayManager.sessionPackages = [
@@ -256,6 +297,21 @@
         # Useful for DNS/networking in containers.
         defaultNetwork.settings.dns_enabled = true;
       };
+      # virtualisation.docker = {
+      #   enable = true;
+      #   rootless = {
+      #     enable = true;
+      #     setSocketVariable = true;
+      #     # Optionally customize rootless Docker daemon settings
+      #     daemon.settings = {
+      #       dns = [
+      #         "1.1.1.1"
+      #         "8.8.8.8"
+      #       ];
+      #       registry-mirrors = [ "https://mirror.gcr.io" ];
+      #     };
+      #   };
+      # };
       hardware.nvidia-container-toolkit.enable = true;
       networking.hostName = "node0"; # Define your hostname.
       programs.thunar = {
@@ -265,6 +321,7 @@
         ];
       };
       environment.systemPackages = with pkgs; [
+        busybox
         xarchiver
         zip
         unzip
@@ -273,6 +330,7 @@
         podman
         podman-compose
         usbutils
+        docker-compose
       ];
     };
 }

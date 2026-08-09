@@ -10,78 +10,122 @@
     let
       inherit (config) modules;
       inherit (modules.programs) default;
+
       noctaliaExe = lib.getExe config.hm.programs.noctalia.package;
       grimblast = lib.getExe pkgs.grimblast;
-      workspaces = builtins.concatLists (
+
+      toLua = lib.generators.toLua { };
+      lua = lib.generators.mkLuaInline;
+
+      # Home Manager's Lua serializer turns {_args = [...];} into a
+      # multi-argument hl.bind(...) call. The dispatcher must be raw Lua,
+      # hence mkLuaInline.
+      mkBind = keys: dispatcher: {
+        _args = [
+          keys
+          (lua dispatcher)
+        ];
+      };
+
+      mkBindWith = keys: dispatcher: flags: {
+        _args = [
+          keys
+          (lua dispatcher)
+          flags
+        ];
+      };
+
+      modKey = key: lua "mod .. ${toLua " + ${key}"}";
+
+      modShiftKey = key: lua "mod .. ${toLua " + SHIFT + ${key}"}";
+
+      exec = command: "hl.dsp.exec_cmd(${toLua command})";
+
+      workspaceBinds = builtins.concatLists (
         builtins.genList (
           x:
           let
-            ws =
-              let
-                c = (x + 1) / 10;
-              in
-              builtins.toString (x + 1 - (c * 10));
+            workspace = x + 1;
+            key = if workspace == 10 then "0" else toString workspace;
           in
           [
-            "$mod, ${ws}, workspace, ${toString (x + 1)}"
-            "Alt_L, ${ws}, workspace, ${toString (x + 1)}"
-            "$mod SHIFT, ${ws}, movetoworkspace, ${toString (x + 1)}"
+            (mkBind (modKey key) "hl.dsp.focus({ workspace = ${toString workspace} })")
+            (mkBind "ALT + ${key}" "hl.dsp.focus({ workspace = ${toString workspace} })")
+            (mkBind (modShiftKey key) "hl.dsp.window.move({ workspace = ${toString workspace} })")
           ]
         ) 10
       );
     in
     {
-      hm.wayland.windowManager.hyprland = {
-        settings = {
-          bindm = [
-            "$mod, mouse:272, movewindow"
-            "$mod, mouse:273, resizewindow"
-          ];
+      hm.wayland.windowManager.hyprland.settings = {
+        # Lua has one bind entry point. Former bindm/bindle behavior is
+        # represented by the flags table passed as the third argument.
+        bind = [
+          # Mouse move / resize.
+          (mkBindWith (modKey "mouse:272") "hl.dsp.window.drag()" { mouse = true; })
+          (mkBindWith (modKey "mouse:273") "hl.dsp.window.resize()" { mouse = true; })
 
-          bind = [
-            "$mod, M, exit"
-            "$mod, Q, killactive"
-            "$mod, F, fullscreen"
-            "$mod SHIFT, SPACE, togglefloating"
-            "$mod, y, movetoworkspace, special"
-            "$mod, t, togglespecialworkspace"
-            "$mod, h, movefocus, l"
-            "$mod, l, movefocus, r"
-            "$mod, k, movefocus, u"
-            "$mod, j, movefocus, d"
-            "$mod SHIFT, h, movewindow, l"
-            "$mod SHIFT, l, movewindow, r"
-            "$mod SHIFT, k, movewindow, u"
-            "$mod SHIFT, j, movewindow, d"
-            "$mod, B, movecurrentworkspacetomonitor, DP-2"
-            "$mod SHIFT, B, movecurrentworkspacetomonitor, DP-1"
-            # "$mod, V, exec, ${noctaliaExe} msg bluetooth togglePanel"
+          # UWSM users should not call Hyprland's exit dispatcher directly.
+          (mkBind (modKey "M") (exec "uwsm stop"))
 
-            # "$mod, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' false"
-            # "$mod SHIFT, V, exec, hyprctl keyword 'device[razer-razer-viper-ultimate-dongle]:enabled' true"
-            "$mod, I, exec, ${noctaliaExe} msg session lock"
-            "$mod SHIFT, I, exec, ${noctaliaExe} msg session lock-and-suspend"
-            "$mod, Return, exec, ${default.terminal} start --always-new-process"
-            "$mod SHIFT, Return, exec, ${default.terminal}"
-            "$mod, E, exec, ${default.fileManager}"
-            # "$mod, R, exec, killall astal; astal; killall swww-daemon; swww-daemon"
-            "$mod, U, exec, ags -b hypr -r 'recorder.start()'"
-            "$mod, P, exec, ${grimblast} --notify copysave output"
-            "$mod SHIFT, P, exec, ${grimblast} --notify copysave area"
-            # "$mod SHIFT, P, exec, ags -b hypr -r 'recorder.screenshot(true)'"
-            "$mod, SPACE, exec, ${noctaliaExe} msg panel-toggle launcher"
+          (mkBind (modKey "Q") "hl.dsp.window.close()")
+          (mkBind (modKey "F") ''hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" })'')
+          (mkBind (modShiftKey "SPACE") ''hl.dsp.window.float({ action = "toggle" })'')
 
-          ]
-          ++ workspaces;
+          # The old unnamed special workspace is represented as a named
+          # scratchpad because the current Lua dispatcher explicitly takes a
+          # special-workspace name.
+          (mkBind (modKey "y") ''hl.dsp.window.move({ workspace = "special:scratchpad" })'')
+          (mkBind (modKey "t") ''hl.dsp.workspace.toggle_special("scratchpad")'')
 
-          bindle = [
-            ", XF86MonBrightnessUp, exec, ${noctaliaExe} msg brightness-up"
-            ", XF86MonBrightnessDown, exec, ${noctaliaExe} msg brightness-down"
-            ", XF86AudioRaiseVolume, exec, ${noctaliaExe} msg volume-up"
-            ", XF86AudioLowerVolume, exec, ${noctaliaExe} msg volume-down"
-            ", XF86AudioMute, exec, ${noctaliaExe} msg volume-mute"
-          ];
-        };
+          (mkBind (modKey "h") ''hl.dsp.focus({ direction = "l" })'')
+          (mkBind (modKey "l") ''hl.dsp.focus({ direction = "r" })'')
+          (mkBind (modKey "k") ''hl.dsp.focus({ direction = "u" })'')
+          (mkBind (modKey "j") ''hl.dsp.focus({ direction = "d" })'')
+
+          (mkBind (modShiftKey "h") ''hl.dsp.window.move({ direction = "l" })'')
+          (mkBind (modShiftKey "l") ''hl.dsp.window.move({ direction = "r" })'')
+          (mkBind (modShiftKey "k") ''hl.dsp.window.move({ direction = "u" })'')
+          (mkBind (modShiftKey "j") ''hl.dsp.window.move({ direction = "d" })'')
+
+          (mkBind (modKey "B") ''hl.dsp.workspace.move({ monitor = "DP-2" })'')
+          (mkBind (modShiftKey "B") ''hl.dsp.workspace.move({ monitor = "DP-1" })'')
+
+          (mkBind (modKey "I") (exec "${noctaliaExe} msg session lock"))
+          (mkBind (modShiftKey "I") (exec "${noctaliaExe} msg session lock-and-suspend"))
+
+          (mkBind (modKey "Return") (exec "${default.terminal} start --always-new-process"))
+          (mkBind (modShiftKey "Return") (exec "${default.terminal}"))
+          (mkBind (modKey "E") (exec "${default.fileManager}"))
+
+          (mkBind (modKey "U") (exec "ags -b hypr -r 'recorder.start()'"))
+          (mkBind (modKey "P") (exec "${grimblast} --notify copysave output"))
+          (mkBind (modShiftKey "P") (exec "${grimblast} --notify copysave area"))
+          (mkBind (modKey "SPACE") (exec "${noctaliaExe} msg panel-toggle launcher"))
+
+          # Former bindle = locked + repeating.
+          (mkBindWith "XF86MonBrightnessUp" (exec "${noctaliaExe} msg brightness-up") {
+            locked = true;
+            repeating = true;
+          })
+          (mkBindWith "XF86MonBrightnessDown" (exec "${noctaliaExe} msg brightness-down") {
+            locked = true;
+            repeating = true;
+          })
+          (mkBindWith "XF86AudioRaiseVolume" (exec "${noctaliaExe} msg volume-up") {
+            locked = true;
+            repeating = true;
+          })
+          (mkBindWith "XF86AudioLowerVolume" (exec "${noctaliaExe} msg volume-down") {
+            locked = true;
+            repeating = true;
+          })
+          (mkBindWith "XF86AudioMute" (exec "${noctaliaExe} msg volume-mute") {
+            locked = true;
+            repeating = true;
+          })
+        ]
+        ++ workspaceBinds;
       };
     };
 }

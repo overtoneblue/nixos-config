@@ -116,9 +116,9 @@
               };
             };
           };
-          customPalettes = {
-            stylix = stylixPalette;
-          };
+          # customPalettes = {
+          #   stylix = stylixPalette;
+          # };
         };
       };
     };
