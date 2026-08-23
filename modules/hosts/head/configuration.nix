@@ -13,6 +13,7 @@
         self.nixosModules.headHardware
         self.nixosModules.headStorage
         self.nixosModules.headHermes
+        self.nixosModules.headOpenCode
         self.nixosModules.base
         self.nixosModules.network
         self.nixosModules.nix-settings
