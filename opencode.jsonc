@@ -31,6 +31,19 @@
         "zai-org/GLM-5.2-FP8": {},
         "zai-org/GLM-5.2-NVFP4": {}
       }
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "{env:DEEPSEEK_API_KEY}"
+      },
+      "models": {
+        "deepseek-v4-flash": {},
+        "deepseek-v4-pro": {},
+        "deepseek-v4-flash-vision-exp": {}
+      }
     }
   }
 }
