@@ -96,9 +96,11 @@
       # Exactly this wrapper, NOPASSWD, as root only. No NOPASSWD: ALL.
       # The `""` restricts arguments further: sudo rejects any `head-rebuild
       # <arg>` invocation even before the wrapper ignores the arg.
+      # Both trusted admins — overtoneblue (interactive TUI / NOLAN) and
+      # hermes (gateway service user) — share this single-command grant.
       security.sudo.extraRules = [
         {
-          users = [ "hermes" ];
+          users = [ "overtoneblue" "hermes" ];
           runAs = "root";
           commands = [
             {

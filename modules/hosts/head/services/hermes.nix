@@ -55,6 +55,12 @@
           mcp_servers.computer-use-linux.enabled = false;
           terminal.backend = "local";
         };
+
+        # OpenCode client wrapper — the gateway (User=hermes) must be able to
+        # invoke it against the persistent backend (it holds the NOPASSWD
+        # head-rebuild grant, so it is also the deploy identity). Sourced env
+        # file is group-readable via opencode.nix tmpfiles.
+        extraPackages = [ config.services.opencode-client.package ];
       };
 
       # ── Media read-only guardrail (service sandbox only) ─────────────
@@ -88,9 +94,11 @@
       system.activationScripts."hermes-shared-state" = lib.stringAfter [
         "hermes-agent-setup"
       ] ''
-        # Reassert setgid + group-write on every shared dir (post-migration,
-        # recovered dirs may still be owner-only).
-        find ${stateDir}/.hermes -type d -exec chmod g+rws {} +
+        # Reassert setgid + group-write AND group-execute on every shared dir
+        # (post-migration, recovered dirs may still be owner-only or missing
+        # group-x — without it subdirs like skills/ are not traversable).
+        # NB: `g+rws` produces `rwS` (no execute); must be `g+rwxs`.
+        find ${stateDir}/.hermes -type d -exec chmod g+rwxs {} +
 
         # Default ACLs: whichever user/umask creates a file in the shared
         # tree, the hermes group gets rwx-equivalent access and the world
