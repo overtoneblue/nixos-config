@@ -53,12 +53,12 @@
         jetbrains.idea
       ];
       hm.programs = {
-        # `ssh head` from node0 must map to the account that exists on
-        # head. node0's local user is `cenunix`, but head has no `cenunix`
-        # account — its primary user is `overtoneblue` (head/configuration.nix),
-        # and it already authorizes the `hermes_audio_tunnel` key for that
-        # account. Without this alias, `ssh head` tries `cenunix@head` and
-        # fails with "Permission denied (publickey)".
+        # `ssh head` from node0 maps to the account that exists on head. node0
+        # and head now share the same primary account `overtoneblue`
+        # (modules.system.username, formerly `cenunix` before the node0 account
+        # migration), and head already authorizes the `hermes_audio_tunnel` key
+        # for that account. Without this alias, `ssh head` tries the local
+        # username and fails with "Permission denied (publickey)".
         ssh = {
           enable = true;
           matchBlocks = {
@@ -151,6 +151,15 @@
           };
         };
       };
+
+      # ── Account migration: cenunix → overtoneblue ───────────────────
+      # The primary account on node0 moves from `cenunix` to the shared
+      # `overtoneblue` (modules.system.username). Pin UID 1000 explicitly so
+      # filesystem ownership is preserved exactly across the rename (the old
+      # cenunix account is 1000; an auto-assigned id could drift to 1001).
+      # homeDirectory resolves from the shared default
+      # (/home/${username} = /home/overtoneblue).
+      users.users.${config.modules.system.username}.uid = 1000;
 
       boot = {
         kernelPackages = pkgs.linuxPackages_latest;
