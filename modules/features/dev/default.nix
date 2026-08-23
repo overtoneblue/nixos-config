@@ -1,7 +1,7 @@
 { self, inputs, ... }:
 {
   flake.nixosModules.dev =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     let
       devinit = pkgs.writeShellScriptBin "devinit" ''
         nix flake init --refresh --template "github:overtoneblue/nixos-config#$1" && direnv allow
@@ -13,12 +13,23 @@
         self.packages.${pkgs.system}.myNvf
         self.packages.${pkgs.system}.myZsh
         self.packages.${pkgs.system}.myStarship
-        self.packages.${pkgs.system}.myWezterm
         self.packages.${pkgs.system}.myGit
         pkgs.git-filter-repo
         pkgs.eza
         pkgs.btop
         pkgs.jq
+        pkgs.ripgrep
+        pkgs.fd
+        pkgs.whois
+        pkgs.mediainfo
+        pkgs.exiftool
+        pkgs.imagemagick
+        pkgs.pandoc
+        pkgs.opencode
+        pkgs.gist
+        pkgs.act
+        pkgs.zsh-forgit
+        pkgs.gitflow
       ];
 
       programs.zsh.enable = true;
@@ -30,7 +41,7 @@
         "/share/zsh"
         "/share/nix-direnv"
       ];
-      users.users.cenunix.shell = self.packages.${pkgs.system}.myZsh;
+      users.users.${config.modules.system.username}.shell = self.packages.${pkgs.system}.myZsh;
     };
   perSystem =
     { pkgs, self', ... }:
@@ -40,7 +51,6 @@
           self'.packages.myNvf
           self'.packages.myZsh
           self'.packages.myStarship
-          self'.packages.myWezterm
           self'.packages.myGit
           pkgs.git-filter-repo
           pkgs.direnv

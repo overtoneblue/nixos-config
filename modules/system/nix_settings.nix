@@ -5,14 +5,19 @@
 }:
 {
   flake.nixosModules.nix-settings =
-    { pkgs, lib, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
 
     {
       programs.nh = {
         enable = true;
         clean.enable = true;
         clean.extraArgs = "--keep-since 4d --keep 5";
-        flake = "/home/cenunix/nixos-config";
+        flake = config.modules.system.flakePath;
       };
       nixpkgs.config = {
         allowUnfree = true;
@@ -29,12 +34,12 @@
           allowed-users = [
             "root"
             "@wheel"
-            "cenunix"
+            config.modules.system.username
           ];
           trusted-users = [
             "root"
             "@wheel"
-            "cenunix"
+            config.modules.system.username
           ];
           warn-dirty = false;
           builders-use-substitutes = true;

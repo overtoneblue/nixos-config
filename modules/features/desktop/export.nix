@@ -15,6 +15,8 @@
         self.nixosModules.firefox
         self.nixosModules.gaming
         self.nixosModules.xdg
+        self.nixosModules.wezterm
+        self.nixosModules.desktop-services
       ];
     };
 }

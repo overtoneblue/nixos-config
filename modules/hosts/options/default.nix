@@ -9,6 +9,7 @@
       imports = [
         ./_hardware.nix
         ./_programs.nix
+        ./_system.nix
       ];
       options.modules.style = {
         forceGtk = mkEnableOption "Force GTK applications to use the GTK theme";

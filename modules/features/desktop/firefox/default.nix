@@ -52,8 +52,8 @@
               ];
             };
           };
-          profiles.cenunix = {
-            name = "cenunix";
+          profiles.${user} = {
+            name = user;
             isDefault = true;
             search = {
               engines = {

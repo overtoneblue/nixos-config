@@ -183,7 +183,7 @@
       "screenOverrides": []
     },
     "general": {
-      "avatarImage": "/home/cenunix/.face",
+      "avatarImage": "/home/overtoneblue/.face",
       "dimmerOpacity": 0.2,
       "showScreenCorners": false,
       "forceBlackScreenCorners": false,
@@ -297,7 +297,7 @@
     "wallpaper": {
       "enabled": true,
       "overviewEnabled": false,
-      "directory": "/home/cenunix/Media/Pictures/wallpapers",
+      "directory": "/home/overtoneblue/Media/Pictures/wallpapers",
       "monitorDirectories": [],
       "enableMultiMonitorDirectories": false,
       "showHiddenFiles": false,
@@ -672,8 +672,8 @@
     "openedPanel": "",
     "lockScreenActive": false,
     "wallpapers": {
-      "DP-1": "/home/cenunix/Media/Pictures/wallpapers/Greek.png",
-      "DP-2": "/home/cenunix/Media/Pictures/wallpapers/Greek.png"
+      "DP-1": "/home/overtoneblue/Media/Pictures/wallpapers/Greek.png",
+      "DP-2": "/home/overtoneblue/Media/Pictures/wallpapers/Greek.png"
     },
     "desktopWidgetsEditMode": false,
     "display": {

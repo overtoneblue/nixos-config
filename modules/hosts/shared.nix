@@ -2,7 +2,6 @@
 {
   flake.nixosModules.base =
     {
-      inputs,
       pkgs,
       lib,
       config,
@@ -10,36 +9,34 @@
     }:
     let
       ifTheyExist = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
+      inherit (config.modules.system) username homeDirectory extraGroups;
     in
 
     {
+      users.users.${username} = {
+        isNormalUser = true;
 
-      users.users = {
-        cenunix = {
+        home = homeDirectory;
 
-          initialPassword = "changeme";
-          isNormalUser = true;
-
-          extraGroups = [
-            "wheel"
-            "networkManager"
-            "video"
-          ]
-          ++ ifTheyExist [
-            "docker"
-            "libvirtd"
-            "kvm"
-            "qemu-libvirtd"
-            "wireshark"
-            "hermes"
-            "ydotool"
-          ];
-        };
+        extraGroups = [
+          "wheel"
+          "video"
+        ]
+        ++ extraGroups
+        ++ ifTheyExist [
+          "networkmanager"
+          "docker"
+          "libvirtd"
+          "kvm"
+          "qemu-libvirtd"
+          "wireshark"
+          "hermes"
+          "ydotool"
+        ];
       };
 
       time = {
         timeZone = "America/Los_Angeles";
-        hardwareClockInLocalTime = true;
       };
 
       i18n.defaultLocale = "en_US.UTF-8";
@@ -59,8 +56,5 @@
       # services = {
       #   printing.enable = true;
       # };
-
-      security.rtkit.enable = true;
-
     };
 }

@@ -1,5 +1,12 @@
 { self, inputs, ... }:
 {
+  flake.nixosModules.wezterm =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = [
+        self.packages.${pkgs.system}.myWezterm
+      ];
+    };
   perSystem =
     {
       pkgs,
@@ -149,9 +156,9 @@
               args = cmd.args
             end
 
-            local journal_dir = '/home/cenunix/Personal/Janaru'
-            local config_dir = '/home/cenunix/NixLand'
-            local default_dir = '/home/cenunix'
+            local journal_dir = '/home/overtoneblue/Personal/Janaru'
+            local config_dir = '/home/overtoneblue/NixLand'
+            local default_dir = '/home/overtoneblue'
 
             local default_tab, default_pane, window = mux.spawn_window {
               workspace = 'workflow',
