@@ -40,6 +40,7 @@
       modShiftKey = key: lua "mod .. ${toLua " + SHIFT + ${key}"}";
 
       exec = command: "hl.dsp.exec_cmd(${toLua command})";
+      hermesVoiceExe = "${config.hm.home.profileDirectory}/bin/hermes-voice";
 
       workspaceBinds = builtins.concatLists (
         builtins.genList (
@@ -77,6 +78,7 @@
           # special-workspace name.
           (mkBind (modKey "y") ''hl.dsp.window.move({ workspace = "special:scratchpad" })'')
           (mkBind (modKey "t") ''hl.dsp.workspace.toggle_special("scratchpad")'')
+          (mkBind (modKey "G") ''hl.dsp.workspace.toggle_special("hermes-browser")'')
 
           (mkBind (modKey "h") ''hl.dsp.focus({ direction = "l" })'')
           (mkBind (modKey "l") ''hl.dsp.focus({ direction = "r" })'')
@@ -97,6 +99,13 @@
           (mkBind (modKey "Return") (exec "${default.terminal} start --always-new-process"))
           (mkBind (modShiftKey "Return") (exec "${default.terminal}"))
           (mkBind (modKey "E") (exec "${default.fileManager}"))
+
+          (mkBindWith (modKey "V") (exec hermesVoiceExe) {
+            dont_inhibit = true;
+          })
+          (mkBindWith (modShiftKey "V") ''hl.dsp.workspace.toggle_special("hermes")'' {
+            dont_inhibit = true;
+          })
 
           (mkBind (modKey "U") (exec "ags -b hypr -r 'recorder.start()'"))
           (mkBind (modKey "P") (exec "${grimblast} --notify copysave output"))

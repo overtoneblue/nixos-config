@@ -17,7 +17,36 @@
         enable = true;
         withUWSM = true;
       };
+      xdg.portal = {
+        enable = true;
 
+        extraPortals = [
+          pkgs.xdg-desktop-portal-wlr
+        ];
+
+        config.hyprland = {
+          default = [
+            "hyprland"
+            "gtk"
+          ];
+
+          "org.freedesktop.impl.portal.Screenshot" = [
+            "wlr"
+          ];
+
+          "org.freedesktop.impl.portal.ScreenCast" = [
+            "hyprland"
+          ];
+
+          "org.freedesktop.impl.portal.InputCapture" = [
+            "hyprland"
+          ];
+
+          "org.freedesktop.impl.portal.GlobalShortcuts" = [
+            "hyprland"
+          ];
+        };
+      };
       hm = {
         imports = [
           inputs.hyprland.homeManagerModules.default

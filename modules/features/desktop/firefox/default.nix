@@ -478,6 +478,37 @@
                 --urlbarView-highlight-color: var(--my-fg) !important;
                 --urlbarView-highlight-background: var(--my-hi) !important;
 
+                /* FF153 renamed toolbar-field vars (focus state) */
+                --toolbar-background-color: var(--my-bg) !important;
+                --toolbar-field-background-color-focus: var(--my-bg) !important;
+                --toolbar-field-text-color: var(--my-fg) !important;
+                --toolbar-field-text-color-focus: var(--my-fg) !important;
+                --toolbar-field-border-color: var(--my-bg-2) !important;
+                --toolbar-field-border-color-focus: var(--my-bg-2) !important;
+
+                /* FF153: toolbox/sidebar revamp background (was #sidebar-main) */
+                --toolbox-background-color: var(--my-bg) !important;
+                --toolbox-background-color-inactive: var(--my-bg) !important;
+                --toolbox-text-color: var(--my-fg) !important;
+
+                /* FF153: urlbar box pills (searchmode switcher / DDG, identity) */
+                --urlbar-box-background-color: var(--my-bg-2) !important;
+                --urlbar-box-background-color-focus: var(--my-bg-2) !important;
+                --urlbar-box-background-color-hover: var(--my-bg-2) !important;
+                --urlbar-box-background-color-active: var(--my-bg-2) !important;
+                --urlbar-box-text-color: var(--my-fg) !important;
+                --urlbar-box-text-color-hover: var(--my-fg) !important;
+
+                /* FF153: tab hover/selected (new token names) */
+                --tab-background-color-hover: var(--my-bg-2) !important;
+                --tab-background-color-selected: var(--my-bg-2) !important;
+
+                /* FF153: urlbarView dropdown + suggestion highlights (lowercase names) */
+                --panel-background-color: var(--my-bg) !important;
+                --urlbarview-background-color-hover: var(--my-hi) !important;
+                --urlbarview-background-color-selected: var(--my-hi) !important;
+                --urlbarview-result-button-hover-color: var(--my-hi) !important;
+
                 /* Keep titlebar opacity consistent */
                 --inactive-titlebar-opacity: 1.0 !important;            
               }
@@ -495,10 +526,10 @@
                 color: red;
               }
               tab-label-container {
-                color: ${colors.base00};
+                color: ${colors.base05};
               }
               #_c607c8df-14a7-4f28-894f-29e8722976af_-BAP {
-                 color: ${colors.base00};
+                 color: ${colors.base05};
               }
               #TabsToolbar {
                 background-color: ${colors.base00} !important;
@@ -521,8 +552,24 @@
               .urlbar-input-box {
                 background-color: ${colors.base00};
               }
-              #sidebar-main {
+              /* FF153: sidebar revamp — #sidebar-main no longer exists, theme new containers */
+              #sidebar-box,
+              #vertical-tabs,
+              #sidebar {
                 background-color: ${colors.base00} !important;
+                color: ${colors.base05} !important;
+              }
+              /* FF153: DDG search-mode switcher (urlbar icon pill) */
+              .searchmode-switcher,
+              .searchmode-switcher-content {
+                fill: ${colors.base05} !important;
+                color: ${colors.base05} !important;
+              }
+              /* FF153: search-mode indicator + urlbar label box */
+              #urlbar-search-mode-indicator,
+              #urlbar-label-box {
+                background-color: ${colors.base01} !important;
+                color: ${colors.base05} !important;
               }
               .tabbrowser-tab {
                 color: ${colors.base05} !important;

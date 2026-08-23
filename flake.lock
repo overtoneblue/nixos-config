@@ -120,6 +120,22 @@
         "type": "github"
       }
     },
+    "computer-use-linux": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786603707,
+        "narHash": "sha256-3jvWwxEuo2hKJyciRgeHoGdDLxH9k/zo8IvAFzESmpk=",
+        "owner": "agent-sh",
+        "repo": "computer-use-linux",
+        "rev": "663930fef8d1bee64b7b8f833b68cff3196059e3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "agent-sh",
+        "repo": "computer-use-linux",
+        "type": "github"
+      }
+    },
     "firefox-addons": {
       "inputs": {
         "nixpkgs": [
@@ -1040,6 +1056,7 @@
     "root": {
       "inputs": {
         "comfyui-nix": "comfyui-nix",
+        "computer-use-linux": "computer-use-linux",
         "firefox-addons": "firefox-addons",
         "flake-parts": "flake-parts_2",
         "hermes-agent": "hermes-agent",

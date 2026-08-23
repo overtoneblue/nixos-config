@@ -29,6 +29,7 @@
       ];
       boot.initrd.kernelModules = [ ];
       boot.kernelModules = [
+        "uinput"
         "kvm-amd"
         "nvidia-uvm"
       ];
@@ -50,6 +51,26 @@
       fileSystems."/home" = {
         device = "/dev/disk/by-uuid/c4462073-f655-4c95-ad86-fc89a9877eb4";
         fsType = "ext4";
+      };
+
+      fileSystems."/mnt/tower/media" = {
+        device = "10.1.1.24:/mnt/user/media";
+        fsType = "nfs";
+        options = [
+          "nofail"
+          "x-systemd.automount"
+          "x-systemd.mount-timeout=10"
+        ];
+      };
+
+      fileSystems."/mnt/tower/music" = {
+        device = "10.1.1.24:/mnt/user/music";
+        fsType = "nfs";
+        options = [
+          "nofail"
+          "x-systemd.automount"
+          "x-systemd.mount-timeout=10"
+        ];
       };
 
       boot.initrd.luks.devices."luks-c14a72ec-211c-4e29-85ac-25db6fb2aa63".device =
@@ -84,6 +105,8 @@
           libva
           libva-utils
           libxcb
+          nfs-utils
+
           # cudaPackages.cudatoolkit
         ];
       };

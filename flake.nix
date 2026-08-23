@@ -13,7 +13,10 @@
     };
     comfyui-nix.url = "github:utensils/comfyui-nix";
     hyprland.url = "github:hyprwm/hyprland";
-
+    computer-use-linux = {
+      url = "github:agent-sh/computer-use-linux";
+      flake = false;
+    };
     stylix = {
       url = "github:nix-community/stylix";
       inputs.nixpkgs.follows = "nixpkgs";

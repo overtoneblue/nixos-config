@@ -61,6 +61,14 @@
           };
           pulse.enable = true;
           jack.enable = true;
+          extraConfig.pipewire-pulse."10-remote-pulse" = {
+            "pulse.properties" = {
+              "server.address" = [
+                "unix:native"
+                "tcp:127.0.0.1:4713"
+              ];
+            };
+          };
         };
       };
     };

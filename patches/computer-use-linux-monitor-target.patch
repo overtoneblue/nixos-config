@@ -1,0 +1,384 @@
+--- pristine/src/server.rs	2026-08-15 14:28:47.906433758 -0700
++++ work/src/server.rs	2026-08-15 14:39:44.878281351 -0700
+@@ -440,8 +440,15 @@
+         Parameters(params): Parameters<ScreenshotParams>,
+     ) -> Result<CallToolResult, ErrorData> {
+         let target = params.window_target();
+-        let target_window = match target.as_ref() {
+-            Some(target) => Some(
++        let monitor_name = params.monitor_name();
++        if target.is_some() && monitor_name.is_some() {
++            return Err(ErrorData::internal_error(
++                "cannot combine a window target with a monitor target; specify only one",
++                None,
++            ));
++        }
++        let target_window = match (target.as_ref(), monitor_name) {
++            (Some(target), None) => Some(
+                 self.resolve_screenshot_window(target, params.raise_window.unwrap_or(true))
+                     .await
+                     .map_err(|error| {
+@@ -451,7 +458,7 @@
+                         )
+                     })?,
+             ),
+-            None => None,
++            _ => None,
+         };
+         let crop_window = (!params.full_screen.unwrap_or(false))
+             .then_some(target_window.as_ref())
+@@ -473,36 +480,64 @@
+             None => None,
+         };
+ 
+-        let (capture, cropped) = match crop_window {
+-            Some(window) => {
+-                let (x, y, width, height) = self
+-                    .window_crop_rect_for_capture(window, &raw_capture)
+-                    .await
+-                    .map_err(|error| {
+-                        ErrorData::internal_error(
+-                            format!("targeted screenshot crop failed: {error:#}"),
+-                            None,
+-                        )
+-                    })?;
+-                let (bytes, width, height) = crop_png(&raw_capture.bytes, x, y, width, height)
+-                    .map_err(|error| {
+-                        ErrorData::internal_error(
+-                            format!("targeted screenshot crop failed: {error}"),
+-                            None,
+-                        )
+-                    })?;
+-                (
+-                    RawScreenshotCapture {
+-                        mime_type: raw_capture.mime_type,
+-                        bytes,
+-                        source: raw_capture.source,
+-                        width,
+-                        height,
+-                    },
+-                    true,
+-                )
+-            }
+-            None => (raw_capture, false),
++        let (capture, cropped, monitor_caption) = if let Some(monitor_name) = monitor_name {
++            let (monitor_name, logical_width, logical_height, rect) = self
++                .monitor_crop_rect_for_capture(monitor_name, &raw_capture)
++                .await
++                .map_err(|error| {
++                    ErrorData::internal_error(
++                        format!("monitor screenshot crop failed: {error:#}"),
++                        None,
++                    )
++                })?;
++            let (bytes, width, height) =
++                crop_png(&raw_capture.bytes, rect.0, rect.1, rect.2, rect.3).map_err(|error| {
++                    ErrorData::internal_error(
++                        format!("monitor screenshot crop failed: {error}"),
++                        None,
++                    )
++                })?;
++            (
++                RawScreenshotCapture {
++                    mime_type: raw_capture.mime_type,
++                    bytes,
++                    source: raw_capture.source,
++                    width,
++                    height,
++                },
++                false,
++                Some((monitor_name, logical_width, logical_height)),
++            )
++        } else if let Some(window) = crop_window {
++            let (x, y, width, height) = self
++                .window_crop_rect_for_capture(window, &raw_capture)
++                .await
++                .map_err(|error| {
++                    ErrorData::internal_error(
++                        format!("targeted screenshot crop failed: {error:#}"),
++                        None,
++                    )
++                })?;
++            let (bytes, width, height) = crop_png(&raw_capture.bytes, x, y, width, height)
++                .map_err(|error| {
++                    ErrorData::internal_error(
++                        format!("targeted screenshot crop failed: {error}"),
++                        None,
++                    )
++                })?;
++            (
++                RawScreenshotCapture {
++                    mime_type: raw_capture.mime_type,
++                    bytes,
++                    source: raw_capture.source,
++                    width,
++                    height,
++                },
++                true,
++                None,
++            )
++        } else {
++            (raw_capture, false, None)
+         };
+         let capture =
+             prepare_screenshot_payload(capture, params.screenshot_options()).map_err(|e| {
+@@ -523,8 +558,14 @@
+             "quality": capture.quality,
+             "source": capture.source,
+             "cropped_to_window": cropped,
++            "cropped_to_monitor": monitor_caption.is_some(),
+             "window_title": window_label,
+         });
++        if let Some((monitor_name, logical_width, logical_height)) = monitor_caption.as_ref() {
++            caption["monitor"] = serde_json::json!(monitor_name);
++            caption["monitor_logical_width"] = serde_json::json!(logical_width);
++            caption["monitor_logical_height"] = serde_json::json!(logical_height);
++        }
+         if let Some(note) = off_screen_note {
+             caption["window_off_screen"] = serde_json::json!(true);
+             caption["off_screen_note"] = serde_json::json!(note);
+@@ -1943,9 +1984,22 @@
+     #[serde(default)]
+     #[schemars(range(min = 1, max = 95))]
+     quality: Option<u8>,
++    /// Capture only a single monitor/output by name (e.g. "DP-1") or the
++    /// special value "focused" for whichever monitor Hyprland currently marks
++    /// focused. Mutually exclusive with any window target. Omitted/null keeps
++    /// the full-desktop capture. Requires a Hyprland compositor.
++    #[serde(default)]
++    monitor: Option<String>,
+ }
+ 
+ impl ScreenshotParams {
++    fn monitor_name(&self) -> Option<&str> {
++        self.monitor
++            .as_deref()
++            .map(str::trim)
++            .filter(|value| !value.is_empty())
++    }
++
+     fn window_target(&self) -> Option<WindowTarget> {
+         if self.window_id.is_none()
+             && self.pid.is_none()
+@@ -2546,6 +2600,63 @@
+             .await
+     }
+ 
++    /// Resolve a monitor/output target into a crop rectangle in the raw
++    /// capture's pixel space. Reuses the existing logical-desktop -> capture
++    /// mapping (`logical_window_crop_rect`) used for window crops, so scaled
++    /// and rotated layouts are handled consistently with window targeting.
++    /// Returns the resolved monitor name, its logical width/height, and the
++    /// capture-space crop rectangle.
++    async fn monitor_crop_rect_for_capture(
++        &self,
++        monitor: &str,
++        raw: &RawScreenshotCapture,
++    ) -> Result<(String, u32, u32, (i32, i32, u32, u32))> {
++        let outputs = crate::windowing::backends::hyprland::monitor_layout()
++            .await
++            .map_err(|error| {
++                anyhow::anyhow!(
++                    "monitor targeting requires a Hyprland compositor \
++                     (hyprctl monitors -j): {error:#}"
++                )
++            })?;
++        let target = if monitor == "focused" {
++            outputs
++                .iter()
++                .find(|output| output.focused)
++                .ok_or_else(|| anyhow::anyhow!("no Hyprland monitor is currently focused"))?
++        } else {
++            outputs
++                .iter()
++                .find(|output| output.name.as_deref() == Some(monitor))
++                .ok_or_else(|| {
++                    let names = outputs
++                        .iter()
++                        .filter_map(|output| output.name.clone())
++                        .collect::<Vec<_>>()
++                        .join(", ");
++                    anyhow::anyhow!("unknown monitor {monitor:?}; available monitors: {names}")
++                })?
++        };
++        let name = target.name.clone().unwrap_or_else(|| monitor.to_string());
++        let (target_x, target_y, target_w, target_h) = target.logical_rect();
++        let monitor_rects: Vec<(i32, i32, i32, i32)> = outputs
++            .iter()
++            .map(|output| {
++                let (x, y, width, height) = output.logical_rect();
++                (x, y, width as i32, height as i32)
++            })
++            .collect();
++        let bounds = crate::windowing::WindowBounds {
++            x: Some(target_x),
++            y: Some(target_y),
++            width: target_w,
++            height: target_h,
++        };
++        let rect = logical_window_crop_rect(&bounds, &monitor_rects, raw.width, raw.height)?;
++        let rect = clip_capture_rect(rect, raw.width, raw.height)?;
++        Ok((name, target_w, target_h, rect))
++    }
++
+     async fn window_crop_rect_for_dimensions(
+         &self,
+         window: &WindowInfo,
+--- pristine/src/windowing/backends/hyprland.rs	2026-08-15 14:28:47.906682891 -0700
++++ work/src/windowing/backends/hyprland.rs	2026-08-15 14:32:01.857635287 -0700
+@@ -76,6 +76,68 @@
+     }
+ }
+ 
++/// Monitor geometry reported by `hyprctl monitors -j`. The fields are enough
++/// to compute each output's logical on-screen footprint, accounting for the
++/// per-output scale factor and 90°/270° rotation (which swaps logical W/H).
++#[derive(Debug, Clone, Default, Deserialize)]
++pub struct HyprlandMonitorInfo {
++    pub name: Option<String>,
++    pub x: i32,
++    pub y: i32,
++    pub width: u32,
++    pub height: u32,
++    #[serde(default)]
++    pub scale: f64,
++    #[serde(default)]
++    pub transform: i32,
++    #[serde(default)]
++    pub focused: bool,
++}
++
++impl HyprlandMonitorInfo {
++    /// Logical on-screen footprint `(x, y, width, height)` in global logical
++    /// desktop space. `x`/`y` are already logical positions; the physical
++    /// `width`/`height` are divided by `scale`, and for transform 1/3 (90°/270°,
++    /// including my rotated DP-1) the logical width and height are swapped.
++    pub fn logical_rect(&self) -> (i32, i32, u32, u32) {
++        let scale = if self.scale.is_finite() && self.scale > 0.0 {
++            self.scale
++        } else {
++            1.0
++        };
++        let (physical_w, physical_h) = (
++            (self.width as f64 / scale).round() as u32,
++            (self.height as f64 / scale).round() as u32,
++        );
++        let (logical_w, logical_h) = match self.transform {
++            // 90° (1) and 270° (3): the logical footprint is rotated.
++            1 | 3 => (physical_h, physical_w),
++            // 0° and 180°: no W/H swap.
++            _ => (physical_w, physical_h),
++        };
++        (self.x, self.y, logical_w, logical_h)
++    }
++}
++
++/// Query the current Hyprland output/monitor layout (read-only).
++pub async fn monitor_layout() -> Result<Vec<HyprlandMonitorInfo>> {
++    let output = hyprctl_output_async(&["monitors", "-j"])
++        .await
++        .context("failed to run hyprctl monitors -j")?;
++    if !output.status.success() {
++        bail!(
++            "hyprctl monitors -j failed: {}",
++            String::from_utf8_lossy(&output.stderr).trim()
++        );
++    }
++    let monitors: Vec<HyprlandMonitorInfo> = serde_json::from_slice(&output.stdout)
++        .context("failed to parse hyprctl monitors -j output")?;
++    if monitors.is_empty() {
++        bail!("hyprctl monitors -j returned no monitors");
++    }
++    Ok(monitors)
++}
++
+ fn parse_hyprland_clients_with_monitors(
+     clients_json: &str,
+     monitors_json: &[u8],
+@@ -603,4 +665,86 @@
+ 
+         assert_eq!(selected.signature, "newer");
+     }
++
++    #[test]
++    fn landscape_monitor_logical_rect_passes_through() {
++        let monitor = HyprlandMonitorInfo {
++            name: Some("DP-2".to_string()),
++            x: 1080,
++            y: 0,
++            width: 2560,
++            height: 1440,
++            scale: 1.0,
++            transform: 0,
++            focused: false,
++            ..Default::default()
++        };
++        assert_eq!(monitor.logical_rect(), (1080, 0, 2560, 1440));
++    }
++
++    #[test]
++    fn rotated_monitor_swaps_logical_width_and_height() {
++        // DP-1: physical 1920x1080 rotated 90° (transform 1) at scale 1.
++        let monitor = HyprlandMonitorInfo {
++            name: Some("DP-1".to_string()),
++            x: 0,
++            y: 0,
++            width: 1920,
++            height: 1080,
++            scale: 1.0,
++            transform: 1,
++            focused: true,
++            ..Default::default()
++        };
++        assert_eq!(monitor.logical_rect(), (0, 0, 1080, 1920));
++    }
++
++    #[test]
++    fn rotated_monitor_270_swaps_logical_width_and_height() {
++        let monitor = HyprlandMonitorInfo {
++            name: Some("ROT".to_string()),
++            x: 0,
++            y: 0,
++            width: 1920,
++            height: 1080,
++            scale: 1.0,
++            transform: 3,
++            focused: false,
++            ..Default::default()
++        };
++        assert_eq!(monitor.logical_rect(), (0, 0, 1080, 1920));
++    }
++
++    #[test]
++    fn scaled_monitor_divides_logical_dimensions_by_scale() {
++        let monitor = HyprlandMonitorInfo {
++            name: Some("SCALED".to_string()),
++            x: 0,
++            y: 0,
++            width: 2560,
++            height: 1440,
++            scale: 2.0,
++            transform: 0,
++            focused: false,
++            ..Default::default()
++        };
++        assert_eq!(monitor.logical_rect(), (0, 0, 1280, 720));
++    }
++
++    #[test]
++    fn rotated_scaled_monitor_swaps_after_dividing_by_scale() {
++        let monitor = HyprlandMonitorInfo {
++            name: Some("SROT".to_string()),
++            x: 100,
++            y: 200,
++            width: 3840,
++            height: 2160,
++            scale: 2.0,
++            transform: 1,
++            focused: false,
++            ..Default::default()
++        };
++        // physical 3840x2160 / scale 2 = 1920x1080; 90° swaps -> 1080x1920.
++        assert_eq!(monitor.logical_rect(), (100, 200, 1080, 1920));
++    }
+ }
