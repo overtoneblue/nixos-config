@@ -19,7 +19,7 @@
     in
     {
       systemd.tmpfiles.rules = [
-        "d ${repository} 0750 ${user} users - -"
+        "d ${repository} 2770 ${user} admin - -"
         "d ${stateDir} 0700 ${user} users - -"
         "d ${homeDir} 0700 ${user} users - -"
         "d ${configDir} 0700 ${user} users - -"
