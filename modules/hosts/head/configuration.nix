@@ -12,8 +12,11 @@
       # store), fixed action, and user-supplied arguments are never
       # forwarded — sole action below.
       headRebuild = pkgs.writeShellScriptBin "head-rebuild" ''
-        exec ${config.system.build.nixos-rebuild}/bin/nixos-rebuild \
-          switch --flake /srv/nixos-config#head
+        exec ${lib.getExe config.programs.nh.package} os switch \
+          /srv/nixos-config#head \
+          --elevation-strategy none \
+          --bypass-root-check \
+          --show-activation-logs
       '';
     in
     {
@@ -110,6 +113,22 @@
           ];
         }
       ];
+
+      # The service PATH is deliberately explicit; make the only authorized
+      # deployment target resolvable as `head-rebuild` without adding the
+      # whole system profile.
+      systemd.services.hermes-agent.path = [ headRebuild ];
+
+      # ── Nix-daemon privilege boundary ──────────────────────────────────
+      # hermes (the gateway service user) may submit builds to the Nix
+      # daemon for validation/debugging (`nh os build`), but must NOT be a
+      # trusted user — trusted users are root-equivalent for Nix (arbitrary
+      # substituters, settings, cross-user builds). hermes is therefore kept
+      # OUT of wheel (so @wheel in nix-settings' trusted-users does not cover
+      # it) and granted only allowed-users here. overtoneblue stays in wheel
+      # and remains trusted; the single-command head-rebuild sudo grant is
+      # per-user, independent of wheel.
+      nix.settings.allowed-users = [ "hermes" ];
 
       virtualisation.docker.enable = true;
 

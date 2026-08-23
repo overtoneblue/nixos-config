@@ -14,12 +14,16 @@
       # ── Trusted admins / shared state access ─────────────────────────
       # overtoneblue gets the hermes group so plain `hermes` commands share
       # the recovered state (2770 hermes:hermes) without sudo -u hermes.
-      # hermes (the interactive account, not the service sandbox) is a full
-      # administrator: wheel + the shared admin group for /srv/nixos-config.
+      # hermes keeps the shared admin group (rwx on /srv/nixos-config) and
+      # the single-command head-rebuild sudo grant, but is NOT in wheel: that
+      # keeps it out of @wheel in nix.settings.trusted-users, so it can build
+      # (allowed-users, see configuration.nix) without root-equivalent Nix
+      # trust. Generic sudo remains unauthorized; NoNewPrivileges is disabled
+      # below only so the exact NOPASSWD head-rebuild rule can function.
       users.users.${username}.extraGroups = [ "hermes" ];
       users.users.hermes.extraGroups = [
-        "wheel"
         "admin"
+        "systemd-journal"
       ];
 
       # Resolve plain `hermes` to the recovered state explicitly for every
@@ -56,11 +60,21 @@
           terminal.backend = "local";
         };
 
-        # OpenCode client wrapper — the gateway (User=hermes) must be able to
-        # invoke it against the persistent backend (it holds the NOPASSWD
-        # head-rebuild grant, so it is also the deploy identity). Sourced env
-        # file is group-readable via opencode.nix tmpfiles.
-        extraPackages = [ config.services.opencode-client.package ];
+        # Runtime PATH for the gateway: the OpenCode client wrapper plus the
+        # NixOS inspection/build/debug toolchain. `nh os build` (unprivileged,
+        # via the Nix daemon — hermes is in allowed-users but not trusted) is
+        # the validation path; `sudo head-rebuild` (nh os switch as root, see
+        # configuration.nix) is the separate deploy path. systemd is declared
+        # here explicitly so systemctl/journalctl do not depend on
+        # hermes-agent's own propagated inputs.
+        extraPackages = [
+          config.services.opencode-client.package
+          config.programs.nh.package
+          pkgs.nix
+          pkgs.git
+          pkgs.nix-output-monitor
+          pkgs.systemd
+        ];
       };
 
       # ── Media read-only guardrail (service sandbox only) ─────────────
@@ -71,12 +85,53 @@
         requires = [ "mnt-cache.mount" ];
         after = [ "mnt-cache.mount" ];
 
-        serviceConfig.ReadOnlyPaths = [
-          "/mnt/disk1"
-          "/mnt/disk2"
-          "/mnt/disk3"
-          "/mnt/user"
-        ];
+        # nh defaults for the gateway: the canonical flake so a bare
+        # `nh os build` validates head, and activation logs surfaced for
+        # debugging. These merge with the upstream commonUnitEnvironment
+        # (HOME, HERMES_HOME, HERMES_MANAGED); they do not relax the sandbox.
+        environment = {
+          NH_OS_FLAKE = "/srv/nixos-config";
+          NH_FLAKE = "/srv/nixos-config";
+          NH_SHOW_ACTIVATION_LOGS = "1";
+        };
+
+        # Make NixOS security wrappers resolvable so the
+        # gateway (User=hermes) can invoke the single NOPASSWD grant
+        # `sudo head-rebuild`. systemd generates Environment=PATH from
+        # `path` (systemd-lib.nix), and `path` accepts strings; a "/run/wrappers"
+        # element expands to /run/wrappers/bin via makeBinPath. This list
+        # MERGES with the upstream `path = unitPath` (processPath), so the
+        # toolchain above is preserved.
+        path = [ "/run/wrappers" ];
+
+        serviceConfig = {
+          # REQUIRED for `sudo head-rebuild` to work from the service runtime:
+          # the upstream commonServiceConfig sets NoNewPrivileges=true, which
+          # blocks all setuid exec — sudo cannot acquire root even with a
+          # NOPASSWD grant (live: `setpriv --no-new-privs sudo -n -l` fails).
+          # We override it to false so the setuid sudo wrapper can run.
+          # sudoers stays the authorization boundary: only the exact
+          # `${headRebuild}/bin/head-rebuild ''` command is NOPASSWD (see
+          # configuration.nix); every other sudo call needs a password the
+          # noninteractive service does not hold. No generic sudo nh / ALL.
+          # CONSEQUENCE: a process spawned by the agent can now execute the
+          # host's configured setuid/setgid wrappers; sudoers governs sudo,
+          # while each other wrapper retains its own authentication/policy.
+          # The real escalation surface is the *design*: hermes has
+          # admin-group rwx on /srv/nixos-config and the head-rebuild grant,
+          # so it can edit the flake and deploy it as root. That capability is
+          # the requested one (Nolan deploys through the gateway) and
+          # pre-dates this change; it was strictly riskier before (hermes was
+          # also wheel + Nix-trusted).
+          NoNewPrivileges = lib.mkForce false;
+
+          ReadOnlyPaths = [
+            "/mnt/disk1"
+            "/mnt/disk2"
+            "/mnt/disk3"
+            "/mnt/user"
+          ];
+        };
       };
 
       # ── Shared Hermes credential store permissions ────────────────────
@@ -105,6 +160,16 @@
         # gets nothing.
         find ${stateDir}/.hermes -type d \
           -exec ${pkgs.acl}/bin/setfacl -d -m u:hermes:rwx -m g:hermes:rwx -m o::--- {} +
+
+        # Shared skill files: enforce group rw + world denied. The agent
+        # creates these at runtime
+        # with mode 0600, which defeats the directory default ACLs above —
+        # the create mode masks the inherited group entry to nothing, so
+        # files like skills/nixos-flake-maintenance/SKILL.md end up owner-only
+        # despite the ACLs. Scope the repair to skills so unrelated runtime
+        # state and credentials retain their intentional modes.
+        find ${stateDir}/.hermes/skills -type f \
+          -exec chmod g+rw,o-rwx {} + 2>/dev/null || true
 
         # Credential store + cross-process lock: group rw (both users must
         # be able to read AND update), never owner-only, never 0640.

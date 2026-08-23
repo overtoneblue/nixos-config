@@ -1,7 +1,7 @@
 { ... }:
 {
   config.modules = {
-    system.flakePath = null;
+    system.flakePath = "/srv/nixos-config";
 
     device = {
       type = "server";
