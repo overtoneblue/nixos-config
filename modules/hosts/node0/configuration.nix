@@ -53,6 +53,23 @@
         jetbrains.idea
       ];
       hm.programs = {
+        # `ssh head` from node0 must map to the account that exists on
+        # head. node0's local user is `cenunix`, but head has no `cenunix`
+        # account — its primary user is `overtoneblue` (head/configuration.nix),
+        # and it already authorizes the `hermes_audio_tunnel` key for that
+        # account. Without this alias, `ssh head` tries `cenunix@head` and
+        # fails with "Permission denied (publickey)".
+        ssh = {
+          enable = true;
+          matchBlocks = {
+            head = {
+              hostname = "10.1.1.24";
+              user = "overtoneblue";
+              identityFile = "~/.ssh/hermes_audio_tunnel";
+              identitiesOnly = true;
+            };
+          };
+        };
         obsidian = {
           enable = true;
           vaults = {
