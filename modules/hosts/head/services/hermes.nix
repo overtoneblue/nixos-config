@@ -37,8 +37,12 @@
         workingDirectory = "${stateDir}/.hermes/workspace";
         addToSystemPackages = true;
 
+        # Secrets come from the sops-rendered template (see services/sops.nix).
+        # The upstream hermes-agent activation script merges this file into
+        # ${stateDir}/.hermes/.env at activation, so hermes reads the merged
+        # .env at startup — the template path is only read by that script.
         environmentFiles = [
-          "${stateDir}/secrets.env"
+          config.sops.templates."hermes-env".path
         ];
 
         environment = {

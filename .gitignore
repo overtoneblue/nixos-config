@@ -1,1 +1,8 @@
-secrets/
+# SOPS secrets live here. Only sops-ENCRYPTED ciphertext may be committed
+# (e.g. secrets/head.yaml). Guard against plaintext edits/backups: never
+# track those forms.
+secrets/*.plaintext
+secrets/*.dec.yaml
+secrets/*.decrypted
+secrets/*.bak
+secrets/*~

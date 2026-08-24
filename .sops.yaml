@@ -1,0 +1,16 @@
+# sops-nix encryption rules for this repository.
+#
+# Recipients:
+#   - age13cyh...  head machine identity  (derived from /etc/ssh/ssh_host_ed25519_key.pub via ssh-to-age)
+#   - age1s7llm... operator identity      (overtoneblue@node0, ~/.config/sops/age/keys.txt)
+#
+# Only public age recipients live here; private identities stay out of the repo.
+creation_rules:
+  - path_regex: ^secrets/head\.yaml$
+    age: >-
+      age13cyhhsjtlwtkz7n4r2gn6hwtxr0tch6590xe5w6ufyl0anjvaqksqydm98,
+      age1s7llmjhyd63jku8aectedt56vpqq0kafmhrp4suruqnl48mfducs6fxp02
+    # Dedicated secret file: every value is a secret, so encrypt all values
+    # regardless of key name. Keys stay plaintext (for readability); values
+    # become ENC[AES256_GCM,...].
+    encrypted_regex: "^.*$"

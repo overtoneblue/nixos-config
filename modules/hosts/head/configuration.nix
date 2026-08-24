@@ -25,6 +25,7 @@
         ./_system.nix
         self.nixosModules.headHardware
         self.nixosModules.headStorage
+        self.nixosModules.headSops
         self.nixosModules.headHermes
         self.nixosModules.headOpenCode
         self.nixosModules.base

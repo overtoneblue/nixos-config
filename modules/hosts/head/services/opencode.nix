@@ -16,11 +16,14 @@
       dataDir = "${stateDir}/data";
       runtimeStateDir = "${stateDir}/state";
       cacheDir = "${stateDir}/cache";
-      environmentFile = "${stateDir}/server.env";
+      # Sops-rendered credential file (see services/sops.nix). Replaces the
+      # hand-maintained server.env; owned overtoneblue:hermes 0640 so both the
+      # service and the opencode-client wrapper (overtoneblue + hermes) can read.
+      environmentFile = config.sops.templates."opencode-env".path;
 
-      # Client wrapper command — sources the runtime-only server.env (sets
-      # OPENCODE_SERVER_PASSWORD etc.) then execs the real OpenCode CLI.
-      # Usable from the interactive user AND the hermes gateway.
+      # Client wrapper command — sources the sops-rendered opencode-env
+      # template (sets OPENCODE_SERVER_PASSWORD etc.) then execs the real
+      # OpenCode CLI. Usable from the interactive user AND the hermes gateway.
       # `set -a` ensures the sourced vars are exported to the child CLI
       # process (sourcing without it leaves them shell-only => client 401s).
       opencodeClient = pkgs.writeShellScriptBin "opencode-client" ''
@@ -36,20 +39,20 @@
       options.services.opencode-client.package = lib.mkOption {
         type = lib.types.package;
         default = opencodeClient;
-        description = "OpenCode client wrapper package (sources server.env).";
+        description = "OpenCode client wrapper package (sources the sops-rendered opencode-env template).";
       };
 
       config = {
         # Runtime-only credential for OpenCode *clients* (CLI against the
         # persistent backend). The server reads the same file via systemd
         # EnvironmentFile; the wrapper sources it for client invocations.
-        # Group `hermes` (the gateway service user) is granted read-only access
-        # so both the interactive user and the hermes gateway can use the CLI
-        # without ever typing the password. Never world-readable; never in Git.
+        # The file is rendered by sops-nix from secrets/head.yaml (owner
+        # overtoneblue, group hermes, mode 0640) so both the interactive user
+        # and the hermes gateway can use the CLI without ever typing the
+        # password. Never world-readable; never in Git.
         systemd.tmpfiles.rules = [
           "d ${repository} 2770 ${user} admin - -"
           "z ${stateDir} 0750 ${user} hermes - -"
-          "z ${environmentFile} 0640 ${user} hermes - -"
           "z ${homeDir} 0700 ${user} hermes - -"
           "z ${configDir} 0700 ${user} hermes - -"
           "z ${dataDir} 0700 ${user} hermes - -"
