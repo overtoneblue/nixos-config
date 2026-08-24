@@ -103,6 +103,11 @@
           ];
           mcp_servers.computer-use-linux.enabled = false;
           terminal.backend = "local";
+
+          # Write-approval guardrails: skills and memory writes require
+          # explicit approval rather than being applied automatically.
+          memory.write_approval = true;
+          skills.write_approval = true;
         };
 
         # Runtime PATH for the gateway: the OpenCode client wrapper plus the
