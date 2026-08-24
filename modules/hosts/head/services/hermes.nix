@@ -52,6 +52,13 @@
           HERMES_DASHBOARD_HOST = "127.0.0.1";
           HERMES_DASHBOARD_TUI = "1";
           HERMES_DISABLE_LAZY_INSTALLS = "1";
+          # Non-secret gateway access-control config (user/channel IDs), not
+          # credentials — kept out of the sops secret store. Previously these
+          # rode along in the hand-maintained secrets.env; preserved here so
+          # message routing / allow-lists are unchanged.
+          TELEGRAM_ALLOWED_USERS = "7130533486";
+          TELEGRAM_HOME_CHANNEL = "7130533486";
+          DISCORD_ALLOWED_USERS = "950769259301199922";
         };
 
         extraArgs = [
