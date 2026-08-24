@@ -67,6 +67,40 @@
         ];
 
         settings = {
+          # ── Declarative model/provider (Makora) ────────────────────────
+          # Actual credentials stay in ${stateDir}/.hermes/.env via sops
+          # (environmentFiles); these api_key values are env-var *references*
+          # Hermes resolves at runtime — never inline secrets.
+          model = {
+            default = "deepseek-ai/DeepSeek-V4-Flash";
+            provider = "custom";
+            base_url = "https://inference.makora.com/v1";
+            api_key = "\${HERMES_CUSTOM_INFERENCE_MAKORA_COM_API_KEY}";
+            api_mode = "chat_completions";
+          };
+          auxiliary.vision = {
+            provider = "custom";
+            model = "gemma-4-31b";
+            reasoning_effort = "";
+            base_url = "https://api.cerebras.ai/v1";
+            api_key = "\${HERMES_AUXILIARY_VISION_API_KEY}";
+          };
+          custom_providers = [
+            {
+              name = "Makora";
+              base_url = "https://inference.makora.com/v1";
+              key_env = "HERMES_CUSTOM_INFERENCE_MAKORA_COM_API_KEY";
+              model = "deepseek-ai/DeepSeek-V4-Flash";
+              api_mode = "chat_completions";
+              models = [
+                "deepseek-ai/DeepSeek-V4-Flash"
+                "google/gemma-4-26B-A4B"
+                "moonshotai/Kimi-K3"
+                "zai-org/GLM-5.2-FP8"
+                "zai-org/GLM-5.2-NVFP4"
+              ];
+            }
+          ];
           mcp_servers.computer-use-linux.enabled = false;
           terminal.backend = "local";
         };
