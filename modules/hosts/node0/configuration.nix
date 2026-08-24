@@ -10,6 +10,18 @@
     let
       inherit (config) modules;
       inherit (modules) device;
+
+      # ── Passwordless single-command deployment (mirror of head) ────────
+      # `sudo node-rebuild` rebuilds/switches the node0 flake. Wrapper is
+      # argumentless; the sudoers rule below pins the `''` empty-arg form so
+      # the grant can never be widened by appending arguments.
+      nodeRebuild = pkgs.writeShellScriptBin "node-rebuild" ''
+        exec ${lib.getExe config.programs.nh.package} os switch \
+          ${config.modules.system.flakePath}#node0 \
+          --elevation-strategy none \
+          --bypass-root-check \
+          --show-activation-logs
+      '';
     in
     {
       imports = [
@@ -217,12 +229,30 @@
         Defaults:${config.modules.system.username} timestamp_type=global, timestamp_timeout=120
       '';
 
+      # ── Passwordless deployment grant (mirrors head) ──────────────────
+      # Only the primary user may switch this host, and only via the exact
+      # argumentless `node-rebuild` wrapper. The `''` pin mirrors head: any
+      # `node-rebuild <arg>` invocation is rejected by sudo itself.
+      security.sudo.extraRules = [
+        {
+          users = [ config.modules.system.username ];
+          runAs = "root";
+          commands = [
+            {
+              command = "${nodeRebuild}/bin/node-rebuild ''";
+              options = [ "NOPASSWD" ];
+            }
+          ];
+        }
+      ];
+
       networking.hostName = "node0";
 
       time.hardwareClockInLocalTime = true;
 
       environment.systemPackages = with pkgs; [
         usbutils
+        nodeRebuild
       ];
     };
 }
