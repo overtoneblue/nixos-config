@@ -43,6 +43,19 @@
       };
 
       config = {
+        # ── Declarative OpenCode config ──────────────────────────────────
+        # The repo's opencode.jsonc (model/provider config, tracked in git)
+        # is installed to the service's global config dir at activation, so
+        # OpenCode always reads the declared config regardless of cwd.
+        # NixOS overwrites on every switch: the repo is the source of truth.
+        # The stringAfter "users" ensures ${user} exists before chown.
+        system.activationScripts."opencode-config" = lib.stringAfter [ "users" ] ''
+          mkdir -p ${configDir}/opencode
+          install -o ${user} -g hermes -m 0640 \
+            ${../../../../opencode.jsonc} \
+            ${configDir}/opencode/opencode.jsonc
+        '';
+
         # Runtime-only credential for OpenCode *clients* (CLI against the
         # persistent backend). The server reads the same file via systemd
         # EnvironmentFile; the wrapper sources it for client invocations.
