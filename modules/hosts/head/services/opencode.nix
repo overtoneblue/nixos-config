@@ -123,7 +123,10 @@
             Restart = "always";
             RestartSec = "5s";
             TimeoutStopSec = "30s";
-            UMask = "0077";
+            # Group-shared file/dir modes (0660/0770) for the shared admin group,
+            # so OpenCode commits are readable/writable by overtoneblue + hermes
+            # without manual chmod. Repo + .git are setgid admin to inherit group.
+            UMask = "0007";
 
             CapabilityBoundingSet = "";
             LockPersonality = true;
