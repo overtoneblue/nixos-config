@@ -197,6 +197,19 @@
             "/mnt/disk3"
             "/mnt/user"
           ];
+
+          # Least-privilege sandbox exception for the sudo runtime state:
+          # sudo stores its per-user NOPASSWD auth timestamp under
+          # /run/sudo/ts/<uid> (here: 994). ProtectSystem=strict makes /run
+          # read-only, so sudo cannot record the successful auth and falls
+          # back to prompting for a password even for the argumentless
+          # NOPASSWD "sudo head-rebuild" grant. Bind-mount ONLY the sudo
+          # timestamp directory read-write: the rest of /run stays read-only,
+          # the media trees (/mnt/disk1-3, /mnt/user) stay read-only, and no
+          # new sudo capability is granted (setuid root is already permitted
+          # via NoNewPrivileges=false; sudoers still limits sudo itself to the
+          # exact argumentless head-rebuild command).
+          ReadWritePaths = [ "/run/sudo/ts" ];
         };
       };
 
