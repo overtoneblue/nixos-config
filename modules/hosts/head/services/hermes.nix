@@ -125,6 +125,7 @@
         # hermes-agent's own propagated inputs.
         extraPackages = [
           config.services.opencode-client.package
+          config.modules.system.desktopCommand
           config.programs.nh.package
           pkgs.nix
           pkgs.git
@@ -149,6 +150,14 @@
           NH_OS_FLAKE = "/srv/nixos-config";
           NH_FLAKE = "/srv/nixos-config";
           NH_SHOW_ACTIVATION_LOGS = "1";
+
+          # Desktop bridge identity for the SERVICE context: route the shared
+          # `desktop` wrapper to the sops-rendered hermes-owned SSH key and the
+          # declarative system known_hosts, so computer-use / desktop commands
+          # spawned by the gateway (User=hermes) reach node0 exactly like the
+          # interactive TUI does. No /home/overtoneblue access is implied.
+          DESKTOP_SSH_KEY = config.sops.secrets."hermes-desktop-key".path;
+          DESKTOP_KNOWN_HOSTS = "/etc/ssh/ssh_known_hosts";
         };
 
         # Make NixOS security wrappers resolvable so the

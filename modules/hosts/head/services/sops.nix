@@ -33,13 +33,13 @@
         validateSopsFiles = false;
         age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
-        # All twelve top-level keys of secrets/head.yaml. Raw secret files are
+        # All top-level keys of secrets/head.yaml. Raw secret files are
         # only read by sops-install-secrets (root) to render the templates
         # below, so the sops default owner=root mode=0400 is correct for every
         # entry; the consumer-readable permissions live on the templates, not
         # the raw secrets. restartUnits are attached per-secret so a changed
-        # value restarts exactly the services that consume it (via the
-        # template it feeds) — never an unrelated unit.
+        # value restarts exactly the services that consume it (via the template
+        # it feeds) — never an unrelated unit.
         secrets = {
           # ── consumed by the opencode-env template ──
           "opencode-server-password" = {
@@ -83,6 +83,21 @@
             restartUnits = [ "hermes-agent.service" ];
           };
           "hermes-auxiliary-vision-api-key" = {
+            restartUnits = [ "hermes-agent.service" ];
+          };
+
+          # ── hermes→node0 desktop SSH identity ──
+          # Reuses the already-authorized desktop_ed25519 key so no node0
+          # authorized-keys change is needed. Rendered as a private FILE secret
+          # (not an env/template value) at /run/secrets/hermes-desktop-key,
+          # 0400 hermes:hermes, injected by name into the desktop bridge via
+          # DESKTOP_SSH_KEY on the hermes-agent unit. Host verification uses
+          # the declarative system known_hosts (programs.ssh.knownHosts), not
+          # a secret — see modules/hosts/head/configuration.nix.
+          "hermes-desktop-key" = {
+            owner = "hermes";
+            group = "hermes";
+            mode = "0400";
             restartUnits = [ "hermes-agent.service" ];
           };
         };

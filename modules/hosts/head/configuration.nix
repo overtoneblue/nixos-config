@@ -21,16 +21,25 @@
 
       # ── Desktop bridge ──────────────────────────────────────────────
       # `desktop <command...>` runs a command inside the node0 graphical
-      # session via the dedicated desktop SSH identity. It SSHes
-      # non-interactively to overtoneblue@node0 and executes the command
-      # under `desktop-session`, which imports the live Wayland/DBus/
-      # XDG/Hyprland session environment (see modules/features/hermes).
+      # session via a dedicated SSH identity. It SSHes non-interactively to
+      # overtoneblue@node0 and executes the command under `desktop-session`,
+      # which imports the live Wayland/DBus/XDG/Hyprland session environment
+      # (see modules/features/hermes).
+      #
+      # Identity is identity-aware via env vars, so the SAME wrapper serves
+      # both callers without touching /home/overtoneblue permissions:
+      #   - interactive overtoneblue TUI  -> defaults to the overtoneblue key
+      #     + known_hosts (unchanged behavior)
+      #   - hermes-agent.service          -> DESKTOP_SSH_KEY /
+      #     DESKTOP_KNOWN_HOSTS are injected by the service unit (sops-rendered
+      #     hermes-owned key + Nix-managed system known_hosts), keeping this
+      #     wrapper and the interactive path identical.
       #
       # Each argument is shell-quoted with bash %q so the remote zsh
       # reconstructs the exact argv (no word-splitting / injection).
-      # Known_hosts entry is pinned to the overtoneblue user's file,
-      # which holds the node0 ED25519 host key, so host verification
-      # stays strict.
+      # Host verification stays strict; the known_hosts file is supplied via
+      # the env var (interactive: user file; service: /etc/ssh/ssh_known_hosts
+      # populated declaratively by programs.ssh.knownHosts).
       desktop = pkgs.writeShellApplication {
         name = "desktop";
         runtimeInputs = [ pkgs.openssh ];
@@ -42,6 +51,9 @@
             exit 2
           fi
 
+          : "''${DESKTOP_SSH_KEY:=/home/overtoneblue/hermes-recovery/hermes-ssh/desktop_ed25519}"
+          : "''${DESKTOP_KNOWN_HOSTS:=/home/overtoneblue/.ssh/known_hosts}"
+
           remote=()
           arg=
           for arg in "$@"; do
@@ -49,11 +61,11 @@
           done
 
           exec ${lib.getExe pkgs.openssh} \
-            -i /home/overtoneblue/hermes-recovery/hermes-ssh/desktop_ed25519 \
+            -i "$DESKTOP_SSH_KEY" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=/home/overtoneblue/.ssh/known_hosts \
+            -o UserKnownHostsFile="$DESKTOP_KNOWN_HOSTS" \
             -o ConnectTimeout=15 \
             overtoneblue@node0 \
             desktop-session "''${remote[*]}"
@@ -61,6 +73,12 @@
       };
     in
     {
+      # Expose the shared `desktop` command so both the interactive head
+      # profile (environment.systemPackages below) and the Hermes gateway
+      # (services/head/hermes.nix extraPackages) can reference the same
+      # wrapper package.
+      modules.system.desktopCommand = desktop;
+
       imports = [
         self.nixosModules.options
         ./_system.nix
@@ -109,6 +127,18 @@
           KbdInteractiveAuthentication = false;
           PermitRootLogin = "no";
         };
+      };
+
+      # ── System-wide SSH known-hosts (host public keys are NOT secrets) ──
+      # Node0's ED25519 host key, managed declaratively (writes
+      # /etc/ssh/ssh_known_hosts, world-readable) so any local user or service
+      # — including hermes-agent.service — can connect to node0 with strict
+      # host verification. The `desktop` bridge uses this file when running
+      # under the service (DESKTOP_KNOWN_HOSTS); the interactive TUI keeps its
+      # user-scoped known_hosts.
+      programs.ssh.knownHosts.node0 = {
+        hostNames = [ "node0" "10.1.1.174" ];
+        publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIyoNmOgQES9ANxbKTjb9p6zTc4+sRC325cFwd426dnU";
       };
 
       users.users.${config.modules.system.username} = {
@@ -176,7 +206,7 @@
 
       environment.systemPackages = with pkgs; [
         headRebuild
-        desktop
+        config.modules.system.desktopCommand
         tmux
         wget
         curl
