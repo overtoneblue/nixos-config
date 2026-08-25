@@ -101,7 +101,13 @@
               ];
             }
           ];
-          mcp_servers.computer-use-linux.enabled = false;
+          mcp_servers.computer-use-linux.enabled = true;
+          # Route through the Nix-managed `desktop` bridge (head-side wrapper
+          # that SSHes to node0 and execs `desktop-session computer-use-linux
+          # mcp` in the graphical session). `desktop` resolves on the
+          # interactive TUI PATH; the always-on gateway (User=hermes) does not
+          # yet have access to the desktop SSH identity — known limitation.
+          mcp_servers.computer-use-linux.command = "desktop";
           terminal.backend = "local";
 
           # Write-approval guardrails: skills and memory writes require
