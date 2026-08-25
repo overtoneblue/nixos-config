@@ -18,6 +18,47 @@
           --bypass-root-check \
           --show-activation-logs
       '';
+
+      # ── Desktop bridge ──────────────────────────────────────────────
+      # `desktop <command...>` runs a command inside the node0 graphical
+      # session via the dedicated desktop SSH identity. It SSHes
+      # non-interactively to overtoneblue@node0 and executes the command
+      # under `desktop-session`, which imports the live Wayland/DBus/
+      # XDG/Hyprland session environment (see modules/features/hermes).
+      #
+      # Each argument is shell-quoted with bash %q so the remote zsh
+      # reconstructs the exact argv (no word-splitting / injection).
+      # Known_hosts entry is pinned to the overtoneblue user's file,
+      # which holds the node0 ED25519 host key, so host verification
+      # stays strict.
+      desktop = pkgs.writeShellApplication {
+        name = "desktop";
+        runtimeInputs = [ pkgs.openssh ];
+        text = ''
+          set -euo pipefail
+
+          if [[ $# -eq 0 ]]; then
+            echo "usage: desktop <command...>" >&2
+            exit 2
+          fi
+
+          remote=()
+          arg=
+          for arg in "$@"; do
+            remote+=("$(printf '%q' "$arg")")
+          done
+
+          exec ${lib.getExe pkgs.openssh} \
+            -i /home/overtoneblue/hermes-recovery/hermes-ssh/desktop_ed25519 \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=/home/overtoneblue/.ssh/known_hosts \
+            -o ConnectTimeout=15 \
+            overtoneblue@node0 \
+            desktop-session "''${remote[*]}"
+        '';
+      };
     in
     {
       imports = [
@@ -135,6 +176,7 @@
 
       environment.systemPackages = with pkgs; [
         headRebuild
+        desktop
         tmux
         wget
         curl
