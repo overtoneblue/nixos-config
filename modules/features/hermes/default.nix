@@ -211,7 +211,30 @@
         desktopSession
         computerUseLinux
         chromium
+        # Native Wayland computer-use: expose the Hermes CLI (computer_use /
+        # cua-driver) inside the graphical session. The upstream hermes-agent
+        # module only installs the CLI when `services.hermes-agent.enable` is
+        # true; on node0 we keep the gateway service off and instead put the
+        # CLI in the user profile so `hermes computer-use doctor` and the CUA
+        # backend run with the session's Wayland/DBus env.
+        config.services.hermes-agent.package
       ];
+
+      # Native Wayland computer-use backend: cua-driver 0.19.2 is installed
+      # by its own installer under ~/.cua-driver (not in nixpkgs); wire it
+      # declaratively by pointing HERMES_CUA_DRIVER_CMD at the cached current
+      # release and enabling the native Wayland backend. CUA_DRIVER_RS_ENABLE_WAYLAND
+      # makes the driver use wlroots screencopy + foreign-toplevel instead of
+      # the X11-only fallback.
+      hm.home.sessionVariables = {
+        HERMES_CUA_DRIVER_CMD = "${homeDirectory}/.cua-driver/packages/current/cua-driver";
+        CUA_DRIVER_RS_ENABLE_WAYLAND = "1";
+      };
+
+      # Ease the driver onto PATH too (its user-local bin link is stale after
+      # the cenunix->overtoneblue migration); sessionVariables above are the
+      # authoritative resolution, this is belt-and-suspenders.
+      hm.home.sessionPath = [ "${homeDirectory}/.local/bin" ];
 
       hm.systemd.user.services.hermes-browser-tunnel = {
         Unit = {
