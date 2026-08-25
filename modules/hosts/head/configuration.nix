@@ -216,6 +216,18 @@
 
       virtualisation.docker.enable = true;
 
+      # libgit2 (Nix's flake fetcher) refuses git repos not owned by euid /
+      # SUDO_UID. `sudo head-rebuild` runs as root with SUDO_UID=hermes(994)
+      # against this overtoneblue-owned repo, so root's flake fetch of
+      # git+file:///srv/nixos-config needs a safe.directory allowlist for
+      # exactly this path. System scope (not global `*`): the fetch runs with
+      # HOME=/root (no root global gitconfig) and GIT_CONFIG_* env is ignored
+      # because libgit2 is opened with use_env=false.
+      environment.etc."gitconfig".text = ''
+        [safe]
+          directory = /srv/nixos-config
+      '';
+
       environment.systemPackages = with pkgs; [
         headRebuild
         config.modules.system.desktopCommand
