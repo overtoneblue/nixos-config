@@ -189,27 +189,29 @@
           # the requested one (Nolan deploys through the gateway) and
           # pre-dates this change; it was strictly riskier before (hermes was
           # also wheel + Nix-trusted).
+          # sudo relies on the setuid wrapper for escalation, so
+          # NoNewPrivileges must stay off. sudoers (hermes ALL=(ALL)
+          # NOPASSWD: ALL) is the authorization boundary for that escalation.
           NoNewPrivileges = lib.mkForce false;
 
+          # Broad system administration: drop ProtectSystem=strict. A strict
+          # read-only namespace is inherited by every sudo'd root command
+          # (even a successful sudo gets a read-only filesystem), which
+          # breaks normal host administration. The service and its sudo
+          # children now see the real (read-write) filesystem.
+          ProtectSystem = lib.mkForce false;
+
+          # Media-data write protection (separate, explicit): /mnt/disk1-3
+          # and /mnt/user are mounted read-only in the service namespace by
+          # default, independent of ProtectSystem. Caden must explicitly
+          # authorize a media operation to change this. Nothing else is
+          # pinned read-only.
           ReadOnlyPaths = [
             "/mnt/disk1"
             "/mnt/disk2"
             "/mnt/disk3"
             "/mnt/user"
           ];
-
-          # Least-privilege sandbox exception for the sudo runtime state:
-          # sudo stores its per-user NOPASSWD auth timestamp under
-          # /run/sudo/ts/<uid> (here: 994). ProtectSystem=strict makes /run
-          # read-only, so sudo cannot record the successful auth and falls
-          # back to prompting for a password even for the argumentless
-          # NOPASSWD "sudo head-rebuild" grant. Bind-mount ONLY the sudo
-          # timestamp directory read-write: the rest of /run stays read-only,
-          # the media trees (/mnt/disk1-3, /mnt/user) stay read-only, and no
-          # new sudo capability is granted (setuid root is already permitted
-          # via NoNewPrivileges=false; sudoers still limits sudo itself to the
-          # exact argumentless head-rebuild command).
-          ReadWritePaths = [ "/run/sudo/ts" ];
         };
       };
 

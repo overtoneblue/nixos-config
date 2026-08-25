@@ -165,17 +165,29 @@
         find /srv/nixos-config -type f -exec chmod g+rw {} +
       '';
 
-      # ── Passwordless single-command deployment ────────────────────────
-      # `sudo head-rebuild` rebuilds/switches the head flake.
-
-      # Exactly this wrapper, NOPASSWD, as root only. No NOPASSWD: ALL.
-      # The `""` restricts arguments further: sudo rejects any `head-rebuild
-      # <arg>` invocation even before the wrapper ignores the arg.
-      # Both trusted admins — overtoneblue (interactive TUI / NOLAN) and
-      # hermes (gateway service user) — share this single-command grant.
+      # ── Passwordless sudo for autonomous administration ───────────────
+      # Nolan (the gateway service user, hermes) is intentionally trusted
+      # to administer this host autonomously. It already holds effective
+      # root-equivalent authority (writable /srv/nixos-config + the deploy
+      # path), so avoid brittle per-command/path sudoers matching and grant
+      # broad passwordless sudo instead: `sudo <anything>` from the gateway
+      # just works.
       security.sudo.extraRules = [
         {
-          users = [ "overtoneblue" "hermes" ];
+          # Gateway service (Nolan): any command, any user, no password.
+          users = [ "hermes" ];
+          runAs = "ALL";
+          commands = [
+            {
+              command = "ALL";
+              options = [ "NOPASSWD" ];
+            }
+          ];
+        }
+        {
+          # Interactive admin (overtoneblue): unchanged — keep its existing
+          # narrow NOPASSWD grant for the exact deploy command.
+          users = [ "overtoneblue" ];
           runAs = "root";
           commands = [
             {
