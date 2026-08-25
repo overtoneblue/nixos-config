@@ -109,6 +109,7 @@
           # yet have access to the desktop SSH identity — known limitation.
           mcp_servers.computer-use-linux.command = "desktop";
           terminal.backend = "local";
+          browser.cdp_url = "http://127.0.0.1:9222";
 
           # Write-approval guardrails: skills and memory writes require
           # explicit approval rather than being applied automatically.
