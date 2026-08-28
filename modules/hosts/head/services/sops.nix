@@ -85,6 +85,9 @@
           "hermes-auxiliary-vision-api-key" = {
             restartUnits = [ "hermes-agent.service" ];
           };
+          "friendli-api-key" = {
+            restartUnits = [ "hermes-agent.service" ];
+          };
 
           # ── hermes→node0 desktop SSH identity ──
           # Reuses the already-authorized desktop_ed25519 key so no node0
@@ -125,6 +128,7 @@
               DISCORD_BOT_TOKEN=${ph."discord-bot-token"}
               HF_TOKEN=${ph."hf-token"}
               HERMES_AUXILIARY_VISION_API_KEY=${ph."hermes-auxiliary-vision-api-key"}
+              FRIENDLI_API_KEY=${ph."friendli-api-key"}
             '';
           };
 

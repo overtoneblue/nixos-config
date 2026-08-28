@@ -100,7 +100,32 @@
                 "zai-org/GLM-5.2-NVFP4"
               ];
             }
+            {
+              name = "FriendliAI";
+              base_url = "https://api.friendli.ai/serverless/v1";
+              key_env = "FRIENDLI_API_KEY";
+              model = "zai-org/GLM-5.2";
+              api_mode = "chat_completions";
+              models = [
+                "zai-org/GLM-5.2"
+                "zai-org/GLM-5.3-Flash"
+                "deepseek-ai/DeepSeek-V3.2"
+                "google/gemma-4-31B-it"
+                "MiniMaxAI/MiniMax-M2.5"
+              ];
+            }
           ];
+          # Direct alias so `/model friendli` resolves to FriendliAI's GLM-5.2
+          # from any surface (TUI, Telegram, gateway). provider=custom routes
+          # through the OpenAI-compatible custom profile; the matching
+          # custom_providers entry supplies base_url + FRIENDLI_API_KEY.
+          model_aliases = {
+            friendli = {
+              model = "zai-org/GLM-5.2";
+              provider = "custom";
+              base_url = "https://api.friendli.ai/serverless/v1";
+            };
+          };
           mcp_servers.computer-use-linux.enabled = true;
           # Route through the Nix-managed `desktop` bridge (head-side wrapper
           # that SSHes to node0 and execs `desktop-session computer-use-linux
