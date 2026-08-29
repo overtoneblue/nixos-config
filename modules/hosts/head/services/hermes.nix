@@ -11,6 +11,36 @@
         inputs.hermes-agent.nixosModules.default
       ];
 
+      # Hermes's agent-browser backend (local spawning and CDP attach) invokes
+      # upstream dynamically-linked binaries. NixOS's default stub loader
+      # rejects them before Hermes can use its accessibility-tree browser API.
+      # This mirrors the known-good node0 runtime set without adding a display
+      # manager, browser service, or network listener to head.
+      programs.nix-ld = {
+        enable = true;
+        libraries = with pkgs; [
+          stdenv.cc.cc
+          zlib
+          glib
+          dbus
+          libGL
+          libxkbcommon
+          fontconfig
+          freetype
+
+          libx11
+          libxext
+          libxrender
+          libxrandr
+          libxi
+          libxtst
+          libxfixes
+          libxcursor
+          libxinerama
+          libxcb
+        ];
+      };
+
       # ── Trusted admins / shared state access ─────────────────────────
       # overtoneblue gets the hermes group so plain `hermes` commands share
       # the recovered state (2770 hermes:hermes) without sudo -u hermes.
