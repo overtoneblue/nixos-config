@@ -87,6 +87,8 @@
         self.nixosModules.headSops
         self.nixosModules.headHermes
         self.nixosModules.headOpenCode
+        self.nixosModules.headJellyfin
+        self.nixosModules.headNginxProxy
         self.nixosModules.base
         self.nixosModules.network
         self.nixosModules.nix-settings
@@ -101,6 +103,8 @@
       networking = {
         hostName = "head";
         firewall.allowPing = true;
+        # Hermes dashboard — LAN access on port 9119 (requested 2026-08-25)
+        firewall.allowedTCPPorts = [ 9119 ];
       };
 
       services.logind.settings.Login = {

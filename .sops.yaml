@@ -14,3 +14,8 @@ creation_rules:
     # regardless of key name. Keys stay plaintext (for readability); values
     # become ENC[AES256_GCM,...].
     encrypted_regex: "^.*$"
+  - path_regex: ^secrets/head-cf\.yaml$
+    age: >-
+      age13cyhhsjtlwtkz7n4r2gn6hwtxr0tch6590xe5w6ufyl0anjvaqksqydm98,
+      age1s7llmjhyd63jku8aectedt56vpqq0kafmhrp4suruqnl48mfducs6fxp02
+    encrypted_regex: "^.*$"
