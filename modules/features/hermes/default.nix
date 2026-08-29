@@ -211,6 +211,12 @@
         desktopSession
         computerUseLinux
         chromium
+        # Hermes Desktop (Electron) app — CLIENT ONLY on node0. The
+        # gateway/agent runtime stays on head; the app must be connected to
+        # head's gateway via remote mode (dashboard URL or SSH remote mode).
+        # Never use the app's local backend here: it would spawn a second
+        # agent runtime on node0.
+        inputs.hermes-agent.packages.${pkgs.system}.desktop
         # Native Wayland computer-use: expose the Hermes CLI (computer_use /
         # cua-driver) inside the graphical session. The upstream hermes-agent
         # module only installs the CLI when `services.hermes-agent.enable` is
