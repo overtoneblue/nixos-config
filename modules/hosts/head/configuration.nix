@@ -9,11 +9,34 @@
       ...
     }:
     let
-      # Passwordless single-command deployment wrapper. Root-owned (nix
-      # store), fixed action, and user-supplied arguments are never
-      # forwarded — sole action below.
+      # Passwordless deployment wrapper. Root-owned (Nix store), fixed target,
+      # and a deliberately tiny action surface: only switch, boot, or test.
+      # Arbitrary user-supplied flags are rejected instead of being forwarded.
       headRebuild = pkgs.writeShellScriptBin "head-rebuild" ''
-        exec ${lib.getExe config.programs.nh.package} os switch \
+        set -eu
+
+        case "$#" in
+          0)
+            mode=switch
+            ;;
+          1)
+            case "$1" in
+              switch|boot|test)
+                mode="$1"
+                ;;
+              *)
+                echo "usage: head-rebuild [switch|boot|test]" >&2
+                exit 64
+                ;;
+            esac
+            ;;
+          *)
+            echo "usage: head-rebuild [switch|boot|test]" >&2
+            exit 64
+            ;;
+        esac
+
+        exec ${lib.getExe config.programs.nh.package} os "$mode" \
           /srv/nixos-config#head \
           --elevation-strategy none \
           --bypass-root-check \
@@ -190,13 +213,26 @@
           ];
         }
         {
-          # Interactive admin (overtoneblue): unchanged — keep its existing
-          # narrow NOPASSWD grant for the exact deploy command.
+          # Use the stable system-profile path: sudo matches the invoked
+          # symlink path, not the immutable /nix/store target it resolves to.
+          # In sudoers, an argument string of "" means exactly no arguments.
           users = [ "overtoneblue" ];
           runAs = "root";
           commands = [
             {
-              command = "${headRebuild}/bin/head-rebuild ''";
+              command = "/run/current-system/sw/bin/head-rebuild \"\"";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/head-rebuild switch";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/head-rebuild boot";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/head-rebuild test";
               options = [ "NOPASSWD" ];
             }
           ];
