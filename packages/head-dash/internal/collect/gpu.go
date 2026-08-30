@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -80,9 +81,9 @@ func startIGPU() {
 	})
 }
 
-// igpuLoop spawns intel_gpu_top, decodes the concatenated JSON stream from its
-// stdout pipe sample-by-sample into the cache, and respawns the process (with a
-// 1s backoff) whenever it exits. stderr is captured to classify permission
+// igpuLoop spawns intel_gpu_top, decodes the JSON-array stream from its stdout
+// pipe sample-by-sample into the cache, and respawns the process (with a 1s
+// backoff) whenever it exits. stderr is captured to classify permission
 // errors as the "needs root" degradation.
 func igpuLoop() {
 	backoff := time.Second
@@ -102,21 +103,42 @@ func igpuLoop() {
 			continue
 		}
 
-		dec := json.NewDecoder(stdout)
-		for {
-			var s igpuSample
-			if derr := dec.Decode(&s); derr != nil {
-				break
-			}
-			setIgpuSample(s)
-		}
+		_ = decodeIGPUSamples(stdout, setIgpuSample)
 		_ = cmd.Wait()
 
 		if strings.Contains(strings.ToLower(errBuf.String()), "permission denied") {
-			setIgpuNote("engine busy: needs root — run with sudo")
+			setIgpuNote("needs root — run with sudo")
 		}
 		time.Sleep(backoff)
 	}
+}
+
+// decodeIGPUSamples consumes one intel_gpu_top -J stream and calls fn for each
+// decoded sample. Unlike a bare Decode-per-read (which would block waiting for
+// the array terminator and never yield on a live host), intel_gpu_top -J emits
+// a JSON ARRAY: it prints "[" first, then concatenated sample objects, and "]"
+// (or EOF) only at process exit. So the opening bracket is consumed with
+// dec.Token(), samples are drained while dec.More(), and the closing "]"
+// /stream end are absorbed before returning.
+func decodeIGPUSamples(r io.Reader, fn func(igpuSample)) error {
+	dec := json.NewDecoder(r)
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if delim, ok := tok.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("intel_gpu_top stream: expected '[', got %v", tok)
+	}
+	for dec.More() {
+		var s igpuSample
+		if err := dec.Decode(&s); err != nil {
+			return err
+		}
+		fn(s)
+	}
+	// Absorb the closing "]" (or the EOF that follows the stream end).
+	_, err = dec.Token()
+	return err
 }
 
 // classifySpawnError maps an exec/start failure to a degradation hint.
@@ -130,7 +152,7 @@ func classifySpawnError(err error) string {
 		strings.Contains(lower, "no such file"):
 		return "needs intel-gpu-tools"
 	case strings.Contains(lower, "permission denied"):
-		return "engine busy: needs root — run with sudo"
+		return "needs root — run with sudo"
 	default:
 		return ""
 	}

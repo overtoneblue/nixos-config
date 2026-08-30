@@ -405,6 +405,8 @@ func renderGPU(t *Theme, width int, d collect.Data, compact bool) string {
 	g := d.GPUs[0]
 	var b strings.Builder
 	b.WriteString(t.bright().Render(truncate(g.Label, 14)))
+
+	// Degradation (missing/failed probe): title + a status line only, no data.
 	if !g.OK {
 		err := g.Err
 		if err == "" {
@@ -413,26 +415,36 @@ func renderGPU(t *Theme, width int, d collect.Data, compact bool) string {
 		b.WriteString("\n  " + t.warn().Render(err))
 		return panel(t, "gpu", width, b.String())
 	}
-	// Compact collapses the panel to title + a single row: real engine numbers
-	// (or a "warming up…" placeholder before the first sample) plus any status
-	// suffix, dropping the separate degradation line.
-	line := engineLine(g)
-	b.WriteString("\n  " + line)
-	if !compact {
-		if g.EngineNote != "" && g.EngineNote != "warming up…" {
-			b.WriteString("\n  " + t.dimText().Render(g.EngineNote))
+
+	// Before the first JSON sample arrives: show "warming up…" as the status and
+	// never fake zeroed engine numbers. Compact collapses to a single row.
+	if g.EngineNote == "warming up…" {
+		b.WriteString("\n  " + t.dimText().Render("warming up…"))
+		return panel(t, "gpu", width, b.String())
+	}
+
+	data := engineLine(g)
+	if compact {
+		// Tight height: title + one merged row (data, plus any status suffix).
+		if note := g.EngineNote; note != "" {
+			data += " · " + note
 		}
+		b.WriteString("\n  " + data)
+		return panel(t, "gpu", width, b.String())
+	}
+
+	// Uncompressed: title + data row, then a second line ONLY for status.
+	b.WriteString("\n  " + data)
+	if note := g.EngineNote; note != "" {
+		b.WriteString("\n  " + t.dimText().Render(note))
 	}
 	return panel(t, "gpu", width, b.String())
 }
 
-// engineLine formats the GPU engine summary as a single display line. Before the
-// first JSON sample arrives (EngineNote == "warming up…") it shows that status
-// instead of rendering zeroed engine numbers.
+// engineLine formats the GPU data row (freq · render · video · rc6, plus power
+// and the busiest client when present). It returns only the real numbers; any
+// status ("warming up…" / degradation) is rendered separately by renderGPU.
 func engineLine(g collect.GPU) string {
-	if g.EngineNote == "warming up…" {
-		return "warming up…"
-	}
 	var parts []string
 	if g.HasFreq {
 		parts = append(parts, fmt.Sprintf("freq %d/%dMHz", g.FreqCur, g.FreqMax))
@@ -442,7 +454,7 @@ func engineLine(g collect.GPU) string {
 	parts = append(parts, fmt.Sprintf("rc6 %.0f%%", g.RC6Pct))
 	line := strings.Join(parts, " · ")
 	if g.HasPower {
-		line += fmt.Sprintf(" · gpu %.2f pkg %.2f", g.GPUPowerW, g.PkgPowerW)
+		line += fmt.Sprintf(" · gpu %.2fW pkg %.2fW", g.GPUPowerW, g.PkgPowerW)
 	}
 	if g.HasClients {
 		line += fmt.Sprintf(" · %s %d%%", g.Client, g.ClientBusy)

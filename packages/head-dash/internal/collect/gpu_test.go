@@ -45,3 +45,35 @@ func TestBusiestClient(t *testing.T) {
 		t.Errorf("busiest client = %q %d%%, want wanting 88%%", name, busy)
 	}
 }
+
+// TestDecodeIGPUArrayStream guards the array form of intel_gpu_top -J: the tool
+// prints a literal "[" first, then concatenated sample objects, and "]" only at
+// process exit. The decoder must consume the opening bracket, drain every sample
+// via More(), and stop cleanly at the closing "]".
+func TestDecodeIGPUArrayStream(t *testing.T) {
+	fixture := `[` + gpuFixture + `,{"frequency":{"requested":0,"actual":0},"rc6":{"value":50.0},"power":{"GPU":0.5,"Package":1.5},"engines":{"Render/3D":{"busy":25}},"clients":{}}]`
+	var got []igpuSample
+	if err := decodeIGPUSamples(strings.NewReader(fixture), func(s igpuSample) { got = append(got, s) }); err != nil {
+		t.Fatalf("decode array stream: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("decoded %d samples, want 2", len(got))
+	}
+	if got[0].RC6.Value != 99.98 {
+		t.Errorf("sample 0 rc6 = %v, want 99.98", got[0].RC6.Value)
+	}
+	if got[1].RC6.Value != 50.0 {
+		t.Errorf("sample 1 rc6 = %v, want 50.0", got[1].RC6.Value)
+	}
+	if render := enginePct(got[1], "Render/3D"); render != 25 {
+		t.Errorf("sample 1 render = %d%%, want 25%%", render)
+	}
+}
+
+// TestDecodeIGPURejectsNonArray ensures a bare object stream (not emitted by
+// intel_gpu_top -J) is rejected rather than misparsed.
+func TestDecodeIGPURejectsNonArray(t *testing.T) {
+	if err := decodeIGPUSamples(strings.NewReader(gpuFixture), func(igpuSample) {}); err == nil {
+		t.Fatal("expected error for non-array stream")
+	}
+}

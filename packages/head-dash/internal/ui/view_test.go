@@ -119,6 +119,90 @@ func TestGPUCompactSingleRow(t *testing.T) {
 	}
 }
 
+// TestGPUUncompressedDataRow ensures the tall (non-compact) GPU panel renders the
+// freq/engine data row, with any status shown only as a separate following line.
+func TestGPUUncompressedDataRow(t *testing.T) {
+	tm := NewTheme(false)
+	d := sampleData()
+	got := renderGPU(tm, 120, d, false)
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	if !strings.Contains(lines[3], "freq 1250/1300MHz") ||
+		!strings.Contains(lines[3], "render 42%") ||
+		!strings.Contains(lines[3], "video 1%") ||
+		!strings.Contains(lines[3], "rc6") {
+		t.Fatalf("uncompressed gpu data row missing; got %q", lines[3])
+	}
+	// Power and client are appended to the data row (no separate status).
+	if !strings.Contains(lines[3], "gpu 0.01W pkg 3.44W") ||
+		!strings.Contains(lines[3], "ffmpeg 12%") {
+		t.Fatalf("uncompressed gpu power/client missing; got %q", lines[3])
+	}
+	if len(lines) != 5 {
+		t.Fatalf("uncompressed healthy gpu rows = %d, want 5; got %q", len(lines), got)
+	}
+
+	// With a degradation note set, uncompressed adds a second status-only line.
+	d2 := sampleData()
+	d2.GPUs[0].OK = true
+	d2.GPUs[0].EngineNote = "needs intel-gpu-tools"
+	g2 := renderGPU(tm, 120, d2, false)
+	l2 := strings.Split(strings.TrimRight(g2, "\n"), "\n")
+	if len(l2) != 6 {
+		t.Fatalf("uncompressed gpu with status rows = %d, want 6; got %q", len(l2), g2)
+	}
+	if !strings.Contains(l2[4], "needs intel-gpu-tools") {
+		t.Fatalf("status not on its own line; got %q", l2[4])
+	}
+	if strings.Contains(l2[3], "warming up…") {
+		t.Fatalf("data row should not contain status; got %q", l2[3])
+	}
+}
+
+// TestGPUWarmingUpNoZeroedData guards the "before first sample" rule: the status
+// is shown as "warming up…" and no fake zeroed engine numbers are rendered in
+// either the uncompressed or the compressed path.
+func TestGPUWarmingUpNoZeroedData(t *testing.T) {
+	tm := NewTheme(false)
+	warm := collect.GPU{Label: "Iris Xe (iGPU)", OK: true, EngineNote: "warming up…"}
+	d := collect.Data{}
+	d.GPUs = []collect.GPU{warm}
+
+	for _, compact := range []bool{false, true} {
+		got := renderGPU(tm, 60, d, compact)
+		lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+		// title border, title, label, status row, bottom border = 5 lines.
+		if len(lines) != 5 {
+			t.Fatalf("compact=%v: warming gpu rows = %d, want 5; got %q", compact, len(lines), got)
+		}
+		if !strings.Contains(lines[3], "warming up…") {
+			t.Fatalf("compact=%v: missing warming up status; got %q", compact, lines[3])
+		}
+		for _, bad := range []string{"render 0%", "video 0%", "freq 0/", "rc6"} {
+			if strings.Contains(lines[3], bad) {
+				t.Fatalf("compact=%v: rendered fake zeroed data %q; got %q", compact, bad, lines[3])
+			}
+		}
+	}
+}
+
+// TestGPUCompactStatusSuffix ensures the compressed path folds data and a status
+// suffix into a single merged row, never a separate status line.
+func TestGPUCompactStatusSuffix(t *testing.T) {
+	tm := NewTheme(false)
+	d := sampleData()
+	d.GPUs[0].OK = true
+	d.GPUs[0].EngineNote = "needs intel-gpu-tools"
+	got := renderGPU(tm, 120, d, true)
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("compact gpu rows = %d, want 5; got %q", len(lines), got)
+	}
+	if !strings.Contains(lines[3], "render 42%") ||
+		!strings.Contains(lines[3], "· needs intel-gpu-tools") {
+		t.Fatalf("compact gpu merged data+status missing; got %q", lines[3])
+	}
+}
+
 func TestBarNeverPanics(t *testing.T) {
 	tm := NewTheme(false)
 	for _, w := range []int{0, 1, 4, 40} {
