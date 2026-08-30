@@ -29,8 +29,7 @@ func sampleData() collect.Data {
 		Mem:    collect.Mem{Total: 16 << 30, Used: 6 << 30, Available: 10 << 30, UsedPct: 37.5, OK: true},
 		Swap:   collect.Mem{Total: 0, OK: false, Err: "no swap configured"},
 		GPUs: []collect.GPU{
-			{Card: "card0", Label: "DG1 (discrete)", TempC: 63, HasTemp: true, PowerW: 12, HasPower: true, EngineBusy: "Render 0% · Video 1%", OK: true},
-			{Card: "card1", Label: "iGPU", OK: true, Err: "no hwmon temp/power exposed"},
+			{Label: "Iris Xe (iGPU)", FreqCur: 1250, FreqMax: 1300, HasFreq: true, RenderBusy: 42, VideoBusy: 1, RC6Pct: 99.5, HasPower: true, GPUPowerW: 0.014, PkgPowerW: 3.44, Client: "ffmpeg", ClientBusy: 12, HasClients: true, OK: true},
 		},
 		Docker: collect.Docker{OK: true, Containers: []collect.Container{
 			{Name: "jellyfin", Image: "jellyfin/jellyfin:unstable", State: "running", Status: "Up 3 days", CPU: 12.5, MemPct: 34.2, HasStats: true},
@@ -46,6 +45,15 @@ func sampleData() collect.Data {
 			{Label: "user", Path: "/mnt/user", Total: 12 << 40, Used: 3 << 40, Avail: 9 << 40, UsedPct: 25, Mounted: true},
 			{Label: "disk3", Path: "/mnt/disk3", Err: "not mounted"},
 		},
+	}
+}
+
+func TestDockerHeaderLabel(t *testing.T) {
+	tm := NewTheme(false)
+	d := sampleData()
+	got := renderDocker(tm, 60, d)
+	if !strings.Contains(got, "cpu% (per-core)") {
+		t.Fatalf("docker header missing; got %q", got)
 	}
 }
 

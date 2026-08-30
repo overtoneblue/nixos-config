@@ -274,58 +274,68 @@ func renderMem(t *Theme, width int, d collect.Data) string {
 
 func renderGPU(t *Theme, width int, d collect.Data) string {
 	if len(d.GPUs) == 0 {
-		return panel(t, "gpu", width, unavailable(t, "no cards discovered"))
+		return panel(t, "gpu", width, unavailable(t, "no iGPU discovered"))
 	}
-	var lines []string
-	for _, g := range d.GPUs {
-		var b strings.Builder
-		label := t.bright().Render(g.Card) + "  " + t.dimText().Render(truncate(g.Label, 14))
-		b.WriteString(label)
-		if g.OK {
-			if g.HasTemp {
-				b.WriteString(t.dimText().Render("  " + fmt.Sprintf("%.0f°C", g.TempC)))
-			} else {
-				b.WriteString(t.dimText().Render("  temp n/a"))
-			}
-			if g.HasPower {
-				b.WriteString(t.dimText().Render(fmt.Sprintf("  %.0fW", g.PowerW)))
-			}
-			if g.EngineBusy != "" {
-				b.WriteString("\n    " + t.dimText().Render("engine: ") + t.warn().Render(g.EngineBusy))
-			}
-			if g.EngineNote != "" {
-				b.WriteString("\n    " + t.dimText().Render(g.EngineNote))
-			}
-		} else {
-			b.WriteString(t.dimText().Render("  " + g.Err))
+	g := d.GPUs[0]
+	var b strings.Builder
+	b.WriteString(t.bright().Render(truncate(g.Label, 14)))
+	if !g.OK {
+		err := g.Err
+		if err == "" {
+			err = "unavailable"
 		}
-		lines = append(lines, b.String())
+		b.WriteString("\n  " + t.warn().Render(err))
+		return panel(t, "gpu", width, b.String())
 	}
-	return panel(t, "gpu", width, strings.Join(lines, "\n"))
+	var parts []string
+	if g.HasFreq {
+		parts = append(parts, fmt.Sprintf("freq %d/%dMHz", g.FreqCur, g.FreqMax))
+	}
+	parts = append(parts, fmt.Sprintf("render %d%%", g.RenderBusy))
+	parts = append(parts, fmt.Sprintf("video %d%%", g.VideoBusy))
+	parts = append(parts, fmt.Sprintf("rc6 %.0f%%", g.RC6Pct))
+	line := strings.Join(parts, " · ")
+	if g.HasPower {
+		line += fmt.Sprintf(" · gpu %.2f pkg %.2f", g.GPUPowerW, g.PkgPowerW)
+	}
+	if g.HasClients {
+		line += fmt.Sprintf(" · %s %d%%", g.Client, g.ClientBusy)
+	}
+	b.WriteString("\n  " + line)
+	if g.EngineNote != "" {
+		b.WriteString("\n  " + t.dimText().Render(g.EngineNote))
+	}
+	return panel(t, "gpu", width, b.String())
 }
 
 func renderStorage(t *Theme, width int, d collect.Data) string {
-	inner := maxint(width-4, 0)
 	if len(d.Storage) == 0 {
 		return panel(t, "storage", width, unavailable(t, "no mounts sampled"))
 	}
 	var lines []string
 	for _, s := range d.Storage {
+		labelS := t.bright().Render(truncate(s.Label, 6))
 		if !s.Mounted {
-			lines = append(lines, t.bright().Render(truncate(s.Label, 6))+"  "+t.dimText().Render(s.Err))
+			lines = append(lines, labelS+"  "+t.dimText().Render(s.Err))
 			continue
 		}
-		labelS := t.bright().Render(truncate(s.Label, 6))
-		rightS := t.dimText().Render(fmt.Sprintf("%s/%s %.0f%% · %s free",
-			humanBytes(s.Used), humanBytes(s.Total), s.UsedPct, humanBytes(s.Avail)))
-		barW := inner - lipgloss.Width(labelS) - lipgloss.Width(rightS) - 2
-		if barW < 1 {
-			barW = 1
-		}
-		bar := t.levelBar(s.UsedPct, barW, t.storageLevel(s.UsedPct))
-		lines = append(lines, labelS+" "+bar+" "+rightS)
+		// Fixed track: label(6) + 24 fill cells, then right-aligned text
+		// columns (used/total ~16, pct ~5) so all rows align.
+		bar := t.levelBar(s.UsedPct, 24, t.storageLevel(s.UsedPct))
+		usedTotal := padLeft(fmt.Sprintf("%s/%s", humanBytes(s.Used), humanBytes(s.Total)), 16)
+		pctS := padLeft(fmt.Sprintf("%.0f%%", s.UsedPct), 5)
+		free := t.dimText().Render("· " + humanBytes(s.Avail) + " free")
+		lines = append(lines, labelS+" "+bar+" "+usedTotal+" "+pctS+" "+free)
 	}
 	return panel(t, "storage", width, strings.Join(lines, "\n"))
+}
+
+// padLeft left-pads s with spaces to at least width display columns.
+func padLeft(s string, width int) string {
+	if n := width - lipgloss.Width(s); n > 0 {
+		return strings.Repeat(" ", n) + s
+	}
+	return s
 }
 
 func renderDocker(t *Theme, width int, d collect.Data) string {
@@ -337,6 +347,7 @@ func renderDocker(t *Theme, width int, d collect.Data) string {
 		return panel(t, "docker", width, t.dimText().Render("no running containers"))
 	}
 	var lines []string
+	lines = append(lines, t.dimText().Render("cpu% (per-core)  mem%"))
 	for _, c := range d.Docker.Containers {
 		dot := t.ok().Render("●")
 		switch c.State {
