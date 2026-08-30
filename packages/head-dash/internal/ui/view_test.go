@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"head-dash/internal/collect"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // sampleData returns a fully-populated snapshot with both healthy and
@@ -72,4 +74,59 @@ func TestBarNeverPanics(t *testing.T) {
 	}
 	tm = NewTheme(true)
 	_ = tm.bar(50, 10)
+}
+
+// TestTruncateIsDisplayWidthAware guards the interactive-TTY regression where
+// styled (ANSI) content was measured by rune count instead of display width and
+// got chopped to a few characters (" total ░", "● jellyfin  c…", a single
+// sparkline block) while the panel borders still spanned the full width.
+func TestTruncateIsDisplayWidthAware(t *testing.T) {
+	tm := NewTheme(false)
+
+	// A fully-styled full-width cpu bar line: many visible cells, far more
+	// runes than cells once 24-bit color codes are inline.
+	inner := 62
+	labelS := tm.bright().Render(truncate("total", 6))
+	rightS := tm.dimText().Render("6%")
+	barW := inner - lipgloss.Width(labelS) - lipgloss.Width(rightS) - 2
+	line := labelS + " " + tm.bar(42, barW) + " " + rightS
+
+	if w := lipgloss.Width(line); w != inner {
+		t.Fatalf("test setup: bar line display width = %d, want %d", w, inner)
+	}
+	if got := truncate(line, inner); got != line {
+		t.Fatalf("truncate chopped a line that already fits: got width=%d want %d", lipgloss.Width(got), inner)
+	}
+	// It must cut the over-wide bar line to exactly inner cells, not to a
+	// handful of runes, and must keep the ANSI sequences intact.
+	cut := truncate(line, 20)
+	if w := lipgloss.Width(cut); w != 20 {
+		t.Fatalf("truncate to 20 gave width %d, want 20", w)
+	}
+
+	// Docker-style row: "● <name>  cpu x.x% mem y.y%" must survive untouched at
+	// panel width, and a genuinely-narrow panel must trim to the panel.
+	dot := tm.ok().Render("●")
+	row := dot + " " + tm.bright().Render("jellyfin") + "  " + "cpu 12.5% mem 34.2%"
+	if got := truncate(row, 62); got != row {
+		t.Fatalf("docker row chopped though it fits: width=%d", lipgloss.Width(got))
+	}
+	narrow := truncate(row, 16)
+	if w := lipgloss.Width(narrow); w > 16 {
+		t.Fatalf("narrow truncate exceeded width: %d", w)
+	}
+}
+
+// TestTruncatePlainStillWorks ensures the no-color/plain path keeps the
+// previous semantics (trim by columns, ellipsis on overflow).
+func TestTruncatePlainStillWorks(t *testing.T) {
+	if got := truncate("jellyfin", 5); got != "jell…" {
+		t.Fatalf("truncate plain: got %q", got)
+	}
+	if got := truncate("short", 100); got != "short" {
+		t.Fatalf("truncate short no-op: got %q", got)
+	}
+	if got := truncate("x", 0); got != "" {
+		t.Fatalf("truncate width 0: got %q", got)
+	}
 }

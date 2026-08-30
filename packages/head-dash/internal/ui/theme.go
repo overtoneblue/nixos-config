@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Theme bundles all styling for one render pass.
@@ -199,19 +200,22 @@ func (t *Theme) levelBar(pct float64, width int, c lipgloss.Color) string {
 	return b.String()
 }
 
-// truncate keeps s at most width runes, adding an ellipsis when trimmed.
+// truncate keeps s to at most width display columns, adding an ellipsis when
+// trimmed. It is ANSI-aware: styled strings are measured by their visible cell
+// width (not byte/rune length) and escape sequences are never broken, so it is
+// safe on fully-styled panel content in color terminals. In no-color / plain
+// output the visible width equals the rune count, so behavior is unchanged.
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	r := []rune(s)
-	if len(r) <= width {
+	if width == 1 {
+		if lipgloss.Width(s) > 1 {
+			return "…"
+		}
 		return s
 	}
-	if width <= 1 {
-		return s[:1]
-	}
-	return string(r[:width-1]) + "…"
+	return ansi.Truncate(s, width, "…")
 }
 
 func clampf(v, lo, hi float64) float64 {

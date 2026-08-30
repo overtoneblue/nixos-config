@@ -215,7 +215,8 @@ func renderCPU(t *Theme, width int, d collect.Data) string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(t.dimText().Render("top 5 (per-core %)\n"))
+	b.WriteString(t.dimText().Render("top 5 (per-core %)"))
+	b.WriteString("\n")
 	if len(d.CPU.Top) == 0 {
 		b.WriteString("  " + t.dimText().Render("sampling…"))
 	} else {
@@ -337,7 +338,6 @@ func renderDocker(t *Theme, width int, d collect.Data) string {
 	}
 	var lines []string
 	for _, c := range d.Docker.Containers {
-		name := truncate(c.Name, 18)
 		dot := t.ok().Render("●")
 		switch c.State {
 		case "exited", "dead":
@@ -345,13 +345,24 @@ func renderDocker(t *Theme, width int, d collect.Data) string {
 		case "paused":
 			dot = t.warn().Render("◐")
 		}
-		stats := ""
+		var stats string
 		if c.HasStats {
 			stats = fmt.Sprintf("cpu %.1f%% mem %.1f%%", c.CPU, c.MemPct)
 		} else {
-			stats = t.dimText().Render("stats n/a")
+			stats = "stats n/a"
 		}
-		line := fmt.Sprintf("%s %s  %s", dot, t.bright().Render(name), truncate(stats, maxint(inner-24, 0)))
+		// Fixed chrome: status dot (1 col), a space after it, two spaces
+		// before the stats. Give everything else to the name and only
+		// truncate that, so the full "cpu x.x% mem y.y%" row shows whenever
+		// it fits; the panel-level truncate handles genuinely narrow widths.
+		fixed := 4
+		nameW := maxint(inner-fixed-lipgloss.Width(stats), 4)
+		line := dot + " " + t.bright().Render(truncate(c.Name, nameW)) + "  "
+		if c.HasStats {
+			line += stats
+		} else {
+			line += t.dimText().Render(stats)
+		}
 		lines = append(lines, line)
 	}
 	return panel(t, "docker", width, strings.Join(lines, "\n"))
