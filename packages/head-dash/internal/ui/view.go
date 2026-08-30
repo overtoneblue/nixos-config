@@ -314,8 +314,15 @@ func renderStorage(t *Theme, width int, d collect.Data) string {
 			lines = append(lines, t.bright().Render(truncate(s.Label, 6))+"  "+t.dimText().Render(s.Err))
 			continue
 		}
-		lines = append(lines, barLine(t, inner, s.Label, s.UsedPct,
-			fmt.Sprintf("%s/%s %.0f%%", humanBytes(s.Used), humanBytes(s.Total), s.UsedPct)))
+		labelS := t.bright().Render(truncate(s.Label, 6))
+		rightS := t.dimText().Render(fmt.Sprintf("%s/%s %.0f%% · %s free",
+			humanBytes(s.Used), humanBytes(s.Total), s.UsedPct, humanBytes(s.Avail)))
+		barW := inner - lipgloss.Width(labelS) - lipgloss.Width(rightS) - 2
+		if barW < 1 {
+			barW = 1
+		}
+		bar := t.levelBar(s.UsedPct, barW, t.storageLevel(s.UsedPct))
+		lines = append(lines, labelS+" "+bar+" "+rightS)
 	}
 	return panel(t, "storage", width, strings.Join(lines, "\n"))
 }
@@ -444,7 +451,7 @@ func renderOpenCode(t *Theme, width int, d collect.Data) string {
 			b.WriteString("\n  " + t.dimText().Render(oc.Err))
 		}
 	}
-	return panel(t, "agents", width, truncate(b.String(), inner))
+	return panel(t, "opencode", width, truncate(b.String(), inner))
 }
 
 // ── Formatting helpers ───────────────────────────────────────────────────

@@ -26,13 +26,16 @@ func main() {
 	col := collect.NewCollector(0)
 
 	if *once {
-		// Warm up baselines, then let a tick elapse so the frame carries real
-		// CPU/process deltas rather than all-zero values.
+		// Warm up baselines, then take two samples a few hundred ms apart so
+		// the single rendered frame carries real CPU/process/docker deltas
+		// (the process's own activity between the two samples shows up as a
+		// non-zero top-process CPU% instead of all-zero values).
 		col.Warmup(context.Background())
-		time.Sleep(time.Second)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
-		d := col.Collect(ctx)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		col.Collect(ctx) // first sample (baseline for deltas)
+		time.Sleep(350 * time.Millisecond)
+		d := col.Collect(ctx) // second sample: deltas vs the first
 		cancel()
 
 		fmt.Println(ui.RenderOnce(d, 120, 36, *noColor, *interval, false))

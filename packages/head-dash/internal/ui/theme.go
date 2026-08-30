@@ -114,6 +114,20 @@ func (t *Theme) levelColor(pct float64) lipgloss.Color {
 	}
 }
 
+// storageLevel maps a storage usage percentage onto a bar colour: red when the
+// array is effectively full (>=95%), amber when it is getting tight (>=85%),
+// green otherwise.
+func (t *Theme) storageLevel(pct float64) lipgloss.Color {
+	switch {
+	case pct >= 95:
+		return t.red
+	case pct >= 85:
+		return t.amber
+	default:
+		return t.green
+	}
+}
+
 // badge renders a small status pill.
 func (t *Theme) badge(label string, c lipgloss.Color) string {
 	if t.noColor {
@@ -155,6 +169,31 @@ func (t *Theme) bar(pct float64, width int) string {
 		default:
 			content := t.dimText().Render("░")
 			b.WriteString(content)
+		}
+	}
+	return b.String()
+}
+
+// levelBar renders a single-colour usage bar: `filled` cells of the given
+// colour over a dim free background. pct is 0..100.
+func (t *Theme) levelBar(pct float64, width int, c lipgloss.Color) string {
+	if width <= 0 {
+		return ""
+	}
+	filled := int(clampf(pct, 0, 100) / 100 * float64(width))
+	if filled > width {
+		filled = width
+	}
+	if t.noColor {
+		return strings.Repeat("#", filled) + strings.Repeat("-", width-filled)
+	}
+	fg := t.fg(c)
+	var b strings.Builder
+	for i := 0; i < width; i++ {
+		if i < filled {
+			b.WriteString(fg.Render("█"))
+		} else {
+			b.WriteString(t.dimText().Render("░"))
 		}
 	}
 	return b.String()

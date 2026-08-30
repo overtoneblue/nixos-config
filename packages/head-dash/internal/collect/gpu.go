@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,8 +26,6 @@ type GPU struct {
 	OK          bool
 	Err         string
 }
-
-var engBusyRe = regexp.MustCompile(`([A-Za-z][\w/]*)\s+busy:\s*(\d+)%`)
 
 func (c *Collector) collectGPU(ctx context.Context, d *Data) {
 	gpus := make([]GPU, 0, 2)
@@ -121,11 +117,17 @@ func (c *Collector) readCardHWMon(ctx context.Context, card string) GPU {
 }
 
 // scrapeGPUEngines runs `timeout 2 intel_gpu_top -s 1000 -o -` and returns a
-// summary of the busiest engines from the last dump block. ok=false means no
-// usable engine data; the returned note explains why (root required, tool
-// missing, ...).
+// summary of engine utilisation from the last emitted data row. The tool emits
+// a header + periodic table rows even when stdout is not a terminal (verified
+// with `-o -`), so parsing must not require a TTY. ok=false means no usable
+// engine data; the returned note explains why (root required, tool missing, ...).
 func (c *Collector) scrapeGPUEngines(ctx context.Context) (summary, note string, ok bool) {
 	out, err := runCmd(ctx, 2*time.Second, "timeout", "2", "intel_gpu_top", "-s", "1000", "-o", "-")
+	// The command exits non-zero when `timeout` kills it after 2s even though
+	// it already printed usable rows, so prefer parsing the output over err.
+	if s, found := parseGPUEngines(out); found {
+		return s, "", true
+	}
 	if err != nil {
 		lower := strings.ToLower(err.Error() + " " + out)
 		switch {
@@ -141,30 +143,52 @@ func (c *Collector) scrapeGPUEngines(ctx context.Context) (summary, note string,
 			return "", "engine busy: unavailable", false
 		}
 	}
+	return "", "engine busy: no engine data", false
+}
 
-	type eng struct {
-		name string
-		pct  int
-	}
-	var found []eng
-	seen := map[string]bool{}
-	for _, m := range engBusyRe.FindAllStringSubmatch(out, -1) {
-		name := m[1]
-		if seen[name] {
+// parseGPUEngines extracts engine utilisation from intel_gpu_top's non-TTY
+// table output. Each periodic row has 16 numeric fields:
+//
+//	freq-req freq-act irq/s rc6% | RCS busy se wa | BCS busy se wa | VCS busy se wa | VECS busy se wa
+//
+// RCS is render, VCS is video decode, VECS is video encode; RC6 is the
+// deep-sleep idle state. Only the last complete data row is used.
+func parseGPUEngines(out string) (string, bool) {
+	var last []string
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 16 {
 			continue
 		}
-		seen[name] = true
-		if v, e := strconv.Atoi(m[2]); e == nil {
-			found = append(found, eng{name: name, pct: v})
+		allNumeric := true
+		for _, tok := range f[:16] {
+			if _, err := strconv.ParseFloat(tok, 64); err != nil {
+				allNumeric = false
+				break
+			}
+		}
+		if allNumeric {
+			last = f
 		}
 	}
-	if len(found) == 0 {
-		return "", "engine busy: no engine data", false
+	if len(last) < 16 {
+		return "", false
 	}
-	sort.Slice(found, func(i, j int) bool { return found[i].pct > found[j].pct })
-	parts := make([]string, 0, len(found))
-	for _, e := range found {
-		parts = append(parts, fmt.Sprintf("%s %d%%", e.name, e.pct))
+	return fmt.Sprintf("render %d%% · decode %d%% · encode %d%% · rc6 %d%%",
+		gpuPct(last[4]), gpuPct(last[10]), gpuPct(last[13]), gpuPct(last[3])), true
+}
+
+// gpuPct parses a percentage field, clamped to a whole percent.
+func gpuPct(field string) int {
+	v, err := strconv.ParseFloat(field, 64)
+	if err != nil {
+		return 0
 	}
-	return strings.Join(parts, " · "), "", true
+	if v < 0 {
+		v = 0
+	}
+	if v > 100 {
+		v = 100
+	}
+	return int(v)
 }

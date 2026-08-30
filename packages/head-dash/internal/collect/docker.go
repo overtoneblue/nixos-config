@@ -84,7 +84,8 @@ func (c *Collector) collectDocker(ctx context.Context, d *Data) {
 	for _, ctr := range containers {
 		name := ""
 		if len(ctr.Names) > 0 {
-			name = ctr.Names[0]
+			// The engine reports names with a leading "/" (e.g. "/jellyfin").
+			name = strings.TrimPrefix(ctr.Names[0], "/")
 		}
 		row := Container{
 			Name:   name,
