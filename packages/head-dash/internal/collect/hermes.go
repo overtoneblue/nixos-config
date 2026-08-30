@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -32,13 +33,13 @@ type hermesState struct {
 }
 
 const (
-	hermesActivityWindow = 5 * time.Second
-	hermesHoldFromDown   = 20 * time.Second
+	hermesActivityWindow = 10 * time.Second
+	hermesHoldFromDown   = 15 * time.Second
+	hermesLogTailSize    = 16 * 1024
 )
 
 const (
 	hermesLogPath = "/mnt/cache/appdata/hermes-agent/.hermes/logs/agent.log"
-	hermesDBPath  = "/mnt/cache/appdata/hermes-agent/.hermes/state.db"
 )
 
 func (c *Collector) collectHermes(ctx context.Context, d *Data) {
@@ -49,35 +50,37 @@ func (c *Collector) collectHermes(ctx context.Context, d *Data) {
 		active = strings.TrimSpace(out) == "active"
 	}
 
-	freshLog, logOK := false, false
-	if fi, err := os.Stat(hermesLogPath); err == nil {
-		logOK = true
-		freshLog = time.Since(fi.ModTime()) < hermesActivityWindow
-	}
-	freshDB, dbOK := false, false
-	if fi, err := os.Stat(hermesDBPath); err == nil {
-		dbOK = true
-		freshDB = time.Since(fi.ModTime()) < hermesActivityWindow
-	}
+	now := time.Now()
+	lastLogAct, logOK := readHermesLogActivity(hermesLogPath)
+	freshLog := logOK && !lastLogAct.IsZero() && now.Sub(lastLogAct) < hermesActivityWindow
 	freshJournal, journalOK := false, false
-	if out, err := runCmd(ctx, 3*time.Second, "journalctl", "-u", "hermes-agent", "--since=-5s", "--no-pager"); err == nil {
+	if out, err := runCmd(ctx, 3*time.Second, "journalctl", "-u", "hermes-agent", "--since=-10s", "--no-pager"); err == nil {
 		journalOK = true
-		freshJournal = countLines(out) > 0
+		for _, line := range strings.Split(out, "\n") {
+			if line != "" && !hermesHousekeeping(line) {
+				freshJournal = true
+				h.JournalLines++
+			}
+		}
 	}
 
 	st := &c.hermesSt
-	now := time.Now()
+	if !lastLogAct.IsZero() && lastLogAct.After(st.lastAct) {
+		st.lastAct = lastLogAct
+	}
 	switch {
 	case !active:
 		h.Badge = "DOWN"
 		h.HasAct = !st.lastAct.IsZero()
 		h.LastAct = st.lastAct
-	case !(logOK || dbOK || journalOK):
+	case !(logOK || journalOK):
 		h.Badge = "UNKNOWN"
 		h.HasAct = !st.lastAct.IsZero()
 		h.LastAct = st.lastAct
-	case freshLog || freshDB || freshJournal:
-		st.lastAct = now
+	case freshLog || freshJournal:
+		if freshJournal && now.After(st.lastAct) {
+			st.lastAct = now
+		}
 		st.quietSince = time.Time{}
 		h.Badge = "RUNNING"
 		h.HasAct = true
@@ -100,4 +103,45 @@ func (c *Collector) collectHermes(ctx context.Context, d *Data) {
 	}
 
 	d.Hermes = h
+}
+
+// readHermesLogActivity reads only the end of the log, where the most recent
+// meaningful event is expected. mtime is deliberately ignored: gateway memory
+// trims update it even while the agent is idle.
+func readHermesLogActivity(path string) (time.Time, bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, false
+	}
+	defer f.Close()
+
+	if fi, err := f.Stat(); err == nil && fi.Size() > hermesLogTailSize {
+		if _, err := f.Seek(-hermesLogTailSize, io.SeekEnd); err != nil {
+			return time.Time{}, false
+		}
+	}
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return newestHermesActivity(string(b)), true
+}
+
+func newestHermesActivity(log string) time.Time {
+	var newest time.Time
+	for _, line := range strings.Split(log, "\n") {
+		if hermesHousekeeping(line) || len(line) < len("2006-01-02 15:04:05,000") {
+			continue
+		}
+		at, err := time.ParseInLocation("2006-01-02 15:04:05,000", line[:23], time.Local)
+		if err == nil && at.After(newest) {
+			newest = at
+		}
+	}
+	return newest
+}
+
+func hermesHousekeeping(line string) bool {
+	return strings.Contains(line, "mem_trim") || strings.Contains(line, "housekeeping") ||
+		strings.Contains(line, "pam_unix") || strings.Contains(line, "sudo[") || strings.Contains(line, " COMMAND=")
 }

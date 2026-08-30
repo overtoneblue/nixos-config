@@ -25,9 +25,9 @@ func sampleData() collect.Data {
 				{PID: 5678, Comm: "opencode", State: 'S', CPUPct: 12.1},
 			},
 		},
-		Load:   []float64{0.5, 0.4, 0.3},
-		Mem:    collect.Mem{Total: 16 << 30, Used: 6 << 30, Available: 10 << 30, UsedPct: 37.5, OK: true},
-		Swap:   collect.Mem{Total: 0, OK: false, Err: "no swap configured"},
+		Load: []float64{0.5, 0.4, 0.3},
+		Mem:  collect.Mem{Total: 16 << 30, Used: 6 << 30, Available: 10 << 30, UsedPct: 37.5, OK: true},
+		Swap: collect.Mem{Total: 0, OK: false, Err: "no swap configured"},
 		GPUs: []collect.GPU{
 			{Label: "Iris Xe (iGPU)", FreqCur: 1250, FreqMax: 1300, HasFreq: true, RenderBusy: 42, VideoBusy: 1, RC6Pct: 99.5, HasPower: true, GPUPowerW: 0.014, PkgPowerW: 3.44, Client: "ffmpeg", ClientBusy: 12, HasClients: true, OK: true},
 		},
@@ -212,6 +212,25 @@ func TestBarNeverPanics(t *testing.T) {
 	}
 	tm = NewTheme(true)
 	_ = tm.bar(50, 10)
+}
+
+func TestPositiveBarUsageHasVisibleFill(t *testing.T) {
+	if got := NewTheme(true).levelBar(5, 20, lipgloss.Color("")); !strings.HasPrefix(got, "#") {
+		t.Fatalf("5%% storage bar has no fill: %q", got)
+	}
+}
+
+func TestStorageLabelsUseFixedWidth(t *testing.T) {
+	d := sampleData()
+	d.Storage = []collect.Storage{
+		{Label: "user", Total: 100, Used: 5, Avail: 95, UsedPct: 5, Mounted: true},
+		{Label: "cache", Total: 100, Used: 95, Avail: 5, UsedPct: 95, Mounted: true},
+	}
+	got := renderStorage(NewTheme(true), 80, d)
+	lines := strings.Split(got, "\n")
+	if !strings.Contains(lines[2], "user   #") || !strings.Contains(lines[3], "cache  #") {
+		t.Fatalf("storage tracks do not align: %q", got)
+	}
 }
 
 // TestTruncateIsDisplayWidthAware guards the interactive-TTY regression where

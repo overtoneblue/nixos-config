@@ -34,9 +34,10 @@ type Model struct {
 	theme    *Theme
 	interval time.Duration
 
-	data   collect.Data
-	width  int
-	height int
+	data     collect.Data
+	width    int
+	height   int
+	rendered string
 
 	paused bool
 	tick   int
@@ -50,13 +51,15 @@ type tickMsg struct{}
 func NewModel(col *collect.Collector, noColor bool, interval time.Duration) Model {
 	interval = clampDur(interval, minInterval, intervalLadder[len(intervalLadder)-1])
 	col.SetFastCadence(interval)
-	return Model{
+	m := Model{
 		col:      col,
 		theme:    NewTheme(noColor),
 		interval: interval,
 		width:    120,
 		height:   36,
 	}
+	m.rebuildView()
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -68,6 +71,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.rebuildView()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -76,6 +80,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "p":
 			m.paused = !m.paused
+			m.rebuildView()
 			return m, m.nextTick()
 		case "r":
 			if m.paused {
@@ -106,11 +111,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) refresh() {
 	m.data = m.col.Snapshot()
 	m.tick++
+	m.rebuildView()
 }
 
 func (m *Model) setInterval(d time.Duration) {
 	m.interval = d
 	m.col.SetFastCadence(d)
+	m.rebuildView()
+}
+
+// rebuildView runs on state changes, never from View. This keeps Bubble Tea's
+// high-frequency render calls allocation- and I/O-free at the 50ms cadence.
+func (m *Model) rebuildView() {
+	m.rendered = renderFrame(m.theme, m.width, m.height, m.data, m.interval, m.paused)
 }
 
 func (m Model) nextTick() tea.Cmd {
@@ -118,7 +131,7 @@ func (m Model) nextTick() tea.Cmd {
 }
 
 func (m Model) View() string {
-	return renderFrame(m.theme, m.width, m.height, m.data, m.interval, m.paused)
+	return m.rendered
 }
 
 func stepInterval(d time.Duration, up bool) time.Duration {

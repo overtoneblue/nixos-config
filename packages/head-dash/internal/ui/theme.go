@@ -23,7 +23,7 @@ type Theme struct {
 	bg     lipgloss.Color
 	text   lipgloss.Color
 
-	// ramp is the per-position gradient used for bar fills.
+	// ramp remains available for non-bar visual accents.
 	ramp []lipgloss.Color
 }
 
@@ -115,18 +115,10 @@ func (t *Theme) levelColor(pct float64) lipgloss.Color {
 	}
 }
 
-// storageLevel maps a storage usage percentage onto a bar colour: red when the
-// array is effectively full (>=95%), amber when it is getting tight (>=85%),
-// green otherwise.
+// storageLevel keeps storage fills consistently green. Criticality is conveyed
+// by the percentage text rather than changing the track colour.
 func (t *Theme) storageLevel(pct float64) lipgloss.Color {
-	switch {
-	case pct >= 95:
-		return t.red
-	case pct >= 85:
-		return t.amber
-	default:
-		return t.green
-	}
+	return t.green
 }
 
 // badge renders a small status pill.
@@ -145,13 +137,15 @@ func (t *Theme) badge(label string, c lipgloss.Color) string {
 	return st.Render(strings.ToUpper(label))
 }
 
-// bar renders a width-wide usage bar with a gradient fill for the used
-// portion and a dim background for the free portion. pct is 0..100.
+// bar renders a width-wide green usage bar with a dim free portion. pct is 0..100.
 func (t *Theme) bar(pct float64, width int) string {
 	if width <= 0 {
 		return ""
 	}
 	filled := int(clampf(pct, 0, 100) / 100 * float64(width))
+	if pct > 0 && filled == 0 {
+		filled = 1
+	}
 	if filled > width {
 		filled = width
 	}
@@ -164,8 +158,7 @@ func (t *Theme) bar(pct float64, width int) string {
 	for i := 0; i < width; i++ {
 		switch {
 		case i < filled:
-			col := t.rampAt(float64(i) / float64(max1(width)))
-			content := lipgloss.NewStyle().Foreground(col).Render("█")
+			content := t.ok().Render("█")
 			b.WriteString(content)
 		default:
 			content := t.dimText().Render("░")
@@ -182,6 +175,9 @@ func (t *Theme) levelBar(pct float64, width int, c lipgloss.Color) string {
 		return ""
 	}
 	filled := int(clampf(pct, 0, 100) / 100 * float64(width))
+	if pct > 0 && filled == 0 {
+		filled = 1
+	}
 	if filled > width {
 		filled = width
 	}

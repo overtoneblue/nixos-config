@@ -470,7 +470,7 @@ func renderStorage(t *Theme, width int, d collect.Data) string {
 	track, showFree := storageLayout(inner)
 	var lines []string
 	for _, s := range d.Storage {
-		labelS := t.bright().Render(truncate(s.Label, 6))
+		labelS := t.bright().Render(fmt.Sprintf("%-6s", truncate(s.Label, 6)))
 		if !s.Mounted {
 			lines = append(lines, labelS+"  "+t.dimText().Render(s.Err))
 			continue
@@ -481,6 +481,9 @@ func renderStorage(t *Theme, width int, d collect.Data) string {
 		bar := t.levelBar(s.UsedPct, track, t.storageLevel(s.UsedPct))
 		usedTotal := padLeft(fmt.Sprintf("%s/%s", humanBytes(s.Used), humanBytes(s.Total)), 16)
 		pctS := padLeft(fmt.Sprintf("%.0f%%", s.UsedPct), 5)
+		if s.UsedPct >= 95 {
+			pctS = t.danger().Render(pctS)
+		}
 		line := labelS + " " + bar + " " + usedTotal + " " + pctS
 		if showFree {
 			line += " " + t.dimText().Render("· "+humanBytes(s.Avail)+" free")
@@ -634,7 +637,7 @@ func statusWord(t *Theme, s string) string {
 }
 
 func hermesRow(t *Theme, inner int, h collect.Hermes) string {
-	name := t.accentBold().Render("hermes")
+	name := t.bright().Render("hermes")
 	line := name + "  " + statusWord(t, h.Badge)
 
 	var sub string
@@ -653,28 +656,28 @@ func hermesRow(t *Theme, inner int, h collect.Hermes) string {
 		sub = "idle " + humanDuration(time.Since(h.LastAct))
 	}
 	if sub != "" {
-		line += "  " + t.dimText().Render(sub)
+		line += "  " + t.bright().Render(sub)
 	}
 	return truncate(line, inner)
 }
 
 func opencodeRow(t *Theme, inner int, oc collect.OpenCode) string {
-	name := t.accentBold().Render("opencode")
+	name := t.bright().Render("opencode")
 	line := name + "  " + statusWord(t, oc.Status)
 
 	if oc.HasLatency {
-		line += "  " + t.dimText().Render(fmt.Sprintf("http %d · %s", oc.HTTPStatus, fmtDuration(oc.Latency)))
+		line += "  " + t.bright().Render(fmt.Sprintf("http %d · %s", oc.HTTPStatus, fmtDuration(oc.Latency)))
 	}
 	switch strings.ToUpper(oc.Status) {
 	case "RUNNING":
-		line += "  " + t.warn().Render("busy")
+		line += "  " + t.bright().Render("busy")
 	case "UP":
-		line += "  " + t.ok().Render("idle")
+		line += "  " + t.bright().Render("idle")
 	case "DOWN":
-		line += "  " + t.dimText().Render("offline")
+		line += "  " + t.bright().Render("offline")
 	}
 	if oc.DBUnread {
-		line += "  " + t.dimText().Render("activity n/a")
+		line += "  " + t.bright().Render("activity n/a")
 	}
 	return truncate(line, inner)
 }
