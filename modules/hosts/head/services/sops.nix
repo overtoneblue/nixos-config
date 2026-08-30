@@ -88,6 +88,9 @@
           "friendli-api-key" = {
             restartUnits = [ "hermes-agent.service" ];
           };
+          "openrouter-api-key" = {
+            restartUnits = [ "hermes-agent.service" ];
+          };
           "hermes-databricks-api-key" = {
             restartUnits = [ "hermes-agent.service" ];
           };
@@ -132,6 +135,7 @@
               HF_TOKEN=${ph."hf-token"}
               HERMES_AUXILIARY_VISION_API_KEY=${ph."hermes-auxiliary-vision-api-key"}
               FRIENDLI_API_KEY=${ph."friendli-api-key"}
+              OPENROUTER_API_KEY=${ph."openrouter-api-key"}
               HERMES_DATABRICKS_API_KEY=${ph."hermes-databricks-api-key"}
             '';
           };
