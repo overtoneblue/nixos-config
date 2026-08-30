@@ -347,15 +347,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1786249089,
-        "narHash": "sha256-ignrWnAenkffIii3iRET/yWaFvMHc7xx61JZOHehTT0=",
-        "owner": "NousResearch",
+        "lastModified": 1788092445,
+        "narHash": "sha256-FuPMfiVpngmg9kJeCdfPDNIZ7Zf49fH9IhYG89q284I=",
+        "owner": "overtoneblue",
         "repo": "hermes-agent",
-        "rev": "3a915c46d34682a1299188dae63a4a06987f9790",
+        "rev": "4ba91eedf8cd9bdca65d7f88a9fd30041bab63fa",
         "type": "github"
       },
       "original": {
-        "owner": "NousResearch",
+        "owner": "overtoneblue",
+        "ref": "feature/first-chunk-at-hook",
         "repo": "hermes-agent",
         "type": "github"
       }
