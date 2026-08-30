@@ -1,7 +1,12 @@
 { inputs, ... }:
 {
   flake.nixosModules.headHermes =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       stateDir = "/mnt/cache/appdata/hermes-agent";
       username = config.modules.system.username;
@@ -102,11 +107,8 @@
           # (environmentFiles); these api_key values are env-var *references*
           # Hermes resolves at runtime — never inline secrets.
           model = {
-            default = "deepseek-ai/DeepSeek-V4-Flash";
-            provider = "custom";
-            base_url = "https://inference.makora.com/v1";
-            api_key = "\${HERMES_CUSTOM_INFERENCE_MAKORA_COM_API_KEY}";
-            api_mode = "chat_completions";
+            default = "deepseek/deepseek-v4-pro-0813";
+            provider = "openrouter";
           };
           auxiliary.vision = {
             provider = "custom";
@@ -144,6 +146,16 @@
                 "MiniMaxAI/MiniMax-M2.5"
               ];
             }
+            {
+              name = "Databricks";
+              base_url = "https://dbc-791cecb8-44a5.cloud.databricks.com/serving-endpoints";
+              key_env = "HERMES_DATABRICKS_API_KEY";
+              model = "databricks-glm-5-3-flash";
+              api_mode = "chat_completions";
+              models = [
+                "databricks-glm-5-3-flash"
+              ];
+            }
           ];
           # Direct alias so `/model friendli` resolves to FriendliAI's GLM-5.2
           # from any surface (TUI, Telegram, gateway). provider=custom routes
@@ -154,6 +166,11 @@
               model = "zai-org/GLM-5.2";
               provider = "custom";
               base_url = "https://api.friendli.ai/serverless/v1";
+            };
+            databricks = {
+              model = "databricks-glm-5-3-flash";
+              provider = "custom";
+              base_url = "https://dbc-791cecb8-44a5.cloud.databricks.com/serving-endpoints";
             };
           };
           mcp_servers.computer-use-linux.enabled = true;
@@ -170,6 +187,9 @@
           # explicit approval rather than being applied automatically.
           memory.write_approval = true;
           skills.write_approval = true;
+
+          # Default reasoning effort for every session start.
+          agent.reasoning_effort = "max";
         };
 
         # Runtime PATH for the gateway: the OpenCode client wrapper plus the
@@ -282,40 +302,43 @@
         "f ${stateDir}/.hermes/auth.lock 0660 hermes hermes - -"
       ];
 
-      system.activationScripts."hermes-shared-state" = lib.stringAfter [
-        "hermes-agent-setup"
-      ] ''
-        # Reassert setgid + group-write AND group-execute on every shared dir
-        # (post-migration, recovered dirs may still be owner-only or missing
-        # group-x — without it subdirs like skills/ are not traversable).
-        # NB: `g+rws` produces `rwS` (no execute); must be `g+rwxs`.
-        find ${stateDir}/.hermes -type d -exec chmod g+rwxs {} +
+      system.activationScripts."hermes-shared-state" =
+        lib.stringAfter
+          [
+            "hermes-agent-setup"
+          ]
+          ''
+            # Reassert setgid + group-write AND group-execute on every shared dir
+            # (post-migration, recovered dirs may still be owner-only or missing
+            # group-x — without it subdirs like skills/ are not traversable).
+            # NB: `g+rws` produces `rwS` (no execute); must be `g+rwxs`.
+            find ${stateDir}/.hermes -type d -exec chmod g+rwxs {} +
 
-        # Default ACLs: whichever user/umask creates a file in the shared
-        # tree, the hermes group gets rwx-equivalent access and the world
-        # gets nothing.
-        find ${stateDir}/.hermes -type d \
-          -exec ${pkgs.acl}/bin/setfacl -d -m u:hermes:rwx -m g:hermes:rwx -m o::--- {} +
+            # Default ACLs: whichever user/umask creates a file in the shared
+            # tree, the hermes group gets rwx-equivalent access and the world
+            # gets nothing.
+            find ${stateDir}/.hermes -type d \
+              -exec ${pkgs.acl}/bin/setfacl -d -m u:hermes:rwx -m g:hermes:rwx -m o::--- {} +
 
-        # Shared skill files: enforce group rw + world denied. The agent
-        # creates these at runtime
-        # with mode 0600, which defeats the directory default ACLs above —
-        # the create mode masks the inherited group entry to nothing, so
-        # files like skills/nixos-flake-maintenance/SKILL.md end up owner-only
-        # despite the ACLs. Scope the repair to skills so unrelated runtime
-        # state and credentials retain their intentional modes.
-        find ${stateDir}/.hermes/skills -type f \
-          -exec chmod g+rw,o-rwx {} + 2>/dev/null || true
+            # Shared skill files: enforce group rw + world denied. The agent
+            # creates these at runtime
+            # with mode 0600, which defeats the directory default ACLs above —
+            # the create mode masks the inherited group entry to nothing, so
+            # files like skills/nixos-flake-maintenance/SKILL.md end up owner-only
+            # despite the ACLs. Scope the repair to skills so unrelated runtime
+            # state and credentials retain their intentional modes.
+            find ${stateDir}/.hermes/skills -type f \
+              -exec chmod g+rw,o-rwx {} + 2>/dev/null || true
 
-        # Credential store + cross-process lock: group rw (both users must
-        # be able to read AND update), never owner-only, never 0640.
-        touch ${stateDir}/.hermes/auth.lock
-        chown hermes:hermes \
-          ${stateDir}/.hermes/auth.json \
-          ${stateDir}/.hermes/auth.lock 2>/dev/null || true
-        chmod 0660 \
-          ${stateDir}/.hermes/auth.json \
-          ${stateDir}/.hermes/auth.lock 2>/dev/null || true
-      '';
+            # Credential store + cross-process lock: group rw (both users must
+            # be able to read AND update), never owner-only, never 0640.
+            touch ${stateDir}/.hermes/auth.lock
+            chown hermes:hermes \
+              ${stateDir}/.hermes/auth.json \
+              ${stateDir}/.hermes/auth.lock 2>/dev/null || true
+            chmod 0660 \
+              ${stateDir}/.hermes/auth.json \
+              ${stateDir}/.hermes/auth.lock 2>/dev/null || true
+          '';
     };
 }
