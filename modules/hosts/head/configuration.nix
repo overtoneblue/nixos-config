@@ -2,6 +2,7 @@
 {
   flake.nixosModules.headConfiguration =
     {
+      self,
       pkgs,
       config,
       lib,
@@ -241,6 +242,8 @@
         smartmontools
         xfsprogs
         mergerfs
+        intel-gpu-tools
+        self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
       ];
 
       system.stateVersion = "26.05";
