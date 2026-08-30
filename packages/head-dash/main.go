@@ -18,10 +18,15 @@ import (
 )
 
 func main() {
-	interval := flag.Duration("interval", time.Second, "refresh interval (e.g. 500ms, 1s)")
+	interval := flag.Duration("interval", time.Second, "refresh interval (e.g. 500ms, 1s; minimum 50ms)")
 	once := flag.Bool("once", false, "render exactly one frame and exit 0 (CI/verification; works without a TTY)")
 	noColor := flag.Bool("no-color", false, "disable colors")
 	flag.Parse()
+
+	if *interval < 50*time.Millisecond {
+		fmt.Fprintf(os.Stderr, "head-dash: --interval too small (%v); minimum is 50ms\n", *interval)
+		os.Exit(1)
+	}
 
 	col := collect.NewCollector(0)
 
@@ -43,6 +48,7 @@ func main() {
 	}
 
 	col.Warmup(context.Background())
+	col.Start(context.Background())
 	m := ui.NewModel(col, *noColor, *interval)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

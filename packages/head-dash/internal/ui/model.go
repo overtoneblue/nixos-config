@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"time"
 
 	"head-dash/internal/collect"
@@ -9,16 +8,27 @@ import (
 	"github.com/charmbracelet/bubbletea"
 )
 
-// Collection budget bounds every tick so a slow data source can never hang
+// Collection budget bounds every collect so a slow data source can never hang
 // the UI; individual collectors keep their own (tighter) timeouts.
 const collectBudget = 6 * time.Second
 
-const (
-	minInterval = 250 * time.Millisecond
-	maxInterval = 30 * time.Second
-)
+// intervalLadder is the discrete set of refresh intervals the +/- keys step
+// through.
+var intervalLadder = []time.Duration{
+	50 * time.Millisecond,
+	100 * time.Millisecond,
+	200 * time.Millisecond,
+	500 * time.Millisecond,
+	time.Second,
+	2 * time.Second,
+	5 * time.Second,
+}
 
-// Model is the Bubble Tea dashboard state.
+// minInterval rejects anything below the fastest usable refresh (~20fps).
+const minInterval = 50 * time.Millisecond
+
+// Model is the Bubble Tea dashboard state. Data comes from the shared
+// collector cache; each tick just snapshots it and re-schedules.
 type Model struct {
 	col      *collect.Collector
 	theme    *Theme
@@ -29,22 +39,17 @@ type Model struct {
 	height int
 
 	paused bool
-	busy   bool // a collect is in flight
 	tick   int
 }
 
 type tickMsg struct{}
 
-type gotDataMsg struct {
-	data collect.Data
-}
-
 // NewModel returns a dashboard model. The collector must already be warmed up
-// (see collect.Collector.Warmup) so the first frame has CPU deltas.
+// (see collect.Collector.Warmup) and started (see collect.Collector.Start) so
+// the shared cache is being refreshed by the background streams.
 func NewModel(col *collect.Collector, noColor bool, interval time.Duration) Model {
-	if interval < minInterval {
-		interval = minInterval
-	}
+	interval = clampDur(interval, minInterval, intervalLadder[len(intervalLadder)-1])
+	col.SetFastCadence(interval)
 	return Model{
 		col:      col,
 		theme:    NewTheme(noColor),
@@ -71,55 +76,83 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "p":
 			m.paused = !m.paused
+			return m, m.nextTick()
+		case "r":
 			if m.paused {
 				return m, nil
 			}
+			m.refresh()
 			return m, m.nextTick()
-		case "r":
-			if m.paused || m.busy {
-				return m, nil
-			}
-			m.busy = true
-			return m, m.collectCmd()
 		case "+", "=":
-			m.interval = clampDur(m.interval*2, minInterval, maxInterval)
+			m.setInterval(stepInterval(m.interval, true))
 			return m, nil
 		case "-", "_":
-			m.interval = clampDur(m.interval/2, minInterval, maxInterval)
+			m.setInterval(stepInterval(m.interval, false))
 			return m, nil
 		}
 
 	case tickMsg:
-		if m.paused || m.busy {
+		if m.paused {
 			return m, nil
 		}
-		m.busy = true
-		return m, m.collectCmd()
-
-	case gotDataMsg:
-		m.data = msg.data
-		m.busy = false
-		m.tick++
+		m.refresh()
 		return m, m.nextTick()
 	}
 	return m, nil
+}
+
+// refresh snapshots the collector cache into m.data. It has a pointer receiver
+// so the mutation survives the value-model copy that Update passes around.
+func (m *Model) refresh() {
+	m.data = m.col.Snapshot()
+	m.tick++
+}
+
+func (m *Model) setInterval(d time.Duration) {
+	m.interval = d
+	m.col.SetFastCadence(d)
 }
 
 func (m Model) nextTick() tea.Cmd {
 	return tea.Tick(m.interval, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
-// collectCmd runs the async snapshot and delivers it back to the UI loop.
-func (m Model) collectCmd() tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), collectBudget)
-		defer cancel()
-		return gotDataMsg{data: m.col.Collect(ctx)}
-	}
-}
-
 func (m Model) View() string {
 	return renderFrame(m.theme, m.width, m.height, m.data, m.interval, m.paused)
+}
+
+func stepInterval(d time.Duration, up bool) time.Duration {
+	i := nearestIndex(d)
+	if up {
+		if i < len(intervalLadder)-1 {
+			return intervalLadder[i+1]
+		}
+		return intervalLadder[i]
+	}
+	if i > 0 {
+		return intervalLadder[i-1]
+	}
+	return intervalLadder[i]
+}
+
+func nearestIndex(d time.Duration) int {
+	best := 0
+	for i, v := range intervalLadder {
+		if v == d {
+			return i
+		}
+		if absDur(v-d) < absDur(intervalLadder[best]-d) {
+			best = i
+		}
+	}
+	return best
+}
+
+func absDur(d time.Duration) time.Duration {
+	if d < 0 {
+		return -d
+	}
+	return d
 }
 
 func clampDur(d, lo, hi time.Duration) time.Duration {

@@ -110,8 +110,7 @@ func renderBody(t *Theme, w, h int, d collect.Data) string {
 			renderDocker(t, w, d),
 			renderServices(t, w, d),
 			renderFailed(t, w, d),
-			renderHermes(t, w, d),
-			renderOpenCode(t, w, d),
+			renderAgents(t, w, d),
 		})
 		return strings.Join(ps, "\n")
 	}
@@ -134,11 +133,7 @@ func renderBody(t *Theme, w, h int, d collect.Data) string {
 
 	mid := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
-	strip := lipgloss.JoinHorizontal(lipgloss.Top,
-		renderHermes(t, w/2, d),
-		renderOpenCode(t, w-w/2, d),
-	)
-	return mid + "\n" + strip
+	return mid + "\n" + renderAgents(t, w, d)
 }
 
 func compact(ss []string) []string {
@@ -312,6 +307,8 @@ func renderStorage(t *Theme, width int, d collect.Data) string {
 	if len(d.Storage) == 0 {
 		return panel(t, "storage", width, unavailable(t, "no mounts sampled"))
 	}
+	inner := maxint(width-4, 0)
+	track, showFree := storageLayout(inner)
 	var lines []string
 	for _, s := range d.Storage {
 		labelS := t.bright().Render(truncate(s.Label, 6))
@@ -319,15 +316,52 @@ func renderStorage(t *Theme, width int, d collect.Data) string {
 			lines = append(lines, labelS+"  "+t.dimText().Render(s.Err))
 			continue
 		}
-		// Fixed track: label(6) + 24 fill cells, then right-aligned text
-		// columns (used/total ~16, pct ~5) so all rows align.
-		bar := t.levelBar(s.UsedPct, 24, t.storageLevel(s.UsedPct))
+		// Adaptive row: label(6) + 1 + track + 1 + used/total(16) + 1 + pct(5),
+		// then "· free" only when it fits the available inner width. Every
+		// visible column stays fixed-width so all rows align exactly.
+		bar := t.levelBar(s.UsedPct, track, t.storageLevel(s.UsedPct))
 		usedTotal := padLeft(fmt.Sprintf("%s/%s", humanBytes(s.Used), humanBytes(s.Total)), 16)
 		pctS := padLeft(fmt.Sprintf("%.0f%%", s.UsedPct), 5)
-		free := t.dimText().Render("· " + humanBytes(s.Avail) + " free")
-		lines = append(lines, labelS+" "+bar+" "+usedTotal+" "+pctS+" "+free)
+		line := labelS + " " + bar + " " + usedTotal + " " + pctS
+		if showFree {
+			line += " " + t.dimText().Render("· "+humanBytes(s.Avail)+" free")
+		}
+		lines = append(lines, line)
 	}
 	return panel(t, "storage", width, strings.Join(lines, "\n"))
+}
+
+// storageLayout picks a track width and whether the trailing "· free" column
+// is shown, so that no visible column is ever ellipsis-truncated when the row
+// can be made to fit. The full row needs 6+1+track+1+16+1+5 (+1+~14 for free).
+// "· free" is dropped first, then the track shrinks from 24 toward 20 cells and
+// further only to keep the pct column fully visible.
+func storageLayout(inner int) (track int, showFree bool) {
+	const (
+		label    = 6
+		pad      = 1
+		usedPad  = 16
+		pctPad   = 5
+		freeLen  = 14
+		baseOver = label + 2*pad + usedPad + pad + pctPad // chars either side of the bar
+	)
+	withFree24 := label + pad + 24 + pad + usedPad + pad + pctPad + pad + freeLen
+	if withFree24 <= inner {
+		return 24, true
+	}
+	noFree24 := label + pad + 24 + pad + usedPad + pad + pctPad
+	if noFree24 <= inner {
+		return 24, false
+	}
+	noFree20 := label + pad + 20 + pad + usedPad + pad + pctPad
+	if noFree20 <= inner {
+		return 20, false
+	}
+	track = inner - baseOver
+	if track < 8 {
+		track = 8
+	}
+	return track, false
 }
 
 // padLeft left-pads s with spaces to at least width display columns.
@@ -415,65 +449,75 @@ func renderFailed(t *Theme, width int, d collect.Data) string {
 	return panel(t, "failed units", width, strings.Join(lines, "\n"))
 }
 
-func renderHermes(t *Theme, width int, d collect.Data) string {
+func renderAgents(t *Theme, width int, d collect.Data) string {
 	inner := maxint(width-4, 0)
 	h := d.Hermes
-	var badge string
-	switch h.Badge {
-	case "ACTIVE":
-		badge = t.ok().Render(h.Badge)
-	case "DOWN":
-		badge = t.danger().Render(h.Badge)
-	case "IDLE":
-		badge = t.warn().Render(h.Badge)
-	default:
-		badge = t.dimText().Render(h.Badge)
-	}
+	oc := d.OpenCode
 
-	var b strings.Builder
-	b.WriteString(t.accentBold().Render("hermes"))
-	b.WriteString("  " + badge)
-	if h.HasAge {
-		b.WriteString(t.dimText().Render("  last act " + humanDuration(h.ActivityAge)))
-	}
-	if h.JournalLines > 0 {
-		b.WriteString(t.dimText().Render(fmt.Sprintf("  journal %d/60s", h.JournalLines)))
-	}
-	if h.Note != "" {
-		b.WriteString("\n  " + t.dimText().Render(h.Note))
-	}
-	return panel(t, "agents", width, truncate(b.String(), inner))
+	hermes := hermesRow(t, inner, h)
+	opencode := opencodeRow(t, inner, oc)
+	return panel(t, "agents", width, hermes+"\n"+opencode)
 }
 
-func renderOpenCode(t *Theme, width int, d collect.Data) string {
-	inner := maxint(width-4, 0)
-	oc := d.OpenCode
-	var badge string
-	switch oc.Status {
-	case "up":
-		badge = t.ok().Render("UP")
-	case "down":
-		badge = t.danger().Render("DOWN")
+// statusWord colors the agent status word: UP green, RUNNING amber, DOWN red,
+// anything else (unknown) dim.
+func statusWord(t *Theme, s string) string {
+	switch strings.ToUpper(s) {
+	case "UP":
+		return t.ok().Render("UP")
+	case "RUNNING":
+		return t.warn().Render("RUNNING")
+	case "DOWN":
+		return t.danger().Render("DOWN")
 	default:
-		badge = t.warn().Render("UNKNOWN")
+		return t.dimText().Render("UNKNOWN")
 	}
-	var b strings.Builder
-	b.WriteString(t.accentBold().Render("opencode"))
-	b.WriteString("  " + badge)
-	if oc.HasLatency {
-		b.WriteString(t.dimText().Render(fmt.Sprintf("  http %d  %s", oc.HTTPStatus, fmtDuration(oc.Latency))))
-	}
-	if oc.ServiceActive {
-		b.WriteString("  " + t.ok().Render("●"))
-	} else {
-		b.WriteString("  " + t.dimText().Render("○"))
-	}
-	if oc.Status == "down" || oc.Status == "unknown" {
-		if oc.Err != "" {
-			b.WriteString("\n  " + t.dimText().Render(oc.Err))
+}
+
+func hermesRow(t *Theme, inner int, h collect.Hermes) string {
+	name := t.accentBold().Render("hermes")
+	line := name + "  " + statusWord(t, h.Badge)
+
+	var sub string
+	switch {
+	case h.Badge == "UNKNOWN":
+		sub = "activity unknown"
+	case h.Badge == "DOWN":
+		if h.HasAct {
+			sub = "idle " + humanDuration(time.Since(h.LastAct))
+		} else {
+			sub = "unit inactive"
 		}
+	case h.Badge == "RUNNING":
+		sub = fmt.Sprintf("last act %s ago", humanDuration(time.Since(h.LastAct)))
+	case h.HasAct:
+		sub = "idle " + humanDuration(time.Since(h.LastAct))
 	}
-	return panel(t, "opencode", width, truncate(b.String(), inner))
+	if sub != "" {
+		line += "  " + t.dimText().Render(sub)
+	}
+	return truncate(line, inner)
+}
+
+func opencodeRow(t *Theme, inner int, oc collect.OpenCode) string {
+	name := t.accentBold().Render("opencode")
+	line := name + "  " + statusWord(t, oc.Status)
+
+	if oc.HasLatency {
+		line += "  " + t.dimText().Render(fmt.Sprintf("http %d · %s", oc.HTTPStatus, fmtDuration(oc.Latency)))
+	}
+	switch strings.ToUpper(oc.Status) {
+	case "RUNNING":
+		line += "  " + t.warn().Render("busy")
+	case "UP":
+		line += "  " + t.ok().Render("idle")
+	case "DOWN":
+		line += "  " + t.dimText().Render("offline")
+	}
+	if oc.DBUnread {
+		line += "  " + t.dimText().Render("activity n/a")
+	}
+	return truncate(line, inner)
 }
 
 // ── Formatting helpers ───────────────────────────────────────────────────

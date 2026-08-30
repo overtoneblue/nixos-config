@@ -2,14 +2,15 @@ package collect
 
 import (
 	"context"
-	"io/fs"
-	"path/filepath"
+	"os"
+	"strings"
 	"time"
 )
 
-// Hermes reports the hermes-agent badge: DOWN / ACTIVE / IDLE, based on the
-// systemd unit state, recent journal output, or (when journal access is
-// denied) the freshness of log/session files under the appdata dirs.
+// Hermes reports the hermes-agent badge as UP / RUNNING / DOWN / UNKNOWN.
+// DOWN when the systemd unit is inactive; RUNNING while a live-activity
+// detector fires or within a short quiet-hold afterwards; UP otherwise. When
+// every activity source is unreadable the badge is UNKNOWN.
 type Hermes struct {
 	Badge        string
 	ActiveState  string
@@ -18,97 +19,85 @@ type Hermes struct {
 	HasAge       bool
 	JournalLines int
 	Note         string
+	LastAct      time.Time
+	HasAct       bool
 }
 
-// hermesLogDirs are the appdata paths whose newest mtime approximates the
-// last agent activity when journalctl is unavailable.
-var hermesLogDirs = []string{
-	"/mnt/cache/appdata/hermes-agent/.hermes/logs",
-	"/mnt/cache/appdata/hermes-agent/.hermes/sessions",
+// hermesState carries the RUNNING→UP hysteresis across samples. Quiet is held
+// for hermesHoldFromDown once activity stops, so a briefly-idle agent does not
+// flicker back to UP immediately.
+type hermesState struct {
+	quietSince time.Time
+	lastAct    time.Time
 }
 
-const hermesRecentWindow = 60 * time.Second
+const (
+	hermesActivityWindow = 5 * time.Second
+	hermesHoldFromDown   = 20 * time.Second
+)
+
+const (
+	hermesLogPath = "/mnt/cache/appdata/hermes-agent/.hermes/logs/agent.log"
+	hermesDBPath  = "/mnt/cache/appdata/hermes-agent/.hermes/state.db"
+)
 
 func (c *Collector) collectHermes(ctx context.Context, d *Data) {
 	h := Hermes{}
 
 	active := false
-	if out, err := runCmd(ctx, 2*time.Second, "systemctl", "show", "-p", "ActiveState", "-p", "SubState", "--no-pager", "hermes-agent"); err == nil {
-		vals := parseKV(out)
-		h.ActiveState = vals["ActiveState"]
-		h.SubState = vals["SubState"]
-		active = h.ActiveState == "active"
+	if out, err := runCmd(ctx, 2*time.Second, "systemctl", "is-active", "hermes-agent"); err == nil {
+		active = strings.TrimSpace(out) == "active"
 	}
 
-	journalOK := false
-	if out, err := runCmd(ctx, 3*time.Second, "journalctl", "-u", "hermes-agent", "--since=-60s", "--no-pager"); err == nil {
+	freshLog, logOK := false, false
+	if fi, err := os.Stat(hermesLogPath); err == nil {
+		logOK = true
+		freshLog = time.Since(fi.ModTime()) < hermesActivityWindow
+	}
+	freshDB, dbOK := false, false
+	if fi, err := os.Stat(hermesDBPath); err == nil {
+		dbOK = true
+		freshDB = time.Since(fi.ModTime()) < hermesActivityWindow
+	}
+	freshJournal, journalOK := false, false
+	if out, err := runCmd(ctx, 3*time.Second, "journalctl", "-u", "hermes-agent", "--since=-5s", "--no-pager"); err == nil {
 		journalOK = true
-		h.JournalLines = countLines(out)
-		if h.JournalLines > 0 {
-			h.Badge = "ACTIVE"
-			h.HasAge = true
-			h.ActivityAge = 0
-		}
+		freshJournal = countLines(out) > 0
 	}
 
-	// Journal access can be denied (e.g. non-root without the right policy);
-	// fall back to the newest log/session mtime under the appdata dirs.
-	newest, ok := newestMtime(ctx, hermesLogDirs)
-	if ok && !h.HasAge {
-		age := time.Since(newest)
-		h.ActivityAge = age
-		h.HasAge = true
-		if age <= hermesRecentWindow {
-			h.Badge = "ACTIVE"
-		}
-	}
-	if !ok && !journalOK && h.Badge == "" {
-		h.Note = "journal access denied and log dirs unreadable"
-	}
-
+	st := &c.hermesSt
+	now := time.Now()
 	switch {
 	case !active:
 		h.Badge = "DOWN"
-	case h.Badge == "ACTIVE":
-		// already set
+		h.HasAct = !st.lastAct.IsZero()
+		h.LastAct = st.lastAct
+	case !(logOK || dbOK || journalOK):
+		h.Badge = "UNKNOWN"
+		h.HasAct = !st.lastAct.IsZero()
+		h.LastAct = st.lastAct
+	case freshLog || freshDB || freshJournal:
+		st.lastAct = now
+		st.quietSince = time.Time{}
+		h.Badge = "RUNNING"
+		h.HasAct = true
+		h.LastAct = now
 	default:
-		if h.HasAge {
-			h.Badge = "IDLE"
+		if st.lastAct.IsZero() {
+			h.Badge = "UP"
 		} else {
-			h.Badge = "activity unknown"
+			if st.quietSince.IsZero() {
+				st.quietSince = now
+			}
+			if now.Sub(st.quietSince) < hermesHoldFromDown {
+				h.Badge = "RUNNING"
+			} else {
+				h.Badge = "UP"
+			}
+			h.HasAct = true
+			h.LastAct = st.lastAct
 		}
 	}
 
 	d.Hermes = h
-}
-
-// newestMtime returns the newest modification time across all files under the
-// given directories (best-effort; unreadable directories are skipped, and the
-// walk is capped to bound the cost of a large session tree).
-func newestMtime(ctx context.Context, dirs []string) (time.Time, bool) {
-	var newest time.Time
-	found := false
-	visits := 0
-	for _, dir := range dirs {
-		_ = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-			visits++
-			if visits > 5000 {
-				return fs.SkipAll
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-			if err != nil {
-				return nil // skip unreadable subtree
-			}
-			if info, e := entry.Info(); e == nil && info.ModTime().After(newest) {
-				newest = info.ModTime()
-				found = true
-			}
-			return nil
-		})
-	}
-	return newest, found
 }
