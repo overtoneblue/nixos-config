@@ -6,3 +6,7 @@ secrets/*.dec.yaml
 secrets/*.decrypted
 secrets/*.bak
 secrets/*~
+
+# nix build output symlinks (nh os build / nix-build) — machine-local artifacts
+/result
+/result-*
