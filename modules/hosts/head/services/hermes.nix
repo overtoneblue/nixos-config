@@ -110,6 +110,12 @@
             default = "deepseek/deepseek-v4-pro-0813";
             provider = "openrouter";
           };
+          # Load the user-space hermes-stats telemetry plugin. Enabled plugins
+          # must come from config here: HERMES_MANAGED installs reject
+          # `hermes plugins enable` (cannot write config.yaml).
+          plugins = {
+            enabled = [ "hermes-stats" ];
+          };
           auxiliary.vision = {
             provider = "custom";
             model = "gemma-4-31b";
