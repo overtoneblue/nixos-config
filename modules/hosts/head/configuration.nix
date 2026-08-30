@@ -112,6 +112,7 @@
         self.nixosModules.headHermes
         self.nixosModules.headOpenCode
         self.nixosModules.headJellyfin
+        self.nixosModules.headNextcloud
         self.nixosModules.headNginxProxy
         self.nixosModules.base
         self.nixosModules.network
