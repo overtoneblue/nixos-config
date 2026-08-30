@@ -100,30 +100,42 @@ func renderFooter(t *Theme, w int, interval time.Duration, paused bool) string {
 
 // ── Body layout ──────────────────────────────────────────────────────────
 
+// renderBody renders the multi-panel dashboard body that must fit in exactly
+// `h` lines (the space between the header and footer). The agents panel and the
+// footer are the last, must-fit items, so the body always reserves room for the
+// full agents panel (two rows + borders) and compresses the column panels until
+// the remaining space is enough. See renderPCB for the compression priority.
 func renderBody(t *Theme, w, h int, d collect.Data) string {
-	if w < 80 {
-		ps := compact([]string{
-			renderCPU(t, w, d),
-			renderMem(t, w, d),
-			renderGPU(t, w, d),
-			renderStorage(t, w, d),
-			renderDocker(t, w, d),
-			renderServices(t, w, d),
-			renderFailed(t, w, d),
-			renderAgents(t, w, d),
-		})
-		return strings.Join(ps, "\n")
+	agents := renderAgents(t, w, d)
+	agentsLines := countLines(agents)
+	colH := h - agentsLines
+	if colH < 1 {
+		colH = 1
 	}
 
+	var mid string
+	if w < 80 {
+		mid = renderSingleColumn(t, w, colH, d)
+	} else {
+		mid = renderColumns(t, w, colH, d)
+	}
+
+	// Trim columns only (never agents) if even full compression cannot fit;
+	// the top panels are preserved and the low-priority tail is dropped.
+	if midLines := countLines(mid); midLines > colH {
+		parts := strings.Split(mid, "\n")
+		mid = strings.Join(parts[:colH], "\n")
+	}
+
+	return mid + "\n" + agents
+}
+
+// renderColumns lays out the two-column body (w >= 80). The right column (docker,
+// services, failed units) is not compressible; the left column holds the GPU,
+// CPU and memory panels, which are compressed up front until they fit `colH`.
+func renderColumns(t *Theme, w, colH int, d collect.Data) string {
 	leftW := w / 2
 	rightW := w - leftW
-
-	left := strings.Join(compact([]string{
-		renderCPU(t, leftW, d),
-		renderMem(t, leftW, d),
-		renderGPU(t, leftW, d),
-		renderStorage(t, leftW, d),
-	}), "\n")
 
 	right := strings.Join(compact([]string{
 		renderDocker(t, rightW, d),
@@ -131,9 +143,85 @@ func renderBody(t *Theme, w, h int, d collect.Data) string {
 		renderFailed(t, rightW, d),
 	}), "\n")
 
-	mid := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	left := ""
+	for lvl := 0; lvl <= memLevel; lvl++ {
+		left = renderLeftColumn(t, leftW, d, lvl)
+		if countLines(left) <= colH {
+			break
+		}
+	}
 
-	return mid + "\n" + renderAgents(t, w, d)
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+}
+
+// renderSingleColumn lays out the stacked single-column body (w < 80),
+// compressing the GPU/CPU/memory panels until the whole column fits `colH`.
+func renderSingleColumn(t *Theme, w, colH int, d collect.Data) string {
+	for lvl := 0; lvl <= memLevel; lvl++ {
+		mergeCPU, top := cpuOpts(lvl)
+		ps := compact([]string{
+			renderCPU(t, w, d, mergeCPU, top),
+			renderMem(t, w, d, lvl >= memLevel),
+			renderGPU(t, w, d, lvl >= gpuLevel),
+			renderStorage(t, w, d),
+			renderDocker(t, w, d),
+			renderServices(t, w, d),
+			renderFailed(t, w, d),
+		})
+		col := strings.Join(ps, "\n")
+		if countLines(col) <= colH {
+			return col
+		}
+	}
+	// Unreachable in practice: the loop always terminates at the fully
+	// compressed level and the caller trims any residual overflow.
+	mergeCPU, top := cpuOpts(memLevel)
+	return strings.Join(compact([]string{
+		renderCPU(t, w, d, mergeCPU, top),
+		renderMem(t, w, d, true),
+		renderGPU(t, w, d, true),
+		renderStorage(t, w, d),
+		renderDocker(t, w, d),
+		renderServices(t, w, d),
+		renderFailed(t, w, d),
+	}), "\n")
+}
+
+// Compression levels, in the priority order the spec mandates: GPU collapses to
+// a single row first, then the CPU panel (cores merged onto the total line, then
+// top-5 trimmed to 4 and then to 3), and only if still overflowing does the
+// memory "avail" line merge into the "swap" line.
+const (
+	gpuLevel = 1
+	cpuMerge = 2
+	cpuTop4  = 3
+	cpuTop3  = 4
+	memLevel = 5
+)
+
+// cpuOpts maps a compression level to the CPU panel options.
+func cpuOpts(level int) (mergeCores bool, top int) {
+	mergeCores = level >= cpuMerge
+	top = 5
+	if level >= cpuTop4 {
+		top = 4
+	}
+	if level >= cpuTop3 {
+		top = 3
+	}
+	return mergeCores, top
+}
+
+// renderLeftColumn renders the left column (cpu, memory, gpu, storage) with the
+// compression selected by `level`.
+func renderLeftColumn(t *Theme, w int, d collect.Data, level int) string {
+	mergeCPU, top := cpuOpts(level)
+	return strings.Join(compact([]string{
+		renderCPU(t, w, d, mergeCPU, top),
+		renderMem(t, w, d, level >= memLevel),
+		renderGPU(t, w, d, level >= gpuLevel),
+		renderStorage(t, w, d),
+	}), "\n")
 }
 
 func compact(ss []string) []string {
@@ -191,7 +279,14 @@ func unavailable(t *Theme, err string) string {
 	return t.dimText().Render("— " + err)
 }
 
-func renderCPU(t *Theme, width int, d collect.Data) string {
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
+}
+
+func renderCPU(t *Theme, width int, d collect.Data, mergeCores bool, maxTop int) string {
 	inner := maxint(width-4, 0)
 	if !d.CPU.OK {
 		return panel(t, "cpu", width, unavailable(t, d.CPU.Err))
@@ -200,22 +295,31 @@ func renderCPU(t *Theme, width int, d collect.Data) string {
 	b.WriteString(barLine(t, inner, "total", d.CPU.Total, fmt.Sprintf("%.0f%%", d.CPU.Total)))
 	b.WriteString("\n")
 
-	// Compact per-core ruler.
-	n := len(d.CPU.Cores)
-	if n > 0 {
-		label := t.dimText().Render("cores")
-		spark := coresSpark(t, d.CPU.Cores)
-		avail := inner - lipgloss.Width(label) - 1
-		b.WriteString(label + " " + truncate(spark, maxint(avail, 0)))
+	if mergeCores && len(d.CPU.Cores) > 0 {
+		// Compact: fold the per-core sparkline onto the total line so the
+		// panel drops a row.
+		b.WriteString(cpuTotalMerged(t, inner, d.CPU.Total, coresSpark(t, d.CPU.Cores)))
 		b.WriteString("\n")
+	} else {
+		n := len(d.CPU.Cores)
+		if n > 0 {
+			label := t.dimText().Render("cores")
+			spark := coresSpark(t, d.CPU.Cores)
+			avail := inner - lipgloss.Width(label) - 1
+			b.WriteString(label + " " + truncate(spark, maxint(avail, 0)))
+			b.WriteString("\n")
+		}
 	}
 
-	b.WriteString(t.dimText().Render("top 5 (per-core %)"))
+	b.WriteString(t.dimText().Render(fmt.Sprintf("top %d (per-core %%)", maxTop)))
 	b.WriteString("\n")
 	if len(d.CPU.Top) == 0 {
 		b.WriteString("  " + t.dimText().Render("sampling…"))
 	} else {
-		for _, p := range d.CPU.Top {
+		for i, p := range d.CPU.Top {
+			if i >= maxTop {
+				break
+			}
 			line := fmt.Sprintf("  %-6d %-16s %5.1f", p.PID, truncate(p.Comm, 16), p.CPUPct)
 			b.WriteString(line)
 			b.WriteString("\n")
@@ -223,6 +327,20 @@ func renderCPU(t *Theme, width int, d collect.Data) string {
 	}
 	body := strings.TrimSuffix(b.String(), "\n")
 	return panel(t, "cpu", width, body)
+}
+
+// cpuTotalMerged renders the compact "total <bar> pct  cores <spark>" line,
+// sizing the bar around everything else so it all stays on one row.
+func cpuTotalMerged(t *Theme, inner int, total float64, spark string) string {
+	labelS := t.bright().Render(truncate("total", 6))
+	right := fmt.Sprintf("%.0f%%", total)
+	cores := t.dimText().Render("cores") + " " + spark
+	barW := inner - lipgloss.Width(labelS) - lipgloss.Width(right) - lipgloss.Width(cores) - 2
+	if barW < 1 {
+		barW = 1
+	}
+	line := labelS + " " + t.bar(total, barW) + " " + right + "  " + cores
+	return truncate(line, inner)
 }
 
 func coresSpark(t *Theme, cores []collect.Core) string {
@@ -240,7 +358,7 @@ func coresSpark(t *Theme, cores []collect.Core) string {
 	return strings.Join(parts, "")
 }
 
-func renderMem(t *Theme, width int, d collect.Data) string {
+func renderMem(t *Theme, width int, d collect.Data, mergeAvail bool) string {
 	inner := maxint(width-4, 0)
 	m := d.Mem
 	if !m.OK {
@@ -251,23 +369,36 @@ func renderMem(t *Theme, width int, d collect.Data) string {
 		m.UsedPct,
 		fmt.Sprintf("%s/%s %.0f%%", humanBytes(m.Used), humanBytes(m.Total), m.UsedPct)))
 	b.WriteString("\n")
-
-	swap := d.Swap
-	if swap.OK {
-		b.WriteString(barLine(t, inner, "swap",
-			swap.UsedPct,
-			fmt.Sprintf("%s/%s %.0f%%", humanBytes(swap.Used), humanBytes(swap.Total), swap.UsedPct)))
-	} else if swap.Err == "no swap configured" {
-		b.WriteString(t.dimText().Render("swap  none"))
-	} else {
-		b.WriteString(t.dimText().Render("swap  unavailable"))
+	b.WriteString(memSwapLine(t, inner, d, mergeAvail))
+	if !mergeAvail {
+		b.WriteString("\n")
+		b.WriteString(t.dimText().Render(fmt.Sprintf("avail %s", humanBytes(m.Available))))
 	}
-	b.WriteString("\n")
-	b.WriteString(t.dimText().Render(fmt.Sprintf("avail %s", humanBytes(m.Available))))
 	return panel(t, "memory", width, strings.TrimSuffix(b.String(), "\n"))
 }
 
-func renderGPU(t *Theme, width int, d collect.Data) string {
+// memSwapLine renders the swap row; when mergeAvail is set the "avail" line is
+// folded onto the swap row ("swap none · avail 12.4GB", or appended to the swap
+// bar's right-hand column) so the panel drops a row.
+func memSwapLine(t *Theme, inner int, d collect.Data, mergeAvail bool) string {
+	if d.Swap.OK {
+		right := fmt.Sprintf("%s/%s %.0f%%", humanBytes(d.Swap.Used), humanBytes(d.Swap.Total), d.Swap.UsedPct)
+		if mergeAvail {
+			right += " · avail " + humanBytes(d.Mem.Available)
+		}
+		return barLine(t, inner, "swap", d.Swap.UsedPct, right)
+	}
+	base := "swap  unavailable"
+	if d.Swap.Err == "no swap configured" {
+		base = "swap  none"
+	}
+	if mergeAvail {
+		return t.dimText().Render(base) + " · " + t.dimText().Render("avail "+humanBytes(d.Mem.Available))
+	}
+	return t.dimText().Render(base)
+}
+
+func renderGPU(t *Theme, width int, d collect.Data, compact bool) string {
 	if len(d.GPUs) == 0 {
 		return panel(t, "gpu", width, unavailable(t, "no iGPU discovered"))
 	}
@@ -281,6 +412,26 @@ func renderGPU(t *Theme, width int, d collect.Data) string {
 		}
 		b.WriteString("\n  " + t.warn().Render(err))
 		return panel(t, "gpu", width, b.String())
+	}
+	// Compact collapses the panel to title + a single row: real engine numbers
+	// (or a "warming up…" placeholder before the first sample) plus any status
+	// suffix, dropping the separate degradation line.
+	line := engineLine(g)
+	b.WriteString("\n  " + line)
+	if !compact {
+		if g.EngineNote != "" && g.EngineNote != "warming up…" {
+			b.WriteString("\n  " + t.dimText().Render(g.EngineNote))
+		}
+	}
+	return panel(t, "gpu", width, b.String())
+}
+
+// engineLine formats the GPU engine summary as a single display line. Before the
+// first JSON sample arrives (EngineNote == "warming up…") it shows that status
+// instead of rendering zeroed engine numbers.
+func engineLine(g collect.GPU) string {
+	if g.EngineNote == "warming up…" {
+		return "warming up…"
 	}
 	var parts []string
 	if g.HasFreq {
@@ -296,11 +447,7 @@ func renderGPU(t *Theme, width int, d collect.Data) string {
 	if g.HasClients {
 		line += fmt.Sprintf(" · %s %d%%", g.Client, g.ClientBusy)
 	}
-	b.WriteString("\n  " + line)
-	if g.EngineNote != "" {
-		b.WriteString("\n  " + t.dimText().Render(g.EngineNote))
-	}
-	return panel(t, "gpu", width, b.String())
+	return line
 }
 
 func renderStorage(t *Theme, width int, d collect.Data) string {

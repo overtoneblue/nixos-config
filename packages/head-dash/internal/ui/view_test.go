@@ -73,6 +73,52 @@ func TestRenderOnceSizes(t *testing.T) {
 	}
 }
 
+// TestAgentsAlwaysVisible guards the height-adaptive layout: the agents panel
+// (two rows + its full bottom border) and the footer must be fully visible at
+// every terminal height >= 24, regardless of how aggressively the column
+// panels are compressed. The footer is the last line; the agents bottom border
+// is the line directly above it.
+func TestAgentsAlwaysVisible(t *testing.T) {
+	d := sampleData()
+	for _, h := range []int{24, 26, 28, 30, 36, 42} {
+		for _, w := range []int{80, 100, 120, 132} {
+			got := RenderOnce(d, w, h, false, time.Second, false)
+			lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+			if n := len(lines); n > h {
+				t.Fatalf("w=%d h=%d: rendered %d lines, exceeded height", w, h, n)
+			}
+			last := lines[len(lines)-1]
+			if !strings.Contains(last, " q quit ") {
+				t.Errorf("w=%d h=%d: footer not the last line: %q", w, h, last)
+			}
+			body := strings.Join(lines[:len(lines)-1], "\n")
+			if !strings.Contains(body, "hermes") || !strings.Contains(body, "opencode") {
+				t.Errorf("w=%d h=%d: agents rows missing", w, h)
+			}
+			if !strings.Contains(lines[len(lines)-2], "╰") {
+				t.Errorf("w=%d h=%d: agents bottom border not directly above footer", w, h)
+			}
+		}
+	}
+}
+
+// TestGPUCompactSingleRow ensures the compressed GPU panel collapses to title +
+// exactly one row with real engine numbers once a sample exists (no separate
+// degradation line).
+func TestGPUCompactSingleRow(t *testing.T) {
+	tm := NewTheme(false)
+	got := renderGPU(tm, 60, sampleData(), true)
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	// title border, title, label, single engine row, bottom border = 5 lines.
+	// The normal (non-compact) GPU would add a separate degradation row (6).
+	if len(lines) != 5 {
+		t.Fatalf("compact gpu rows = %d, want 5; got %q", len(lines), got)
+	}
+	if !strings.Contains(lines[3], "render 42%") || !strings.Contains(lines[3], "rc6") {
+		t.Fatalf("compact gpu engine row missing real numbers; got %q", lines[3])
+	}
+}
+
 func TestBarNeverPanics(t *testing.T) {
 	tm := NewTheme(false)
 	for _, w := range []int{0, 1, 4, 40} {
