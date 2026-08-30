@@ -9,7 +9,8 @@ creation_rules:
   - path_regex: ^secrets/head\.yaml$
     age: >-
       age13cyhhsjtlwtkz7n4r2gn6hwtxr0tch6590xe5w6ufyl0anjvaqksqydm98,
-      age1s7llmjhyd63jku8aectedt56vpqq0kafmhrp4suruqnl48mfducs6fxp02
+      age1s7llmjhyd63jku8aectedt56vpqq0kafmhrp4suruqnl48mfducs6fxp02,
+      age1p6t0vgzqwcvrspwr05crhacryt7kda8xapystuc2xdq5uteddgpqrv6v6q
     # Dedicated secret file: every value is a secret, so encrypt all values
     # regardless of key name. Keys stay plaintext (for readability); values
     # become ENC[AES256_GCM,...].
@@ -17,5 +18,6 @@ creation_rules:
   - path_regex: ^secrets/head-cf\.yaml$
     age: >-
       age13cyhhsjtlwtkz7n4r2gn6hwtxr0tch6590xe5w6ufyl0anjvaqksqydm98,
-      age1s7llmjhyd63jku8aectedt56vpqq0kafmhrp4suruqnl48mfducs6fxp02
+      age1s7llmjhyd63jku8aectedt56vpqq0kafmhrp4suruqnl48mfducs6fxp02,
+      age1p6t0vgzqwcvrspwr05crhacryt7kda8xapystuc2xdq5uteddgpqrv6v6q
     encrypted_regex: "^.*$"
