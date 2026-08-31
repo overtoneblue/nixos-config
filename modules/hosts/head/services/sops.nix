@@ -95,6 +95,20 @@
             restartUnits = [ "hermes-agent.service" ];
           };
 
+          # ── Hermes Desktop backend session token ──
+          # Fixed session token for `hermes serve` (HERMES_DASHBOARD_SESSION_TOKEN)
+          # so the desktop app can authenticate to the head backend across
+          # restarts (serve generates an ephemeral random one otherwise, and the
+          # headless serve has no web UI to hand it out). Rendered into the
+          # hermes-env template → ~/.hermes/.env, which every hermes process
+          # (gateway, serve, TUI) loads at startup; restart both consumers.
+          "hermes-serve-session-token" = {
+            restartUnits = [
+              "hermes-agent.service"
+              "hermes-serve.service"
+            ];
+          };
+
           # ── hermes→node0 desktop SSH identity ──
           # Reuses the already-authorized desktop_ed25519 key so no node0
           # authorized-keys change is needed. Rendered as a private FILE secret
@@ -137,6 +151,7 @@
               FRIENDLI_API_KEY=${ph."friendli-api-key"}
               OPENROUTER_API_KEY=${ph."openrouter-api-key"}
               HERMES_DATABRICKS_API_KEY=${ph."hermes-databricks-api-key"}
+              HERMES_DASHBOARD_SESSION_TOKEN=${ph."hermes-serve-session-token"}
             '';
           };
 

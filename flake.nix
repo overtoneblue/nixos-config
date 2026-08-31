@@ -39,10 +39,10 @@
       url = "github:kaylorben/nixcord";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # PR 98555 (first_chunk_at in post_api_request) — fork branch pinned at
-    # upstream rev 3a915c46 + the PR commit 4ba91eedf8. Revert to
-    # github:NousResearch/hermes-agent once the PR merges.
-    hermes-agent.url = "github:overtoneblue/hermes-agent/feature/first-chunk-at-hook";
+    # PR 98555 (first_chunk_at in post_api_request) is still OPEN upstream.
+    # ttfb-on-main = upstream main (bots, 0.20.6) + the PR commit cherry-picked
+    # on top (cc09928c). When the PR merges, revert to upstream main.
+    hermes-agent.url = "github:overtoneblue/hermes-agent/ttfb-on-main";
     # hermes-agent.url = "github:NousResearch/hermes-agent";
     sops-nix = {
       url = "github:Mic92/sops-nix";

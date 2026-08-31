@@ -340,6 +340,7 @@
     "hermes-agent": {
       "inputs": {
         "flake-parts": "flake-parts_3",
+        "home-manager": "home-manager",
         "nixpkgs": "nixpkgs_2",
         "npm-lockfile-fix": "npm-lockfile-fix",
         "pyproject-build-systems": "pyproject-build-systems",
@@ -347,21 +348,42 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1788092445,
-        "narHash": "sha256-FuPMfiVpngmg9kJeCdfPDNIZ7Zf49fH9IhYG89q284I=",
+        "lastModified": 1788149462,
+        "narHash": "sha256-vOlmLWAohIpCitLK7ZKmjnLTItn3kSIDC6dHH6womiw=",
         "owner": "overtoneblue",
         "repo": "hermes-agent",
-        "rev": "4ba91eedf8cd9bdca65d7f88a9fd30041bab63fa",
+        "rev": "cc09928cd91ccd9594758fee9bcff2f1aa9faa26",
         "type": "github"
       },
       "original": {
         "owner": "overtoneblue",
-        "ref": "feature/first-chunk-at-hook",
+        "ref": "ttfb-on-main",
         "repo": "hermes-agent",
         "type": "github"
       }
     },
     "home-manager": {
+      "inputs": {
+        "nixpkgs": [
+          "hermes-agent",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786487128,
+        "narHash": "sha256-ad60hrRVhH/bo3Jl1YLzO+QcS3mUNZr9LNJdzhMO2P4=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "f404edbfa4117810c96b97048299242fc50e5362",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "type": "github"
+      }
+    },
+    "home-manager_2": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
@@ -1061,7 +1083,7 @@
         "firefox-addons": "firefox-addons",
         "flake-parts": "flake-parts_2",
         "hermes-agent": "hermes-agent",
-        "home-manager": "home-manager",
+        "home-manager": "home-manager_2",
         "hyprland": "hyprland",
         "import-tree": "import-tree",
         "nixcord": "nixcord",
