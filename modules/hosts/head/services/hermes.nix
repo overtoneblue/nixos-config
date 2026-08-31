@@ -296,6 +296,67 @@
         };
       };
 
+      # ── Hermes Desktop backend (`hermes serve`) ───────────────────────
+      # The Hermes Desktop app on node0 connects to this JSON-RPC/WebSocket
+      # backend instead of spawning its own agent runtime. It shares the
+      # gateway's stateDir/HERMES_HOME, so it IS the same head session —
+      # same sessions, skills, memory, credentials, and config.yaml. The
+      # serve subcommand is headless (no web UI build), so this is a lean
+      # always-on unit. Bind is loopback-only; node0 reaches it through the
+      # hermes-desktop-tunnel (SSH -L 127.0.0.1:9119) — no firewall change,
+      # no LAN exposure.
+      systemd.services.hermes-serve = {
+        description = "Hermes Agent Desktop backend (serve)";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network-online.target" "mnt-cache.mount" ];
+        wants = [ "network-online.target" ];
+        requires = [ "mnt-cache.mount" ];
+
+        environment = {
+          HOME = stateDir;
+          HERMES_HOME = "${stateDir}/.hermes";
+          HERMES_MANAGED = "true";
+
+          # Same toolchain env as the gateway so the desktop-spawned agent
+          # has identical capabilities (deploy, desktop bridge, git, nh).
+          NH_OS_FLAKE = "/srv/nixos-config";
+          NH_FLAKE = "/srv/nixos-config";
+          NH_SHOW_ACTIVATION_LOGS = "1";
+          DESKTOP_SSH_KEY = config.sops.secrets."hermes-desktop-key".path;
+          DESKTOP_KNOWN_HOSTS = "/etc/ssh/ssh_known_hosts";
+        };
+
+        serviceConfig = {
+          User = "hermes";
+          Group = "hermes";
+          WorkingDirectory = "${stateDir}/.hermes/workspace";
+
+          ExecStart = "${config.services.hermes-agent.package}/bin/hermes serve --host 127.0.0.1 --port 9119";
+
+          Restart = "always";
+          RestartSec = 5;
+
+          # Shared-state: group-writable like the gateway.
+          UMask = "0007";
+
+          # Same service hardening posture as the gateway: sudo head-rebuild
+          # needs NoNewPrivileges off; host admin needs ProtectSystem off;
+          # media mounts stay read-only.
+          NoNewPrivileges = lib.mkForce false;
+          ProtectSystem = lib.mkForce false;
+          ReadOnlyPaths = [
+            "/mnt/disk1"
+            "/mnt/disk2"
+            "/mnt/disk3"
+            "/mnt/user"
+          ];
+        };
+
+        # Make NixOS security wrappers resolvable (sudo head-rebuild) and
+        # keep the same runtime PATH shape as the gateway unit.
+        path = [ "/run/wrappers" ];
+      };
+
       # ── Shared Hermes credential store permissions ────────────────────
       # The gateway (User=hermes, UMask=0007) and overtoneblue share one
       # credential store. The agent opens auth.lock with "a+", so both the
