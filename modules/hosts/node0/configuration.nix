@@ -16,6 +16,11 @@
       # argumentless; the sudoers rule below pins the `''` empty-arg form so
       # the grant can never be widened by appending arguments.
       nodeRebuild = pkgs.writeShellScriptBin "node-rebuild" ''
+        # Transient/non-login contexts do not inherit a usable PATH: `nix`
+        # becomes unresolvable and nh aborts (same flaw fixed on head's
+        # head-rebuild 2026-08-31). Self-anchor to the system profile.
+        export PATH=/run/current-system/sw/bin:$PATH
+
         exec ${lib.getExe config.programs.nh.package} os switch \
           ${config.modules.system.flakePath}#node0 \
           --elevation-strategy none \
