@@ -111,57 +111,6 @@
             prompt = "enabled";
           };
         };
-        yazi = {
-          enable = true;
-          plugins = {
-            mediainfo = pkgs.yaziPlugins.mediainfo;
-            wl-clipboard = pkgs.yaziPlugins.wl-clipboard;
-          };
-          settings = {
-            plugin = {
-              prepend_preloaders = [
-                {
-                  mime = "image/*";
-                  run = "mediainfo";
-                }
-                {
-                  mime = "video/*";
-                  run = "mediainfo";
-                }
-              ];
-
-              prepend_previewers = [
-                {
-                  mime = "image/*";
-                  run = "mediainfo";
-                }
-                {
-                  mime = "video/*";
-                  run = "mediainfo";
-                }
-              ];
-            };
-          };
-          keymap = {
-            mgr.prepend_keymap = [
-              {
-                on = [ "<C-y>" ];
-                run = "plugin wl-clipboard";
-                desc = "wl-clipboard";
-              }
-              {
-                on = [ "H" ];
-                run = "tab_switch -1 --relative";
-                desc = "Previous tab";
-              }
-              {
-                on = [ "L" ];
-                run = "tab_switch 1 --relative";
-                desc = "Next tab";
-              }
-            ];
-          };
-        };
       };
 
       # ── Account migration: cenunix → overtoneblue ───────────────────
