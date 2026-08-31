@@ -128,7 +128,7 @@
           };
         };
 
-        extraPackages = with pkgs; [
+        runtimePkgs = with pkgs; [
           delta
           fzf
           peco
