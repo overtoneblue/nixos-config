@@ -15,6 +15,12 @@
       headRebuild = pkgs.writeShellScriptBin "head-rebuild" ''
         set -eu
 
+        # Transient units (systemd-run) and other non-login contexts do NOT
+        # inherit a usable PATH: `nix` becomes unresolvable and nh aborts with
+        # "No output from nix --version" (seen live 2026-08-31, twice).
+        # Self-anchor to the stable system profile instead of trusting callers.
+        export PATH=/run/current-system/sw/bin:$PATH
+
         case "$#" in
           0)
             mode=switch
