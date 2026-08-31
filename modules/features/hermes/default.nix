@@ -347,6 +347,46 @@
         };
       };
 
+      # Hermes Desktop app backend tunnel: forwards node0's loopback:9119
+      # → head's loopback:9119 (where hermes-serve.service listens). The
+      # desktop app connects to 127.0.0.1:9119 locally and never spawns
+      # a local agent. Mirrors the browser/audio tunnels (same key, same
+      # host); local forward because node0 is the side that initiates.
+      hm.systemd.user.services.hermes-desktop-tunnel = {
+        Unit = {
+          Description = "Hermes reverse SSH backend tunnel (Desktop serve)";
+          After = [
+            "network-online.target"
+          ];
+          Wants = [
+            "network-online.target"
+          ];
+        };
+
+        Service = {
+          ExecStart = ''
+            ${lib.getExe pkgs.openssh} \
+              -N \
+              -T \
+              -i ${homeDirectory}/.ssh/hermes_audio_tunnel \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o ExitOnForwardFailure=yes \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=3 \
+              -L 127.0.0.1:9119:127.0.0.1:9119 \
+              overtoneblue@10.1.1.24
+          '';
+
+          Restart = "always";
+          RestartSec = 5;
+        };
+
+        Install = {
+          WantedBy = [ "default.target" ];
+        };
+      };
+
       users.users.${username}.openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBttEvb3mNaTHjsc0lCB7oiGqXOZnncFYh4NKOzzWpmc hermes-desktop-control"
       ];
