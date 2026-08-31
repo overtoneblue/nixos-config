@@ -43,6 +43,7 @@
     # upstream rev 3a915c46 + the PR commit 4ba91eedf8. Revert to
     # github:NousResearch/hermes-agent once the PR merges.
     hermes-agent.url = "github:overtoneblue/hermes-agent/feature/first-chunk-at-hook";
+    # hermes-agent.url = "github:NousResearch/hermes-agent";
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
