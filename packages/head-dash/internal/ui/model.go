@@ -34,13 +34,18 @@ type Model struct {
 	theme    *Theme
 	interval time.Duration
 
-	data     collect.Data
-	width    int
-	height   int
+	data collect.Data
+	width int
+	height int
 	rendered string
 
 	paused bool
 	tick   int
+
+	// page: 0 = system, 1 = usage (ui.pageSystem / ui.pageUsage)
+	page    int
+	// usageWin: 0 = 24h rolling, 1 = calendar month (ui.win24h / ui.winMonth)
+	usageWin int
 }
 
 type tickMsg struct{}
@@ -48,7 +53,7 @@ type tickMsg struct{}
 // NewModel returns a dashboard model. The collector must already be warmed up
 // (see collect.Collector.Warmup) and started (see collect.Collector.Start) so
 // the shared cache is being refreshed by the background streams.
-func NewModel(col *collect.Collector, noColor bool, interval time.Duration) Model {
+func NewModel(col *collect.Collector, noColor bool, interval time.Duration, page int, usageWin int) Model {
 	interval = clampDur(interval, minInterval, intervalLadder[len(intervalLadder)-1])
 	col.SetFastCadence(interval)
 	m := Model{
@@ -57,6 +62,8 @@ func NewModel(col *collect.Collector, noColor bool, interval time.Duration) Mode
 		interval: interval,
 		width:    120,
 		height:   36,
+		page:     page,
+		usageWin: usageWin,
 	}
 	m.rebuildView()
 	return m
@@ -94,6 +101,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "-", "_":
 			m.setInterval(stepInterval(m.interval, false))
 			return m, nil
+		case "tab":
+			m.page = (m.page + 1) % pageCount
+			m.rebuildView()
+			return m, nil
+		case "shift+tab":
+			m.page = (m.page - 1 + pageCount) % pageCount
+			m.rebuildView()
+			return m, nil
+		case "1":
+			m.page = pageSystem
+			m.rebuildView()
+			return m, nil
+		case "2":
+			m.page = pageUsage
+			m.rebuildView()
+			return m, nil
+		case "a":
+			if m.page == pageUsage {
+				m.usageWin = win24h
+				m.rebuildView()
+			}
+			return m, nil
+		case "m":
+			if m.page == pageUsage {
+				m.usageWin = winMonth
+				m.rebuildView()
+			}
+			return m, nil
+		case "u":
+			if m.page == pageUsage {
+				m.refresh()
+			}
+			return m, nil
 		}
 
 	case tickMsg:
@@ -123,7 +163,7 @@ func (m *Model) setInterval(d time.Duration) {
 // rebuildView runs on state changes, never from View. This keeps Bubble Tea's
 // high-frequency render calls allocation- and I/O-free at the 50ms cadence.
 func (m *Model) rebuildView() {
-	m.rendered = renderFrame(m.theme, m.width, m.height, m.data, m.interval, m.paused)
+	m.rendered = renderFrame(m.theme, m.width, m.height, m.data, m.interval, m.paused, m.page, m.usageWin)
 }
 
 func (m Model) nextTick() tea.Cmd {

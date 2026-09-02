@@ -12,25 +12,30 @@ import (
 
 // RenderOnce renders a single frame at a fixed size and returns it. It is the
 // non-interactive path used by --once / CI and works without a TTY.
-func RenderOnce(d collect.Data, w, h int, noColor bool, interval time.Duration, paused bool) string {
+func RenderOnce(d collect.Data, w, h int, noColor bool, interval time.Duration, paused bool, page int, usageWin int) string {
 	if w <= 0 {
 		w = 120
 	}
 	if h <= 0 {
 		h = 36
 	}
-	return renderFrame(NewTheme(noColor), w, h, d, interval, paused)
+	return renderFrame(NewTheme(noColor), w, h, d, interval, paused, page, usageWin)
 }
 
-func renderFrame(t *Theme, w, h int, d collect.Data, interval time.Duration, paused bool) string {
+func renderFrame(t *Theme, w, h int, d collect.Data, interval time.Duration, paused bool, page int, usageWin int) string {
 	if h < 3 {
 		h = 3
 	}
 	header := renderHeader(t, w, d)
-	footer := renderFooter(t, w, interval, paused)
+	footer := renderFooter(t, w, interval, paused, page)
 
 	avail := h - 2 // header + footer
-	body := renderBody(t, w, avail, d)
+	var body string
+	if page == pageUsage {
+		body = renderUsagePage(t, w, avail, d, usageWin)
+	} else {
+		body = renderBody(t, w, avail, d)
+	}
 	bLines := strings.Split(body, "\n")
 	if len(bLines) > avail {
 		bLines = bLines[:avail]
@@ -85,7 +90,7 @@ func seg(t *Theme, label, value string) string {
 
 // ── Footer ───────────────────────────────────────────────────────────────
 
-func renderFooter(t *Theme, w int, interval time.Duration, paused bool) string {
+func renderFooter(t *Theme, w int, interval time.Duration, paused bool, page int) string {
 	state := ""
 	if paused {
 		state += t.warn().Render(" PAUSED")
@@ -94,7 +99,13 @@ func renderFooter(t *Theme, w int, interval time.Duration, paused bool) string {
 	}
 	state += t.dimText().Render(fmt.Sprintf("  interval %v", interval.Round(time.Millisecond)))
 
-	keys := t.dimText().Render(" q quit · p pause · r refresh · +/- interval · ctrl+c quit ")
+	var keys string
+	switch page {
+	case pageUsage:
+		keys = t.dimText().Render(" q quit · tab/1/2 pages · a 24h · m month · u refresh · p pause ")
+	default:
+		keys = t.dimText().Render(" q quit · p pause · r refresh · +/- interval · tab pages · ctrl+c quit ")
+	}
 	return truncate(keys+state, w)
 }
 

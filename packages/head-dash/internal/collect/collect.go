@@ -31,6 +31,7 @@ type Data struct {
 	Hermes    Hermes
 	OpenCode  OpenCode
 	Storage   []Storage
+	Usage     Usage
 }
 
 // Header holds system identity trivia shown at the top of the dashboard.
@@ -169,6 +170,13 @@ func (c *Collector) Start(ctx context.Context) {
 			defer cancel()
 			c.collectStorage(ctx2, &c.cache.d)
 		})
+		c.spawn(ctx, func() time.Duration { return 60 * time.Second }, func(ctx context.Context) {
+			c.cache.mu.Lock()
+			defer c.cache.mu.Unlock()
+			ctx2, cancel := context.WithTimeout(ctx, c.budget)
+			defer cancel()
+			c.collectUsage(ctx2, &c.cache.d)
+		})
 	})
 }
 
@@ -197,7 +205,7 @@ func (c *Collector) collectAll(parent context.Context, d *Data) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(8)
+	wg.Add(9)
 	go func() { defer wg.Done(); c.collectCPU(ctx, d) }()
 	go func() { defer wg.Done(); c.collectMem(ctx, d) }()
 	go func() { defer wg.Done(); c.collectGPU(ctx, d) }()
@@ -206,6 +214,7 @@ func (c *Collector) collectAll(parent context.Context, d *Data) {
 	go func() { defer wg.Done(); c.collectHermes(ctx, d) }()
 	go func() { defer wg.Done(); c.collectOpenCode(ctx, d) }()
 	go func() { defer wg.Done(); c.collectStorage(ctx, d) }()
+	go func() { defer wg.Done(); c.collectUsage(ctx, d) }()
 	wg.Wait()
 }
 

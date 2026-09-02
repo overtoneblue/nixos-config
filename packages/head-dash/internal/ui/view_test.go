@@ -62,7 +62,7 @@ func TestRenderOnceSizes(t *testing.T) {
 	for _, dim := range [][2]int{{40, 20}, {66, 22}, {80, 30}, {120, 36}} {
 		w, h := dim[0], dim[1]
 		for _, nc := range []bool{false, true} {
-			got := RenderOnce(d, w, h, nc, time.Second, false)
+			got := RenderOnce(d, w, h, nc, time.Second, false, 0, 0)
 			if got == "" {
 				t.Fatalf("RenderOnce(%d,%d,t=%v) returned empty output", w, h, nc)
 			}
@@ -82,7 +82,7 @@ func TestAgentsAlwaysVisible(t *testing.T) {
 	d := sampleData()
 	for _, h := range []int{24, 26, 28, 30, 36, 42} {
 		for _, w := range []int{80, 100, 120, 132} {
-			got := RenderOnce(d, w, h, false, time.Second, false)
+			got := RenderOnce(d, w, h, false, time.Second, false, 0, 0)
 			lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
 			if n := len(lines); n > h {
 				t.Fatalf("w=%d h=%d: rendered %d lines, exceeded height", w, h, n)
