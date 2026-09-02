@@ -68,20 +68,11 @@ func renderUsagePage(t *Theme, w, h int, d collect.Data, win int) string {
 	splitBody := renderSpendSplit(t, maxint(innerW, 10), uw)
 	body = append(body, panel(t, splitTitle, w, splitBody))
 
-	// ── Per-model panel (top by cost) ──────────────────────────────────
-	body = append(body, renderUsageModels(t, w, uw))
+	// ── Model sections (combined / hermes / opencode) ──────────────────
+	body = append(body, usageSectionModels(t, w, d.Usage, win)...)
 
 	// ── Per-bot panel ────────────────────────────────────────────────
 	body = append(body, renderUsageBots(t, w, d.Usage, win))
-
-	// ── Degradation notes, if any ────────────────────────────────────
-	if len(d.Usage.Errs) > 0 {
-		var lines []string
-		for _, e := range d.Usage.Errs {
-			lines = append(lines, t.warn().Render("— "+truncate(e, maxint(innerW-2, 1))))
-		}
-		body = append(body, panel(t, "usage notes", w, strings.Join(lines, "\n")))
-	}
 
 	// ── Month sparkline (both windows — it is the month detail) ───────
 	body = append(body, renderMonthSpark(t, w, d.Usage))
@@ -95,37 +86,102 @@ func renderUsagePage(t *Theme, w, h int, d collect.Data, win int) string {
 	return content
 }
 
-// renderSpendSplit draws a two-row share bar of hermes vs opencode spend.
+// renderSpendSplit draws aligned, comparable hermes vs opencode rows: spend,
+// share of total, a common-scale mini bar, and token volume — designed to
+// stay informative even when one side dominates completely.
 func renderSpendSplit(t *Theme, inner int, uw collect.UsageWindow) string {
-	if uw.Cost <= 0 {
-		return t.dimText().Render("no spend recorded in this window")
-	}
 	hPct := sharePct(uw.HermesCost, uw.Cost)
-	oPct := 1 - hPct
-	hBar := t.levelBar(hPct*100, maxint(int(float64(inner)*hPct), 0), t.green)
-	oBar := t.levelBar(oPct*100, maxint(int(float64(inner)*oPct), 0), t.accent)
-	line1 := t.fg(t.green).Render("hermes") + "  " + hBar + "  " + t.bright().Render(fmt.Sprintf("%s (%.0f%%)", humanMoney(uw.HermesCost), hPct*100))
-	line2 := t.fg(t.accent).Render("opencode") + " " + oBar + "  " + t.bright().Render(fmt.Sprintf("%s (%.0f%%)", humanMoney(uw.OpenCodeCost), oPct*100))
-	return line1 + "\n" + line2
+	oPct := sharePct(uw.OpenCodeCost, uw.Cost)
+	// Defensive: if both sides claim shares that exceed the total, renormalize.
+	if hPct+oPct > 1 && hPct+oPct > 0 {
+		hPct, oPct = hPct/(hPct+oPct), oPct/(hPct+oPct)
+	}
+
+	nameW := 9
+	barW := maxint(inner-nameW-2-26-2-10-2, 6)
+	badSplit := uw.HermesCost+uw.OpenCodeCost < 0.0000001
+
+	type row struct {
+		label string
+		col   string
+		cost  float64
+		pct   float64
+		toks  int64
+	}
+	rows := []row{
+		{"hermes", "green", uw.HermesCost, hPct, uw.HermesTokens},
+		{"opencode", "accent", uw.OpenCodeCost, oPct, uw.OpenCodeTokens},
+	}
+	var b strings.Builder
+	for _, r := range rows {
+		var style = t.fg(t.green)
+		if r.col == "accent" {
+			style = t.fg(t.accent)
+		}
+		name := style.Render(fmt.Sprintf("%-*s", nameW, r.label))
+		cost := padLeft(humanMoney(r.cost), 10)
+		pct := padLeft(fmt.Sprintf("%.1f%%", r.pct*100), 6)
+		vol := padLeft(humanTokens(r.toks), 11) + " tok"
+		bar := t.levelBar(r.pct*100, barW, func() lipgloss.Color {
+			if r.col == "accent" {
+				return t.accent
+			}
+			return t.green
+		}())
+		if badSplit {
+			// No spend at all in the window: an all-empty bar reads clearer
+			// than a dim full-width track.
+			bar = t.dimText().Render(strings.Repeat(" ", barW))
+		}
+		b.WriteString(name + "  " + cost + "  " + pct + "  " + bar + "  " + t.bright().Render(vol))
+		b.WriteString("\n")
+	}
+	totalTok := uw.HermesTokens + uw.OpenCodeTokens
+	b.WriteString(t.dimText().Render(fmt.Sprintf("%-*s  %10s  %6s  %*s  %11s tok", nameW, "combined", humanMoney(uw.Cost), "100.0%", barW+2, "", humanTokens(totalTok))))
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
-// renderUsageModels renders the per-model cost table.
-func renderUsageModels(t *Theme, width int, uw collect.UsageWindow) string {
-	if len(uw.Models) == 0 {
-		return panel(t, "models", width, unavailable(t, "no usage recorded"))
+// usageSectionModels renders three titled model sections (combined, hermes,
+// opencode) so the source of each cost row is explicit, each with a subtotal.
+func usageSectionModels(t *Theme, w int, u collect.Usage, win int) []string {
+	var uw collect.UsageWindow
+	if win == win24h {
+		uw = u.W24h
+	} else {
+		uw = u.Month
+	}
+
+	// Combined: top models across both sources by cost.
+	combined := append([]collect.UsageModel(nil), uw.Models...)
+
+	sections := []string{}
+	sections = append(sections, renderUsageModelsSection(t, w, "combined", combined, uw.Cost))
+	sections = append(sections, renderUsageModelsSection(t, w, "hermes", uw.HermesModels, uw.HermesCost))
+	if u.OpenCodeErr != "" {
+		sections = append(sections, panel(t, "opencode models", w, unavailable(t, u.OpenCodeErr+" (hermes runs see this by design)")))
+	} else {
+		sections = append(sections, renderUsageModelsSection(t, w, "opencode", uw.OpenCodeModels, uw.OpenCodeCost))
+	}
+	return sections
+}
+
+// renderUsageModelsSection renders one model section with headers and a total row.
+func renderUsageModelsSection(t *Theme, width int, title string, models []collect.UsageModel, subtotal float64) string {
+	if len(models) == 0 {
+		return panel(t, title+" models", width, unavailable(t, "no usage recorded"))
 	}
 	var b strings.Builder
 	b.WriteString(t.dimText().Render(fmt.Sprintf("%-30s %-11s %6s %10s %10s %9s",
 		"model", "provider", "calls", "in", "out", "cost")))
 	b.WriteString("\n")
-	rows := uw.Models
+	rows := models
 	if len(rows) > usageModelRowsMax {
 		rows = rows[:usageModelRowsMax]
 	}
 	for _, m := range rows {
 		costLabel := humanMoney(m.Cost)
 		if m.RateNA {
-			costLabel += " (rate n/a)"
+			costLabel += " n/a"
 		}
 		line := fmt.Sprintf("%-30s %-11s %6d %10s %10s %9s",
 			truncate(m.Name, 30), truncate(providerShort(m.Provider), 11),
@@ -133,7 +189,9 @@ func renderUsageModels(t *Theme, width int, uw collect.UsageWindow) string {
 		b.WriteString(line)
 		b.WriteString("\n")
 	}
-	return panel(t, "models", width, strings.TrimSuffix(b.String(), "\n"))
+	sub := t.dimText().Render(fmt.Sprintf("%-*s %10s %10s %9s", 42, "section total", "", "", humanMoney(subtotal)))
+	b.WriteString(sub)
+	return panel(t, title+" models", width, strings.TrimSuffix(b.String(), "\n"))
 }
 
 // renderUsageBots renders one row per Hermes profile (main + bots).

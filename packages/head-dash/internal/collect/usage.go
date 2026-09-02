@@ -26,6 +26,10 @@ type Usage struct {
 	Fresh time.Time
 	Errs  []string // per-source degradation notes; empty when everything read
 
+	// OpenCodeErr is set when the opencode DB was unreadable this pass; the
+	// UI renders it in the opencode sections instead of fake zero rows.
+	OpenCodeErr string
+
 	W24h  UsageWindow
 	Month UsageWindow
 	Daily []UsageDay // per-day points for the current month, head-local time
@@ -47,7 +51,10 @@ type UsageWindow struct {
 	OpenCodeTokens int64
 
 	Bots   []UsageBot
-	Models []UsageModel
+	Models []UsageModel // combined hermes + opencode
+
+	HermesModels   []UsageModel
+	OpenCodeModels []UsageModel
 }
 
 // UsageBot is one Hermes profile's spend in a window.
@@ -157,6 +164,10 @@ func (c *Collector) collectUsage(ctx context.Context, d *Data) {
 
 	sort.Slice(u.W24h.Models, func(i, j int) bool { return u.W24h.Models[i].Cost > u.W24h.Models[j].Cost })
 	sort.Slice(u.Month.Models, func(i, j int) bool { return u.Month.Models[i].Cost > u.Month.Models[j].Cost })
+	sort.Slice(u.W24h.HermesModels, func(i, j int) bool { return u.W24h.HermesModels[i].Cost > u.W24h.HermesModels[j].Cost })
+	sort.Slice(u.Month.HermesModels, func(i, j int) bool { return u.Month.HermesModels[i].Cost > u.Month.HermesModels[j].Cost })
+	sort.Slice(u.W24h.OpenCodeModels, func(i, j int) bool { return u.W24h.OpenCodeModels[i].Cost > u.W24h.OpenCodeModels[j].Cost })
+	sort.Slice(u.Month.OpenCodeModels, func(i, j int) bool { return u.Month.OpenCodeModels[i].Cost > u.Month.OpenCodeModels[j].Cost })
 	for i := range u.W24h.Bots {
 		sortBotsModels(u.W24h.Bots[i].TopModels)
 	}
@@ -297,6 +308,7 @@ func collectHermesUsage(ctx context.Context, name, path string, u *Usage, loc *t
 	}{{&bot24, models24, &u.W24h}, {&botM, modelsM, &u.Month}} {
 		for _, m := range pair.set {
 			pair.w.Models = append(pair.w.Models, *m)
+			pair.w.HermesModels = append(pair.w.HermesModels, *m)
 			pair.bot.TopModels = append(pair.bot.TopModels, *m)
 		}
 		pair.w.Bots = append(pair.w.Bots, *pair.bot)
@@ -313,7 +325,9 @@ func collectOpenCodeUsage(ctx context.Context, u *Usage, loc *time.Location, now
 	rows, err := queryJSON(ctx, opencodeDBPath,
 		`SELECT json_extract(data,'$.modelID') AS model, json_extract(data,'$.tokens.input') AS tin, json_extract(data,'$.tokens.output') AS tout, json_extract(data,'$.tokens.reasoning') AS treason, json_extract(data,'$.tokens.cache.read') AS tread, json_extract(data,'$.cost') AS cost, time_created FROM message WHERE json_extract(data,'$.role')='assistant'`)
 	if err != nil {
-		u.Errs = append(u.Errs, "opencode: db unreadable ("+shortErr(err)+") — hermes runs see this by design")
+		note := "opencode db unreadable (" + shortErr(err) + ")"
+		u.Errs = append(u.Errs, note+" — hermes runs see this by design")
+		u.OpenCodeErr = note
 		u.W24h.CostRateNA = true
 		u.Month.CostRateNA = true
 		return
@@ -403,6 +417,7 @@ func collectOpenCodeUsage(ctx context.Context, u *Usage, loc *time.Location, now
 	}{{models24, &u.W24h}, {modelsM, &u.Month}} {
 		for _, m := range pair.set {
 			pair.w.Models = append(pair.w.Models, *m)
+			pair.w.OpenCodeModels = append(pair.w.OpenCodeModels, *m)
 		}
 	}
 }

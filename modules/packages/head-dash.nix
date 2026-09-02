@@ -8,7 +8,7 @@
       packages.head-dash =
         pkgs.buildGoModule rec {
           pname = "head-dash";
-          version = "0.2.0";
+          version = "0.2.1";
           src = ../../packages/head-dash;
 
           vendorHash = "sha256-6RHkrNtHi7+ibgAGdKENcUE79N9FoOMw14c+qcS7Lac=";
