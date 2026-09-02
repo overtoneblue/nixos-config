@@ -196,6 +196,10 @@
 
           # Default reasoning effort for every session start.
           agent.reasoning_effort = "max";
+
+          # Pre-stage multi-profile Telegram routing; no behavior change
+          # until tokens and routes are configured.
+          gateway.multiplex_profiles = true;
         };
 
         # Runtime PATH for the gateway: the OpenCode client wrapper plus the
