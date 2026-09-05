@@ -348,16 +348,15 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1788149462,
-        "narHash": "sha256-vOlmLWAohIpCitLK7ZKmjnLTItn3kSIDC6dHH6womiw=",
-        "owner": "overtoneblue",
+        "lastModified": 1788567891,
+        "narHash": "sha256-fsI3zKji609iOAJzPn0qNs4ZLvmRM4vGQaFoi+t8tak=",
+        "owner": "NousResearch",
         "repo": "hermes-agent",
-        "rev": "cc09928cd91ccd9594758fee9bcff2f1aa9faa26",
+        "rev": "79445a496c86a19332ad786494b8384d2167e2d0",
         "type": "github"
       },
       "original": {
-        "owner": "overtoneblue",
-        "ref": "ttfb-on-main",
+        "owner": "NousResearch",
         "repo": "hermes-agent",
         "type": "github"
       }

@@ -39,11 +39,11 @@
       url = "github:kaylorben/nixcord";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # PR 98555 (first_chunk_at in post_api_request) is still OPEN upstream.
-    # ttfb-on-main = upstream main (bots, 0.20.6) + the PR commit cherry-picked
-    # on top (cc09928c). When the PR merges, revert to upstream main.
-    hermes-agent.url = "github:overtoneblue/hermes-agent/ttfb-on-main";
-    # hermes-agent.url = "github:NousResearch/hermes-agent";
+    # Upstream main (0.21.0): our TTFB PR merged upstream as #100425
+    # (salvage of #98555, merged 2026-09-01, verified surviving the 0.21.0
+    # refactor), so the overtoneblue/ttfb-on-main fork pin (@cc09928c) is
+    # retired in favor of upstream main.
+    hermes-agent.url = "github:NousResearch/hermes-agent";
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
