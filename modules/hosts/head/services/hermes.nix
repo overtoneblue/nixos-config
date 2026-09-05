@@ -189,10 +189,19 @@
           terminal.backend = "local";
           browser.cdp_url = "http://127.0.0.1:9222";
 
-          # Write-approval guardrails: skills and memory writes require
-          # explicit approval rather than being applied automatically.
-          memory.write_approval = true;
-          skills.write_approval = true;
+          # Memory model: injection INTO PROMPTS stays; AUTO-CREATION off.
+          # nudge 0 kills the turn-nudge and its save instruction cadence;
+          # background_review off kills the aux-model fork that proactively
+          # staged memory/skill writes; curator off stops background
+          # stale-marking/archiving of the skills tree. write_approval off:
+          # deliberate saves land directly (no pending queue). Manual-by-
+          # convention: memory/skill writes happen only when Caden asks.
+          memory.write_approval = false;
+          memory.nudge_interval = 0;
+          skills.write_approval = false;
+          skills.creation_nudge_interval = 0;
+          auxiliary.background_review.enabled = false;
+          curator.enabled = false;
 
           # Default reasoning effort for every session start.
           agent.reasoning_effort = "max";
