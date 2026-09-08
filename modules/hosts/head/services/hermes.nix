@@ -116,6 +116,9 @@
           plugins = {
             enabled = [ "hermes-stats" ];
           };
+          # Default: text-only replies.  /voice join or /voice on per-chat
+          # re-enables TTS; global default stays text.
+          voice.auto_tts = false;
           auxiliary.vision = {
             provider = "custom";
             model = "gemma-4-31b";
