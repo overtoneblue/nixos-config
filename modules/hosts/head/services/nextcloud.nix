@@ -31,8 +31,8 @@
 
         containers."nextcloud-sql" = {
           image = "postgres:15";
-          # Temporarily deactivated (2026-08-29) — services on hold, config kept.
-          autoStart = false;
+          # Reactivated per Caden 2026-09-06 after restored config validated.
+          autoStart = true;
           # Restored PG15 cluster. No `user` override: the official image
           # already runs as its own postgres user (uid 999), which is exactly
           # the owner of the migrated data — no chown needed on the host.
@@ -42,8 +42,8 @@
 
         containers."nextcloud" = {
           image = "lscr.io/linuxserver/nextcloud:version-32.0.6";
-          # Temporarily deactivated (2026-08-29) — services on hold, config kept.
-          autoStart = false;
+          # Reactivated per Caden 2026-09-06 after restored config validated.
+          autoStart = true;
           # LSIO images honor PUID/PGID via s6 (init still runs as root so
           # fix-perms works); matches the restored data ownership 99:100.
           environment = {
