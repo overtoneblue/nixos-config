@@ -120,11 +120,10 @@
           # re-enables TTS; global default stays text.
           voice.auto_tts = false;
           auxiliary.vision = {
-            provider = "custom";
-            model = "gemma-4-31b";
-            reasoning_effort = "";
-            base_url = "https://api.cerebras.ai/v1";
-            api_key = "\${HERMES_AUXILIARY_VISION_API_KEY}";
+            provider = "openrouter";
+            model = "google/gemini-3.8-flash";
+            base_url = "https://openrouter.ai/api/v1";
+            api_key = "\${OPENROUTER_API_KEY}";
           };
           custom_providers = [
             {
@@ -208,6 +207,9 @@
 
           # Default reasoning effort for every session start.
           agent.reasoning_effort = "max";
+          # Native image routing: attach images directly to the main
+          # vision-capable model instead of detouring through an aux backend.
+          agent.image_input_mode = "native";
 
           # Pre-stage multi-profile Telegram routing; no behavior change
           # until tokens and routes are configured.
