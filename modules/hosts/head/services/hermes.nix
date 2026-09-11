@@ -171,6 +171,18 @@
                 "databricks-glm-5-3-flash"
               ];
             }
+            {
+              name = "OrcaRouter";
+              base_url = "https://api.orcarouter.ai/v1";
+              key_env = "ORCAROUTER_API_KEY";
+              model = "obsidian/Qwen3.8-27B";
+              api_mode = "chat_completions";
+              models = [
+                "obsidian/Qwen3.8-27B"
+                "obsidian/Qwen3.6-35B-A3B"
+                "obsidian/gemma-4-26B-A4B"
+              ];
+            }
           ];
           # Direct alias so `/model friendli` resolves to FriendliAI's GLM-5.2
           # from any surface (TUI, Telegram, gateway). provider=custom routes
@@ -186,6 +198,11 @@
               model = "databricks-glm-5-3-flash";
               provider = "custom";
               base_url = "https://dbc-791cecb8-44a5.cloud.databricks.com/serving-endpoints";
+            };
+            orca = {
+              model = "obsidian/Qwen3.8-27B";
+              provider = "custom";
+              base_url = "https://api.orcarouter.ai/v1";
             };
           };
           mcp_servers.computer-use-linux.enabled = true;

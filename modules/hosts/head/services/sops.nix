@@ -94,6 +94,9 @@
           "hermes-databricks-api-key" = {
             restartUnits = [ "hermes-agent.service" ];
           };
+          "orcarouter-api-key" = {
+            restartUnits = [ "hermes-agent.service" ];
+          };
 
           # ── Hermes Desktop backend session token ──
           # Fixed session token for `hermes serve` (HERMES_DASHBOARD_SESSION_TOKEN)
@@ -150,6 +153,7 @@
               HERMES_AUXILIARY_VISION_API_KEY=${ph."hermes-auxiliary-vision-api-key"}
               FRIENDLI_API_KEY=${ph."friendli-api-key"}
               OPENROUTER_API_KEY=${ph."openrouter-api-key"}
+              ORCAROUTER_API_KEY=${ph."orcarouter-api-key"}
               HERMES_DATABRICKS_API_KEY=${ph."hermes-databricks-api-key"}
               HERMES_DASHBOARD_SESSION_TOKEN=${ph."hermes-serve-session-token"}
             '';
