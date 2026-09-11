@@ -102,13 +102,20 @@
         ];
 
         settings = {
-          # ── Declarative model/provider (Makora) ────────────────────────
+          # ── Declarative model/provider (DeepSeek direct) ─────────────────
           # Actual credentials stay in ${stateDir}/.hermes/.env via sops
           # (environmentFiles); these api_key values are env-var *references*
           # Hermes resolves at runtime — never inline secrets.
+          # base_url/api_key/api_mode are set explicitly because the
+          # settings deep-merge writes declared keys and never deletes stale
+          # keys from the rendered config.yaml — these override the lingering
+          # Makora-era keys, preventing stale base_url leaks.
           model = {
-            default = "deepseek/deepseek-v4-pro-0813";
-            provider = "openrouter";
+            default = "deepseek-v4-flash";
+            provider = "deepseek";
+            base_url = "https://api.deepseek.com/v1";
+            api_key = "\${DEEPSEEK_API_KEY}";
+            api_mode = "chat_completions";
           };
           # Load the user-space hermes-stats telemetry plugin. Enabled plugins
           # must come from config here: HERMES_MANAGED installs reject
