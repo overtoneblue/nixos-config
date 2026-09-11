@@ -98,10 +98,11 @@
         after = [ "docker-network-${containerNetwork}.service" ];
       };
 
-      # ── LAN exposure ─────────────────────────────────────────────────
+      # ── Exposure ─────────────────────────────────────────────────────
       # Direct LAN WebUI on the original port (self-signed TLS, same as the
-      # old 10.1.1.24:4143 access path). No public/Cloudflare-facing nginx
-      # vhost or LE cert: this instance stays inside the house.
+      # old 10.1.1.24:4143 access path) is retained. Public ingress added
+      # 2026-09-11: files.cenunix.dev (nginx vhost + LE cert via DNS-01,
+      # proxy to 4143) — see nginx-proxy.nix.
       networking.firewall.allowedTCPPorts = [ 4143 ];
     };
 }

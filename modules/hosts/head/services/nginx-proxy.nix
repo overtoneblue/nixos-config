@@ -43,6 +43,9 @@
         certs."jelly.cenunix.dev" = {
           domain = "jelly.cenunix.dev";
         };
+        certs."files.cenunix.dev" = {
+          domain = "files.cenunix.dev";
+        };
       };
 
       # ── nginx reverse proxy ──────────────────────────────────────
@@ -60,6 +63,20 @@
               client_max_body_size 500M;
               proxy_buffering off;
               proxy_request_buffering off;
+            '';
+          };
+        };
+        virtualHosts."files.cenunix.dev" = {
+          forceSSL = true;
+          useACMEHost = "files.cenunix.dev";
+          locations."/" = {
+            # Upstream = LSIO container's own TLS on the 4143->443 mapping
+            # (restored self-signed cert) — proxy_ssl_verify off is deliberate.
+            proxyPass = "https://127.0.0.1:4143";
+            extraConfig = ''
+              proxy_ssl_verify off;
+              client_max_body_size 0;
+              add_header Strict-Transport-Security "max-age=15552000" always;
             '';
           };
         };
