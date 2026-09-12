@@ -248,6 +248,15 @@
           # Pre-stage multi-profile Telegram routing; no behavior change
           # until tokens and routes are configured.
           gateway.multiplex_profiles = true;
+
+          # Discord server-action toolsets for Discord sessions. List-replace merge:
+          # must be the FULL desired list — the merge overwrites the runtime list
+          # wholesale (other platforms' lists are preserved).
+          platform_toolsets.discord = [
+            "bfl" "browser" "clarify" "code_execution" "cronjob" "delegation"
+            "discord" "discord_admin" "file" "image_gen" "memory" "session_search"
+            "skills" "terminal" "todo" "tts" "vision" "web"
+          ];
         };
 
         # Runtime PATH for the gateway: the OpenCode client wrapper plus the
