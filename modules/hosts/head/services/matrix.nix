@@ -98,6 +98,12 @@
       # DB role of the same name — no TCP, no password secret.
       services.postgresql = {
         enable = true;
+        # Synapse requires the database collation to be exactly C (it refuses
+        # en_US.UTF-8 at startup). ensureDatabases cannot pass collation
+        # flags, so initialise the cluster with the C locale (+UTF8 encoding)
+        # to make fresh setups deterministic — no effect on an already
+        # initialised cluster.
+        initdbArgs = [ "--locale=C" "--encoding=UTF8" ];
         ensureDatabases = [ "matrix-synapse" ];
         ensureUsers = [
           {
