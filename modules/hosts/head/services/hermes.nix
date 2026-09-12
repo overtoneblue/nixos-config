@@ -94,6 +94,16 @@
           TELEGRAM_ALLOWED_USERS = "7130533486";
           TELEGRAM_HOME_CHANNEL = "7130533486";
           DISCORD_ALLOWED_USERS = "950769259301199922";
+          # Matrix (nolan bot) — non-secret gateway config; the access token is
+          # rendered into the sops hermes-env template. E2EE required.
+          MATRIX_HOMESERVER = "https://matrix.cenunix.dev";
+          MATRIX_USER_ID = "@nolan:cenunix.dev";
+          MATRIX_ALLOWED_USERS = "@caden:cenunix.dev";
+          MATRIX_REQUIRE_MENTION = "true";
+          MATRIX_SESSION_SCOPE = "room";
+          MATRIX_AUTO_THREAD = "false";
+          MATRIX_E2EE_MODE = "required";
+          MATRIX_RECOVERY_KEY_OUTPUT_FILE = "${stateDir}/.hermes/platforms/matrix/recovery-key.txt";
         };
 
         extraArgs = [

@@ -79,6 +79,10 @@
           "discord-bot-token" = {
             restartUnits = [ "hermes-agent.service" ];
           };
+          "matrix-nolan-access-token" = {
+            sopsFile = "/srv/nixos-config/secrets/head-matrix-bots.yaml";
+            restartUnits = [ "hermes-agent.service" ];
+          };
           "hf-token" = {
             restartUnits = [ "hermes-agent.service" ];
           };
@@ -149,6 +153,7 @@
               HERMES_DASHBOARD_BASIC_AUTH_SECRET=${ph."hermes-dashboard-secret"}
               TELEGRAM_BOT_TOKEN=${ph."telegram-bot-token"}
               DISCORD_BOT_TOKEN=${ph."discord-bot-token"}
+              MATRIX_ACCESS_TOKEN=${ph."matrix-nolan-access-token"}
               HF_TOKEN=${ph."hf-token"}
               HERMES_AUXILIARY_VISION_API_KEY=${ph."hermes-auxiliary-vision-api-key"}
               FRIENDLI_API_KEY=${ph."friendli-api-key"}
