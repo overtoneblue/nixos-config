@@ -100,8 +100,8 @@
           MATRIX_USER_ID = "@nolan:cenunix.dev";
           MATRIX_ALLOWED_USERS = "@caden:cenunix.dev";
           MATRIX_REQUIRE_MENTION = "true";
-          MATRIX_SESSION_SCOPE = "room";
-          MATRIX_AUTO_THREAD = "false";
+          MATRIX_SESSION_SCOPE = "auto";
+          MATRIX_AUTO_THREAD = "true";
           MATRIX_E2EE_MODE = "required";
           MATRIX_RECOVERY_KEY_OUTPUT_FILE = "${stateDir}/.hermes/platforms/matrix/recovery-key.txt";
         };
