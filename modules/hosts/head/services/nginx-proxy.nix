@@ -46,6 +46,14 @@
         certs."files.cenunix.dev" = {
           domain = "files.cenunix.dev";
         };
+        # Matrix homeserver + apex federation delegation (added 2026-09-11;
+        # the apex serves only /.well-known/matrix/server).
+        certs."matrix.cenunix.dev" = {
+          domain = "matrix.cenunix.dev";
+        };
+        certs."cenunix.dev" = {
+          domain = "cenunix.dev";
+        };
       };
 
       # ── nginx reverse proxy ──────────────────────────────────────
@@ -77,6 +85,46 @@
               proxy_ssl_verify off;
               client_max_body_size 0;
               add_header Strict-Transport-Security "max-age=15552000" always;
+            '';
+          };
+        };
+
+        # Matrix homeserver ingress (added 2026-09-11): synapse listens on
+        # 127.0.0.1:8008; client + federation traffic terminate here.
+        virtualHosts."matrix.cenunix.dev" = {
+          forceSSL = true;
+          useACMEHost = "matrix.cenunix.dev";
+          locations."~ ^(/_matrix|/_synapse/client)" = {
+            proxyPass = "http://127.0.0.1:8008";
+            proxyWebsockets = true;
+            extraConfig = ''
+              client_max_body_size 100M;
+            '';
+          };
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:8008";
+            proxyWebsockets = true;
+            extraConfig = ''
+              client_max_body_size 100M;
+            '';
+          };
+        };
+
+        # Apex (cenunix.dev): ONLY federation delegation is served; all other
+        # paths return 404.
+        virtualHosts."cenunix.dev" = {
+          forceSSL = true;
+          useACMEHost = "cenunix.dev";
+          locations."/.well-known/matrix/server" = {
+            extraConfig = ''
+              default_type application/json;
+              add_header Access-Control-Allow-Origin "*";
+              return 200 '{"m.server": "matrix.cenunix.dev:443"}';
+            '';
+          };
+          locations."/" = {
+            extraConfig = ''
+              return 404;
             '';
           };
         };

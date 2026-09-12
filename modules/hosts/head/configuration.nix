@@ -120,6 +120,7 @@
         self.nixosModules.headJellyfin
         self.nixosModules.headNextcloud
         self.nixosModules.headNginxProxy
+        self.nixosModules.headMatrix
         self.nixosModules.base
         self.nixosModules.network
         self.nixosModules.nix-settings
