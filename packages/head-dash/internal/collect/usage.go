@@ -41,7 +41,7 @@ type UsageWindow struct {
 	OutTokens  int64
 	CacheRead  int64
 	Reasoning  int64
-	APICalls  int64
+	APICalls   int64
 	Cost       float64 // recorded actuals + hermes estimates + computed opencode costs
 	CostRateNA bool    // some opencode tokens had no published rate; their cost is omitted
 
@@ -59,27 +59,27 @@ type UsageWindow struct {
 
 // UsageBot is one Hermes profile's spend in a window.
 type UsageBot struct {
-	Name     string
-	OK       bool
-	Err      string
-	APICalls int64
-	InTokens int64
+	Name      string
+	OK        bool
+	Err       string
+	APICalls  int64
+	InTokens  int64
 	OutTokens int64
-	Cost     float64
+	Cost      float64
 	TopModels []UsageModel // top models by in+out volume, for a compact mix line
 }
 
 // UsageModel is one model×provider aggregation.
 type UsageModel struct {
-	Name       string
-	Provider   string
-	APICalls   int64
-	InTokens   int64
-	OutTokens  int64
-	CacheRead  int64
-	Reasoning  int64
-	Cost       float64
-	RateNA     bool
+	Name      string
+	Provider  string
+	APICalls  int64
+	InTokens  int64
+	OutTokens int64
+	CacheRead int64
+	Reasoning int64
+	Cost      float64
+	RateNA    bool
 }
 
 // UsageDay is one head-local calendar day of the current month.
@@ -162,6 +162,11 @@ func (c *Collector) collectUsage(ctx context.Context, d *Data) {
 		u.Daily = append(u.Daily, e)
 	}
 
+	u.W24h.Models = mergeModels(u.W24h.Models)
+	u.W24h.HermesModels = mergeModels(u.W24h.HermesModels)
+	u.Month.Models = mergeModels(u.Month.Models)
+	u.Month.HermesModels = mergeModels(u.Month.HermesModels)
+
 	sort.Slice(u.W24h.Models, func(i, j int) bool { return u.W24h.Models[i].Cost > u.W24h.Models[j].Cost })
 	sort.Slice(u.Month.Models, func(i, j int) bool { return u.Month.Models[i].Cost > u.Month.Models[j].Cost })
 	sort.Slice(u.W24h.HermesModels, func(i, j int) bool { return u.W24h.HermesModels[i].Cost > u.W24h.HermesModels[j].Cost })
@@ -181,6 +186,30 @@ func (c *Collector) collectUsage(ctx context.Context, d *Data) {
 
 func sortBotsModels(ms []UsageModel) {
 	sort.Slice(ms, func(i, j int) bool { return ms[i].InTokens+ms[i].OutTokens > ms[j].InTokens+ms[j].OutTokens })
+}
+
+func mergeModels(ms []UsageModel) []UsageModel {
+	byKey := make(map[string]int, len(ms))
+	merged := make([]UsageModel, 0, len(ms))
+	for _, m := range ms {
+		key := strings.ToLower(m.Name) + "\x00" + m.Provider
+		i, ok := byKey[key]
+		if !ok {
+			byKey[key] = len(merged)
+			merged = append(merged, m)
+			continue
+		}
+
+		agg := &merged[i]
+		agg.APICalls += m.APICalls
+		agg.InTokens += m.InTokens
+		agg.OutTokens += m.OutTokens
+		agg.CacheRead += m.CacheRead
+		agg.Reasoning += m.Reasoning
+		agg.Cost += m.Cost
+		agg.RateNA = agg.RateNA || m.RateNA
+	}
+	return merged
 }
 
 // collectHermesUsage reads one Hermes state.db. Unreadable databases
@@ -302,9 +331,9 @@ func collectHermesUsage(ctx context.Context, name, path string, u *Usage, loc *t
 	}
 
 	for _, pair := range []struct {
-		bot  *UsageBot
-		set  map[string]*UsageModel
-		w    *UsageWindow
+		bot *UsageBot
+		set map[string]*UsageModel
+		w   *UsageWindow
 	}{{&bot24, models24, &u.W24h}, {&botM, modelsM, &u.Month}} {
 		for _, m := range pair.set {
 			pair.w.Models = append(pair.w.Models, *m)
@@ -364,9 +393,9 @@ func collectOpenCodeUsage(ctx context.Context, u *Usage, loc *time.Location, now
 		}
 
 		for _, f := range []struct {
-			in    bool
-			w     *UsageWindow
-			set   map[string]*UsageModel
+			in  bool
+			w   *UsageWindow
+			set map[string]*UsageModel
 		}{
 			{ts >= float64(dayStart.Unix()), &u.W24h, models24},
 			{ts >= float64(monthStart.Unix()), &u.Month, modelsM},
