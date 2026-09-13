@@ -101,6 +101,10 @@
           "orcarouter-api-key" = {
             restartUnits = [ "hermes-agent.service" ];
           };
+          # API server bearer key for the atlas TUI (loopback :8642).
+          "hermes-api-server-key" = {
+            restartUnits = [ "hermes-agent.service" ];
+          };
 
           # ── Hermes Desktop backend session token ──
           # Fixed session token for `hermes serve` (HERMES_DASHBOARD_SESSION_TOKEN)
@@ -161,6 +165,8 @@
               ORCAROUTER_API_KEY=${ph."orcarouter-api-key"}
               HERMES_DATABRICKS_API_KEY=${ph."hermes-databricks-api-key"}
               HERMES_DASHBOARD_SESSION_TOKEN=${ph."hermes-serve-session-token"}
+              API_SERVER_ENABLED=true
+              API_SERVER_KEY=${ph."hermes-api-server-key"}
             '';
           };
 
