@@ -22,6 +22,11 @@ type Docker struct {
 
 const dockerStatsWorkers = 4
 
+const (
+	dockerStreamRefresh = 10 * time.Second
+	dockerStreamBackoff = 1500 * time.Millisecond
+)
+
 // Container is one engine container with live usage stats.
 type Container struct {
 	Name     string
@@ -42,6 +47,16 @@ type dockerHolder struct {
 	initErr error
 }
 
+// dockerStatsStream caches each running container's latest streaming sample.
+// The manager owns stream lifetimes; readers only take a short read lock.
+type dockerStatsStream struct {
+	start   sync.Once
+	mu      sync.RWMutex
+	stats   map[string]containerStats
+	have    map[string]bool
+	streams map[string]context.CancelFunc
+}
+
 func (c *Collector) dockerClient() (*client.Client, error) {
 	c.docker.once.Do(func() {
 		c.docker.cli, c.docker.initErr = client.NewClientWithOpts(
@@ -50,6 +65,163 @@ func (c *Collector) dockerClient() (*client.Client, error) {
 		)
 	})
 	return c.docker.cli, c.docker.initErr
+}
+
+// startDockerStream starts the per-container stats stream manager once. Its
+// initial refresh runs immediately so new dashboard sessions do not wait for
+// the regular container-list interval before receiving stats.
+func (c *Collector) startDockerStream(ctx context.Context) {
+	c.dockerStream.start.Do(func() {
+		c.dockerStream.mu.Lock()
+		c.dockerStream.stats = make(map[string]containerStats)
+		c.dockerStream.have = make(map[string]bool)
+		c.dockerStream.streams = make(map[string]context.CancelFunc)
+		c.dockerStream.mu.Unlock()
+
+		go c.dockerStreamLoop(ctx)
+	})
+}
+
+func (c *Collector) dockerStreamLoop(ctx context.Context) {
+	ticker := time.NewTicker(dockerStreamRefresh)
+	defer ticker.Stop()
+
+	for {
+		c.syncDockerStreams(ctx)
+		select {
+		case <-ctx.Done():
+			c.stopDockerStreams()
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// syncDockerStreams keeps exactly one stats stream for every container in the
+// latest running-container list. Failed lists leave existing streams alone so
+// they can reconnect when the daemon comes back.
+func (c *Collector) syncDockerStreams(ctx context.Context) {
+	cli, err := c.dockerClient()
+	if err != nil {
+		return
+	}
+
+	listCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	containers, err := cli.ContainerList(listCtx, container.ListOptions{})
+	cancel()
+	if err != nil {
+		return
+	}
+
+	present := make(map[string]struct{}, len(containers))
+	for _, ctr := range containers {
+		present[ctr.ID] = struct{}{}
+	}
+
+	type pendingStream struct {
+		id  string
+		ctx context.Context
+	}
+	var starts []pendingStream
+	var stops []context.CancelFunc
+
+	c.dockerStream.mu.Lock()
+	for id, stop := range c.dockerStream.streams {
+		if _, ok := present[id]; ok {
+			continue
+		}
+		delete(c.dockerStream.streams, id)
+		delete(c.dockerStream.stats, id)
+		delete(c.dockerStream.have, id)
+		stops = append(stops, stop)
+	}
+	for id := range present {
+		if _, ok := c.dockerStream.streams[id]; ok {
+			continue
+		}
+		streamCtx, stop := context.WithCancel(ctx)
+		c.dockerStream.streams[id] = stop
+		starts = append(starts, pendingStream{id: id, ctx: streamCtx})
+	}
+	c.dockerStream.mu.Unlock()
+
+	for _, stop := range stops {
+		stop()
+	}
+	for _, stream := range starts {
+		go c.streamContainerStats(stream.ctx, cli, stream.id)
+	}
+}
+
+func (c *Collector) stopDockerStreams() {
+	var stops []context.CancelFunc
+	c.dockerStream.mu.Lock()
+	for id, stop := range c.dockerStream.streams {
+		delete(c.dockerStream.streams, id)
+		delete(c.dockerStream.stats, id)
+		delete(c.dockerStream.have, id)
+		stops = append(stops, stop)
+	}
+	c.dockerStream.mu.Unlock()
+
+	for _, stop := range stops {
+		stop()
+	}
+}
+
+// streamContainerStats reconnects a Docker streaming stats endpoint whenever
+// it closes. The child context is canceled by the manager when the container
+// leaves the running list.
+func (c *Collector) streamContainerStats(ctx context.Context, cli *client.Client, id string) {
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		resp, err := cli.ContainerStats(ctx, id, true)
+		if err == nil {
+			dec := json.NewDecoder(resp.Body)
+			for {
+				var sample container.StatsResponse
+				if err := dec.Decode(&sample); err != nil {
+					break
+				}
+				c.storeContainerStats(ctx, id, computeContainerStats(sample))
+			}
+			_ = resp.Body.Close()
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(dockerStreamBackoff):
+		}
+	}
+}
+
+func (c *Collector) storeContainerStats(ctx context.Context, id string, stats containerStats) {
+	if ctx.Err() != nil {
+		return
+	}
+	c.dockerStream.mu.Lock()
+	defer c.dockerStream.mu.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
+	if _, ok := c.dockerStream.streams[id]; !ok {
+		return
+	}
+	c.dockerStream.stats[id] = stats
+	c.dockerStream.have[id] = true
+}
+
+// latestContainerStats returns the last decoded stream sample without waiting
+// on the Docker daemon or a stats stream.
+func (c *Collector) latestContainerStats(id string) (containerStats, bool) {
+	c.dockerStream.mu.RLock()
+	defer c.dockerStream.mu.RUnlock()
+	stats, ok := c.dockerStream.stats[id]
+	return stats, ok && c.dockerStream.have[id]
 }
 
 func (c *Collector) collectDocker(ctx context.Context, d *Data) {
@@ -97,7 +269,20 @@ func (c *Collector) collectDocker(ctx context.Context, d *Data) {
 		}
 	}
 
-	workers := len(containers)
+	statsNeeded := make([]int, 0, len(containers))
+	for i, ctr := range containers {
+		if s, ok := c.latestContainerStats(ctr.ID); ok {
+			out.Containers[i].CPU = s.cpu
+			out.Containers[i].MemPct = s.memPct
+			out.Containers[i].MemUsed = s.memUsed
+			out.Containers[i].MemLimit = s.memLimit
+			out.Containers[i].HasStats = true
+		} else if !c.dockerStreaming {
+			statsNeeded = append(statsNeeded, i)
+		}
+	}
+
+	workers := len(statsNeeded)
 	if workers > dockerStatsWorkers {
 		workers = dockerStatsWorkers
 	}
@@ -109,7 +294,7 @@ func (c *Collector) collectDocker(ctx context.Context, d *Data) {
 			defer wg.Done()
 			for i := range jobs {
 				statsCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-				if s, ok := readContainerStats(statsCtx, cli, containers[i].ID); ok {
+				if s, ok := fetchContainerStats(statsCtx, cli, containers[i].ID); ok {
 					out.Containers[i].CPU = s.cpu
 					out.Containers[i].MemPct = s.memPct
 					out.Containers[i].MemUsed = s.memUsed
@@ -120,7 +305,7 @@ func (c *Collector) collectDocker(ctx context.Context, d *Data) {
 			}
 		}()
 	}
-	for i := range containers {
+	for _, i := range statsNeeded {
 		jobs <- i
 	}
 	close(jobs)
@@ -142,10 +327,10 @@ type containerStats struct {
 	memLimit uint64
 }
 
-// readContainerStats grabs a single stats snapshot for a container. The
+// fetchContainerStats grabs a single stats snapshot for a container. The
 // non-streaming endpoint returns a snapshot whose PreCPUStats carry the
 // previous sample, so a proper CPU% delta is computable.
-func readContainerStats(ctx context.Context, cli *client.Client, id string) (containerStats, bool) {
+func fetchContainerStats(ctx context.Context, cli *client.Client, id string) (containerStats, bool) {
 	resp, err := cli.ContainerStats(ctx, id, false)
 	if err != nil {
 		return containerStats{}, false
@@ -157,7 +342,12 @@ func readContainerStats(ctx context.Context, cli *client.Client, id string) (con
 	if err := dec.Decode(&s); err != nil {
 		return containerStats{}, false
 	}
+	return computeContainerStats(s), true
+}
 
+// computeContainerStats converts Docker's cumulative counters into one display
+// sample. It is shared by one-shot verification reads and persistent streams.
+func computeContainerStats(s container.StatsResponse) containerStats {
 	out := containerStats{}
 	cpuDelta := float64(0)
 	if s.CPUStats.CPUUsage.TotalUsage >= s.PreCPUStats.CPUUsage.TotalUsage {
@@ -179,5 +369,5 @@ func readContainerStats(ctx context.Context, cli *client.Client, id string) (con
 		out.memUsed = s.MemoryStats.Usage
 		out.memLimit = s.MemoryStats.Limit
 	}
-	return out, true
+	return out
 }

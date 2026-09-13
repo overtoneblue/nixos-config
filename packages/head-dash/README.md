@@ -91,7 +91,7 @@ All reads are non-blocking, wrapped in timeouts, and degrade to a clear
 | Memory / swap | `/proc/meminfo` |
 | GPU | `/sys/class/drm/card<N>/device/hwmon/hwmon*/temp1_input`, `power1_average` |
 | GPU engine busy | `timeout 2 intel_gpu_top -s 1000 -o -` (best-effort parse; **requires root**) |
-| Docker | Docker Engine API via the Go SDK (`client.FromEnv`) — never the CLI |
+| Docker | Docker Engine API via the Go SDK (`client.FromEnv`) — never the CLI; stats ride persistent background streams (like GPU engine busy) |
 | Services | `systemctl show` for `hermes-agent`, `opencode`, `docker`, `docker-jellyfin`, `nginx`; `systemctl --failed` for the failed-units section |
 | Hermes agent | systemd unit state + `journalctl -u hermes-agent --since=-60s` line count; falls back to newest mtime under `/mnt/cache/appdata/hermes-agent/.hermes/{logs,sessions}` when journal access is denied |
 | OpenCode | `systemctl is-active opencode.service` + HTTP GET `http://127.0.0.1:4096/` with a 2s timeout — any HTTP response (even `401`, the auth gate) means **UP**, connection refused means **DOWN**, latency is shown |

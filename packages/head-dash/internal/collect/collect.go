@@ -48,11 +48,13 @@ type Header struct {
 // lazily-created Docker client, agent hysteresis) and a shared cache that
 // background streams keep fresh. Snapshot() returns the latest frame.
 type Collector struct {
-	budget   time.Duration
-	docker   dockerHolder
-	prevCPU  cpuPrev
-	hermesSt hermesState
-	ocSt     opencodeState
+	budget          time.Duration
+	docker          dockerHolder
+	dockerStreaming bool
+	dockerStream    dockerStatsStream
+	prevCPU         cpuPrev
+	hermesSt        hermesState
+	ocSt            opencodeState
 
 	cache     cache
 	fast      time.Duration
@@ -82,13 +84,14 @@ func NewCollector(budget time.Duration) *Collector {
 	}
 }
 
-// Warmup establishes baselines (CPU/proc deltas, Docker client + ping) so the
-// very first rendered frame already carries meaningful deltas. It is safe and
-// cheap; call once before the first Collect or Start.
+// Warmup establishes only the cheap /proc-derived CPU and memory baselines so
+// the first real collection can report deltas without probing slow sources.
 func (c *Collector) Warmup(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, c.budget)
 	defer cancel()
-	_ = c.Collect(ctx)
+	var d Data
+	c.collectCPU(ctx, &d)
+	c.collectMem(ctx, &d)
 }
 
 // Collect returns a fresh host snapshot via a single synchronous read of every
@@ -148,11 +151,14 @@ func (c *Collector) fastCadence() time.Duration {
 // itself is already a background stream.
 func (c *Collector) Start(ctx context.Context) {
 	c.started.Do(func() {
+		c.dockerStreaming = true
+
 		var d Data
 		c.collectAll(ctx, &d)
 		c.cache.mu.Lock()
 		c.cache.d = d
 		c.cache.mu.Unlock()
+		c.startDockerStream(ctx)
 
 		c.spawn(ctx, c.fastCadence, func(ctx context.Context) {
 			ctx2, cancel := context.WithTimeout(ctx, c.budget)
