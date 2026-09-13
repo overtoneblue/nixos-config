@@ -288,6 +288,7 @@
         mergerfs
         intel-gpu-tools
         self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
+        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas
       ];
 
       system.stateVersion = "26.05";
