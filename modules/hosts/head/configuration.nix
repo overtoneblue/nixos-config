@@ -275,6 +275,7 @@
       environment.etc."gitconfig".text = ''
         [safe]
           directory = /srv/nixos-config
+          directory = /srv/atlas
       '';
 
       environment.systemPackages = with pkgs; [

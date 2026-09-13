@@ -1,19 +1,12 @@
-{ ... }:
+{ inputs, ... }:
 {
   perSystem =
-    { pkgs, ... }:
+    { system, ... }:
     {
-      # atlas: keyboard-driven workstream TUI for Hermes (Bubble Tea + lipgloss).
-      # See packages/atlas/README.md.
-      packages.atlas =
-        pkgs.buildGoModule rec {
-          pname = "atlas";
-          version = "0.0.1";
-          src = ../../packages/atlas;
-
-          vendorHash = "sha256-uwBJAqN4sIepiiJf9lCDumLqfKJEowQO2tOiSWD3Fig=";
-
-          meta.mainProgram = "atlas";
-        };
+      # atlas: keyboard-driven workstream TUI for Hermes. The source repo and
+      # package definition live in /srv/atlas (consumed as the `atlas` flake
+      # input); this module only re-exports its package as
+      # self.packages.<system>.atlas so hosts can install it.
+      packages.atlas = inputs.atlas.packages.${system}.default;
     };
 }
