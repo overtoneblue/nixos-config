@@ -173,6 +173,10 @@ func (c *Collector) Start(ctx context.Context) {
 			c.cache.d.Mem = t.Mem
 			c.cache.d.Swap = t.Swap
 			c.cache.d.GPUs = t.GPUs
+			// Keep the header's elapsed uptime current between full snapshots.
+			if up, err := readUptime(); err == nil {
+				c.cache.d.Header.Uptime = up
+			}
 			c.cache.mu.Unlock()
 		})
 		c.spawn(ctx, func() time.Duration { return time.Second }, func(ctx context.Context) {
