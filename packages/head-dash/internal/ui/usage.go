@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"head-dash/internal/collect"
@@ -51,10 +52,9 @@ func renderUsagePage(t *Theme, w, h int, d collect.Data, win int) string {
 	}
 
 	totals := []string{
-		fmt.Sprintf("tokens in %s · out %s", humanTokens(uw.InTokens), humanTokens(uw.OutTokens)),
-		fmt.Sprintf("cache read %s · reasoning %s", humanTokens(uw.CacheRead), humanTokens(uw.Reasoning)),
-		fmt.Sprintf("api calls %s", humanTokens(uw.APICalls)),
-		fmt.Sprintf("cost %s%s", humanMoney(uw.Cost), " (est basis)" ),
+		fmt.Sprintf("input %s (fresh %s + cached %s) · output %s", humanTokens(uw.InTokens+uw.CacheRead), humanTokens(uw.InTokens), humanTokens(uw.CacheRead), humanTokens(uw.OutTokens)),
+		fmt.Sprintf("reasoning %s · api calls %s", humanTokens(uw.Reasoning), humanTokens(uw.APICalls)),
+		fmt.Sprintf("cost %s%s", humanMoney(uw.Cost), " (est basis)"),
 	}
 	totalsLine := strings.Join(totals, "  ·  ")
 	body = append(body, panel(t, "usage · "+winLabel+" · head-local", w,
@@ -67,6 +67,9 @@ func renderUsagePage(t *Theme, w, h int, d collect.Data, win int) string {
 	splitTitle := "spend split · hermes vs opencode"
 	splitBody := renderSpendSplit(t, maxint(innerW, 10), uw)
 	body = append(body, panel(t, splitTitle, w, splitBody))
+
+	// ── By-provider panel ───────────────────────────────────────────────
+	body = append(body, renderUsageProviders(t, w, uw.Models))
 
 	// ── Model sections (combined / hermes / opencode) ──────────────────
 	body = append(body, usageSectionModels(t, w, d.Usage, win)...)
@@ -139,6 +142,59 @@ func renderSpendSplit(t *Theme, inner int, uw collect.UsageWindow) string {
 	totalTok := uw.HermesTokens + uw.OpenCodeTokens
 	b.WriteString(t.dimText().Render(fmt.Sprintf("%-*s  %10s  %6s  %*s  %11s tok", nameW, "combined", humanMoney(uw.Cost), "100.0%", barW+2, "", humanTokens(totalTok))))
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+type providerTotal struct {
+	Provider  string
+	APICalls  int64
+	InTokens  int64
+	CacheRead int64
+	OutTokens int64
+	Cost      float64
+}
+
+// providerTotals combines model rows into one total per source provider.
+func providerTotals(models []collect.UsageModel) []providerTotal {
+	byProvider := make(map[string]providerTotal, len(models))
+	for _, m := range models {
+		t := byProvider[m.Provider]
+		t.Provider = m.Provider
+		t.APICalls += m.APICalls
+		t.InTokens += m.InTokens
+		t.CacheRead += m.CacheRead
+		t.OutTokens += m.OutTokens
+		t.Cost += m.Cost
+		byProvider[m.Provider] = t
+	}
+	totals := make([]providerTotal, 0, len(byProvider))
+	for _, t := range byProvider {
+		totals = append(totals, t)
+	}
+	sort.Slice(totals, func(i, j int) bool {
+		if totals[i].Cost == totals[j].Cost {
+			return totals[i].Provider < totals[j].Provider
+		}
+		return totals[i].Cost > totals[j].Cost
+	})
+	return totals
+}
+
+func renderUsageProviders(t *Theme, width int, models []collect.UsageModel) string {
+	totals := providerTotals(models)
+	if len(totals) == 0 {
+		return panel(t, "by provider", width, unavailable(t, "no usage recorded"))
+	}
+	var b strings.Builder
+	b.WriteString(t.dimText().Render(fmt.Sprintf("%-11s %6s %10s %10s %10s %9s",
+		"provider", "calls", "in", "cached", "out", "cost")))
+	b.WriteString("\n")
+	for _, p := range totals {
+		b.WriteString(fmt.Sprintf("%-11s %6d %10s %10s %10s %9s",
+			truncate(providerShort(p.Provider), 11), p.APICalls,
+			humanTokens(p.InTokens), humanTokens(p.CacheRead), humanTokens(p.OutTokens), humanMoney(p.Cost)))
+		b.WriteString("\n")
+	}
+	return panel(t, "by provider", width, strings.TrimSuffix(b.String(), "\n"))
 }
 
 // usageSectionModels renders three titled model sections (combined, hermes,

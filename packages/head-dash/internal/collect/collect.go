@@ -54,10 +54,11 @@ type Collector struct {
 	hermesSt hermesState
 	ocSt     opencodeState
 
-	cache    cache
-	fast     time.Duration
-	fastLock sync.RWMutex
-	started  sync.Once
+	cache     cache
+	fast      time.Duration
+	fastLock  sync.RWMutex
+	usageKick chan struct{}
+	started   sync.Once
 }
 
 // cache is the mutex-guarded store shared between background collectors and
@@ -74,7 +75,11 @@ func NewCollector(budget time.Duration) *Collector {
 	if budget <= 0 {
 		budget = 6 * time.Second
 	}
-	return &Collector{budget: budget, fast: 200 * time.Millisecond}
+	return &Collector{
+		budget:    budget,
+		fast:      200 * time.Millisecond,
+		usageKick: make(chan struct{}, 1),
+	}
 }
 
 // Warmup establishes baselines (CPU/proc deltas, Docker client + ping) so the
@@ -105,6 +110,15 @@ func (c *Collector) Snapshot() Data {
 	return d
 }
 
+// RequestUsageRefresh queues an immediate usage collection if one is not
+// already pending.
+func (c *Collector) RequestUsageRefresh() {
+	select {
+	case c.usageKick <- struct{}{}:
+	default:
+	}
+}
+
 // SetFastCadence updates how often the cheap /proc-backed collectors
 // (cpu/mem/gpu) run. The UI drives this so those panels stay in lock-step with
 // the render tick.
@@ -130,53 +144,86 @@ func (c *Collector) fastCadence() time.Duration {
 // Start launches the per-source background streams and primes the cache with
 // one full synchronous snapshot so the first rendered frame is already
 // populated. Cadences: cpu/mem/gpu follow the UI tick; docker + agents every
-// 1s; storage every 2s. The GPU itself is already a background stream.
+// 1s; services + storage every 2s; usage every 60s or on request. The GPU
+// itself is already a background stream.
 func (c *Collector) Start(ctx context.Context) {
 	c.started.Do(func() {
+		var d Data
+		c.collectAll(ctx, &d)
 		c.cache.mu.Lock()
-		c.collectAll(ctx, &c.cache.d)
+		c.cache.d = d
 		c.cache.mu.Unlock()
 
 		c.spawn(ctx, c.fastCadence, func(ctx context.Context) {
-			c.cache.mu.Lock()
-			defer c.cache.mu.Unlock()
 			ctx2, cancel := context.WithTimeout(ctx, c.budget)
 			defer cancel()
-			dc := &c.cache.d
-			c.collectCPU(ctx2, dc)
-			c.collectMem(ctx2, dc)
-			c.collectGPU(ctx2, dc)
+			var t Data
+			c.collectCPU(ctx2, &t)
+			c.collectMem(ctx2, &t)
+			c.collectGPU(ctx2, &t)
+			c.cache.mu.Lock()
+			c.cache.d.CPU = t.CPU
+			c.cache.d.Load = t.Load
+			c.cache.d.Mem = t.Mem
+			c.cache.d.Swap = t.Swap
+			c.cache.d.GPUs = t.GPUs
+			c.cache.mu.Unlock()
 		})
 		c.spawn(ctx, func() time.Duration { return time.Second }, func(ctx context.Context) {
-			c.cache.mu.Lock()
-			defer c.cache.mu.Unlock()
 			ctx2, cancel := context.WithTimeout(ctx, c.budget)
 			defer cancel()
-			c.collectDocker(ctx2, &c.cache.d)
+			var t Data
+			c.collectDocker(ctx2, &t)
+			c.cache.mu.Lock()
+			c.cache.d.Docker = t.Docker
+			c.cache.mu.Unlock()
 		})
 		c.spawn(ctx, func() time.Duration { return time.Second }, func(ctx context.Context) {
-			c.cache.mu.Lock()
-			defer c.cache.mu.Unlock()
 			ctx2, cancel := context.WithTimeout(ctx, c.budget)
 			defer cancel()
-			dc := &c.cache.d
-			c.collectHermes(ctx2, dc)
-			c.collectOpenCode(ctx2, dc)
+			var t Data
+			c.collectHermes(ctx2, &t)
+			c.collectOpenCode(ctx2, &t)
+			c.cache.mu.Lock()
+			c.cache.d.Hermes = t.Hermes
+			c.cache.d.OpenCode = t.OpenCode
+			c.cache.mu.Unlock()
 		})
 		c.spawn(ctx, func() time.Duration { return 2 * time.Second }, func(ctx context.Context) {
-			c.cache.mu.Lock()
-			defer c.cache.mu.Unlock()
 			ctx2, cancel := context.WithTimeout(ctx, c.budget)
 			defer cancel()
-			c.collectStorage(ctx2, &c.cache.d)
-		})
-		c.spawn(ctx, func() time.Duration { return 60 * time.Second }, func(ctx context.Context) {
+			var t Data
+			c.collectServices(ctx2, &t)
 			c.cache.mu.Lock()
-			defer c.cache.mu.Unlock()
+			c.cache.d.Services = t.Services
+			c.cache.mu.Unlock()
+		})
+		c.spawn(ctx, func() time.Duration { return 2 * time.Second }, func(ctx context.Context) {
 			ctx2, cancel := context.WithTimeout(ctx, c.budget)
 			defer cancel()
-			c.collectUsage(ctx2, &c.cache.d)
+			var t Data
+			c.collectStorage(ctx2, &t)
+			c.cache.mu.Lock()
+			c.cache.d.Storage = t.Storage
+			c.cache.mu.Unlock()
 		})
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-c.usageKick:
+				case <-time.After(60 * time.Second):
+				}
+				ctx2, cancel := context.WithTimeout(ctx, c.budget)
+				var t Data
+				c.collectUsage(ctx2, &t)
+				cancel()
+				c.cache.mu.Lock()
+				c.cache.d.Usage = t.Usage
+				c.cache.mu.Unlock()
+			}
+		}()
 	})
 }
 

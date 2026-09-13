@@ -20,6 +20,8 @@ type Docker struct {
 	Containers []Container
 }
 
+const dockerStatsWorkers = 4
+
 // Container is one engine container with live usage stats.
 type Container struct {
 	Name     string
@@ -80,30 +82,49 @@ func (c *Collector) collectDocker(ctx context.Context, d *Data) {
 		return
 	}
 
-	out := Docker{OK: true, Containers: []Container{}}
-	for _, ctr := range containers {
+	out := Docker{OK: true, Containers: make([]Container, len(containers))}
+	for i, ctr := range containers {
 		name := ""
 		if len(ctr.Names) > 0 {
 			// The engine reports names with a leading "/" (e.g. "/jellyfin").
 			name = strings.TrimPrefix(ctr.Names[0], "/")
 		}
-		row := Container{
+		out.Containers[i] = Container{
 			Name:   name,
 			Image:  ctr.Image,
 			State:  ctr.State,
 			Status: ctr.Status,
 		}
-		statsCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		if s, ok := readContainerStats(statsCtx, cli, ctr.ID); ok {
-			row.CPU = s.cpu
-			row.MemPct = s.memPct
-			row.MemUsed = s.memUsed
-			row.MemLimit = s.memLimit
-			row.HasStats = true
-		}
-		cancel()
-		out.Containers = append(out.Containers, row)
 	}
+
+	workers := len(containers)
+	if workers > dockerStatsWorkers {
+		workers = dockerStatsWorkers
+	}
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				statsCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+				if s, ok := readContainerStats(statsCtx, cli, containers[i].ID); ok {
+					out.Containers[i].CPU = s.cpu
+					out.Containers[i].MemPct = s.memPct
+					out.Containers[i].MemUsed = s.memUsed
+					out.Containers[i].MemLimit = s.memLimit
+					out.Containers[i].HasStats = true
+				}
+				cancel()
+			}
+		}()
+	}
+	for i := range containers {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
 	d.Docker = out
 }
 

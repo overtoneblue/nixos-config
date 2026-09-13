@@ -51,9 +51,11 @@ Hermes + OpenCode agent status, storage.
 
 Agent token & cost economics, with both windows computed every pass:
 
-- **Window totals** — tokens in/out, cache reads, reasoning, API calls,
+- **Window totals** — input (fresh + cached), output, reasoning, API calls,
   estimated cost, hermes-vs-opencode spend share.
 - **Spend split** — hermes profiles vs opencode delegations.
+- **By provider** — calls, input, cached input, output, and cost grouped by
+  provider.
 - **Models table** — top models by cost with provider, calls, in/out.
 - **Hermes bots** — one row per profile (main + every bot, auto-discovered
   from `profiles/*/state.db`), top-3 model mix.

@@ -34,16 +34,16 @@ type Model struct {
 	theme    *Theme
 	interval time.Duration
 
-	data collect.Data
-	width int
-	height int
+	data     collect.Data
+	width    int
+	height   int
 	rendered string
 
 	paused bool
 	tick   int
 
 	// page: 0 = system, 1 = usage (ui.pageSystem / ui.pageUsage)
-	page    int
+	page int
 	// usageWin: 0 = 24h rolling, 1 = calendar month (ui.win24h / ui.winMonth)
 	usageWin int
 }
@@ -131,6 +131,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "u":
 			if m.page == pageUsage {
+				m.col.RequestUsageRefresh()
 				m.refresh()
 			}
 			return m, nil
