@@ -410,25 +410,30 @@ async def handle_event(
         if not url:
             return
 
-        # Determine if body is a real caption (not just a filename)
+        # Caption detection. Element X / current spec: m.image carries the
+        # file name in the TOP-LEVEL content.filename and the caption in
+        # body. Legacy clients (no filename field): file name in body.
         info = content.get("info", {})
-        filename = info.get("filename", "") or body
-        is_caption = bool(body) and body != filename and body != Path(filename).stem
-        caption = body if is_caption else ""
+        filename = (content.get("filename") or info.get("filename") or body or "").strip()
+        is_caption = bool(stripped) and stripped != filename and stripped != Path(filename).stem
+        caption = stripped if is_caption else ""
 
-        # Check queue
-        if state.pend_count() >= queue_cap and caption:
+        # Enforce the pending-queue cap before enqueueing.
+        if state.pend_count() >= queue_cap:
             await send_text(client, hs_url, token, room_id,
-                            "Queue full — waiting for current job to finish.")
+                            "Queue full — send your prompt to flush the pending images first.")
             return
 
         # Enqueue
         tid = state.pend_image(url)
-        log.info("Enqueued image %s -> tid=%s", url, tid)
+        log.info("Enqueued image %s -> tid=%s%s", url, tid,
+                 f" (caption: {caption!r})" if caption else "")
 
         if caption:
-            await flush_job(client, hs_url, token, api_base, api_key, model,
-                           state, poll_timeout, room_id, caption)
+            # Caption acts as the prompt for ALL pending images (this one
+            # plus any sent without captions in the last TTL window).
+            await flush_all(client, hs_url, token, api_base, api_key, model,
+                            state, poll_timeout, room_id, caption)
         return
 
     # ── text message (prompt) ──
