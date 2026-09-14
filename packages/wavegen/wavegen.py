@@ -85,6 +85,25 @@ def http_error_detail(e: Exception) -> str:
     return str(e)
 
 
+def image_dimensions(data: bytes, content_type: str) -> tuple[int | None, int | None]:
+    """Best-effort (width, height) from PNG/JPEG bytes. (None, None) on failure."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) >= 24:
+        return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    if data[:2] == b"\xff\xd8":  # JPEG: walk segments to a SOF marker
+        i, n = 2, len(data)
+        while i + 9 < n:
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                h = int.from_bytes(data[i + 5:i + 7], "big")
+                w = int.from_bytes(data[i + 7:i + 9], "big")
+                return w, h
+            i += 2 + int.from_bytes(data[i + 2:i + 4], "big")
+    return None, None
+
+
 # ── State persistence ──────────────────────────────────────────────────────
 
 class State:
@@ -373,12 +392,19 @@ async def send_image(
     room_id: str,
     mxc_url: str,
     body_text: str,
+    info: dict[str, Any] | None = None,
+    filename: str | None = None,
 ) -> None:
     txn = str(uuid.uuid4())
+    content: dict[str, Any] = {"msgtype": "m.image", "body": body_text, "url": mxc_url}
+    if info:
+        content["info"] = info
+    if filename:
+        content["filename"] = filename
     await matrix_put(
         client, hs_url, token,
         f"/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn}",
-        json={"msgtype": "m.image", "body": body_text, "url": mxc_url},
+        json=content,
     )
 
 
@@ -628,12 +654,16 @@ async def run_job(
         try:
             resp = await client.get(out_url, timeout=60)
             resp.raise_for_status()
-            out_ct = resp.headers.get("Content-Type", "image/png")
+            out_ct = resp.headers.get("Content-Type", "image/png").split(";")[0].strip()
             out_data = resp.content
             out_fn = f"wavegen_{task_id[:8]}.{out_ct.split('/')[-1] or 'png'}"
             mxc = await matrix_upload_media(client, hs_url, token, out_data, out_fn, out_ct)
+            w, h = image_dimensions(out_data, out_ct)
+            info: dict[str, Any] = {"mimetype": out_ct, "size": len(out_data)}
+            if w and h:
+                info["w"], info["h"] = w, h
             await send_image(client, hs_url, token, room_id, mxc,
-                             f"Edited: {prompt} ({elapsed}s)")
+                             f"Edited: {prompt} ({elapsed}s)", info=info, filename=out_fn)
         except Exception as e:
             await send_text(client, hs_url, token, room_id,
                            f"Result available but failed to relay: {e}\nDirect URL: {out_url}")
