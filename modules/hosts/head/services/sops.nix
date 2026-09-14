@@ -46,14 +46,18 @@
             restartUnits = [ "opencode.service" ];
           };
           "makora-api-key" = {
-            restartUnits = [ "opencode.service" ];
+            restartUnits = [
+              "opencode.service"
+              "pi.service"
+            ];
           };
-          # Shared by both templates (DEEPSEEK_API_KEY appears in opencode-env
-          # and hermes-env), so a change must restart both consumers.
+          # Shared by the opencode-env, pi-env and hermes-env templates, so a
+          # change must restart every consumer.
           "deepseek-api-key" = {
             restartUnits = [
               "opencode.service"
               "hermes-agent.service"
+              "pi.service"
             ];
           };
 
@@ -182,6 +186,19 @@
             mode = "0640";
             content = ''
               OPENCODE_SERVER_PASSWORD=${ph."opencode-server-password"}
+              MAKORA_API_KEY=${ph."makora-api-key"}
+              DEEPSEEK_API_KEY=${ph."deepseek-api-key"}
+            '';
+          };
+
+          # Rendered .env consumed by the pi systemd service
+          # (services/pi.nix: EnvironmentFile). Same boundary as opencode-env:
+          # overtoneblue owns it, the hermes group reads it, nobody else.
+          "pi-env" = {
+            owner = "overtoneblue";
+            group = "hermes";
+            mode = "0640";
+            content = ''
               MAKORA_API_KEY=${ph."makora-api-key"}
               DEEPSEEK_API_KEY=${ph."deepseek-api-key"}
             '';

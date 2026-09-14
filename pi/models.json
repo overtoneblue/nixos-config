@@ -1,0 +1,17 @@
+{
+  "providers": {
+    "makora": {
+      "name": "Makora",
+      "baseUrl": "https://inference.makora.com/v1",
+      "api": "openai-completions",
+      "apiKey": "$MAKORA_API_KEY",
+      "models": [
+        { "id": "deepseek-ai/DeepSeek-V4-Flash" },
+        { "id": "google/gemma-4-26B-A4B" },
+        { "id": "moonshotai/Kimi-K3" },
+        { "id": "zai-org/GLM-5.2-FP8" },
+        { "id": "zai-org/GLM-5.2-NVFP4" }
+      ]
+    }
+  }
+}

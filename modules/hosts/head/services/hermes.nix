@@ -268,6 +268,7 @@
         # hermes-agent's own propagated inputs.
         extraPackages = [
           config.services.opencode-client.package
+          config.services.pi-client.package
           config.modules.system.desktopCommand
           config.programs.nh.package
           pkgs.nix
