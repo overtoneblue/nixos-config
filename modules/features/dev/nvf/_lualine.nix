@@ -34,10 +34,9 @@
           tabline = 1000;
           winbar = 1000;
         };
-      };
 
-      # Active sections: we use the built-in "mode" component (which will use our custom mapping)
-      activeSection.a = [
+        # Active sections: we use the built-in "mode" component (which will use our custom mapping)
+        sections.lualine_a = map lib.generators.mkLuaInline [
         "{
             (function()
              local mode_map = {
@@ -85,7 +84,7 @@
           right_padding = 2
         }"
       ];
-      activeSection.b = [
+        sections.lualine_b = map lib.generators.mkLuaInline [
         ''
           {
             "branch",
@@ -94,7 +93,7 @@
           }
         ''
       ];
-      activeSection.c = [
+        sections.lualine_c = map lib.generators.mkLuaInline [
         ''
           {
             "filename",
@@ -102,17 +101,18 @@
           }
         ''
       ];
-      activeSection.x = [ ];
-      activeSection.y = [ ];
-      activeSection.z = [ ];
+        sections.lualine_x = [ ];
+        sections.lualine_y = [ ];
+        sections.lualine_z = [ ];
 
-      # Inactive sections
-      inactiveSection.a = [ ];
-      inactiveSection.b = [ ];
-      inactiveSection.c = [ "'filename'" ];
-      inactiveSection.x = [ "'location'" ];
-      inactiveSection.y = [ ];
-      inactiveSection.z = [ ];
+        # Inactive sections
+        inactive_sections.lualine_a = [ ];
+        inactive_sections.lualine_b = [ ];
+        inactive_sections.lualine_c = map lib.generators.mkLuaInline [ "'filename'" ];
+        inactive_sections.lualine_x = map lib.generators.mkLuaInline [ "'location'" ];
+        inactive_sections.lualine_y = [ ];
+        inactive_sections.lualine_z = [ ];
+      };
     };
 
   };
