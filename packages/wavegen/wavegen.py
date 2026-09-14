@@ -33,6 +33,7 @@ DEFAULTS = {
     "POLL_TIMEOUT": "300",
     "QUEUE_CAP": "5",
     "PENDING_TTL": "600",
+    "FLUSH_GRACE": "6",
 }
 
 STATUS_TERMINAL = frozenset({"completed", "failed", "cancelled", "timeout"})
@@ -173,6 +174,37 @@ class State:
         if expired:
             self.save()
         return expired
+
+    # ── Scheduled flush (collects multi-image sends) ──
+
+    def sched_flush(self, prompt: str, room_id: str, grace: float) -> None:
+        """Schedule a flush `grace` seconds out; re-arms if already set."""
+        self.data["flush_prompt"] = prompt
+        self.data["flush_room"] = room_id
+        self.data["flush_due"] = time.time() + grace
+        self.save()
+
+    def push_flush(self, grace: float) -> bool:
+        """Push a scheduled flush's deadline out; True if one was scheduled."""
+        if self.data.get("flush_due") is None:
+            return False
+        self.data["flush_due"] = time.time() + grace
+        self.save()
+        return True
+
+    def flush_info(self) -> tuple[str, str, float] | None:
+        """Return (prompt, room_id, due_ts) if a flush is scheduled."""
+        due = self.data.get("flush_due")
+        if due is None:
+            return None
+        return (str(self.data.get("flush_prompt", "")),
+                str(self.data.get("flush_room", "")),
+                float(due))
+
+    def flush_clear(self) -> None:
+        for key in ("flush_prompt", "flush_room", "flush_due"):
+            self.data.pop(key, None)
+        self.save()
 
 
 # ── WaveSpeed upload ───────────────────────────────────────────────────────
@@ -442,6 +474,7 @@ async def handle_event(
     poll_timeout: int,
     queue_cap: int,
     pending_ttl: int,
+    grace: int,
     room_id: str,
     event: dict[str, Any],
     allowed: str,
@@ -466,9 +499,11 @@ async def handle_event(
                         "the edit, and posts the result back.\n\n"
                         "  help / !help    Show this text\n\n"
                         "Usage:\n"
-                        "  1. Attach image(s); caption sets the edit prompt immediately\n"
-                        "  2. Or send a separate text message after images\n"
-                        "  3. Pending images expire after 10 minutes")
+                        "  1. Attach image(s); a caption sets the edit prompt\n"
+                        "  2. Multi-image sends are collected for a few seconds so\n"
+                        "     every image lands in the same edit\n"
+                        "  3. Or send a separate text message after images\n"
+                        "  4. Pending images expire after 10 minutes")
         return
 
     # ── image message ──
@@ -497,10 +532,14 @@ async def handle_event(
                  f" (caption: {caption!r})" if caption else "")
 
         if caption:
-            # Caption acts as the prompt for ALL pending images (this one
-            # plus any sent without captions in the last TTL window).
-            await flush_all(client, hs_url, token, api_base, api_key, model,
-                            state, poll_timeout, room_id, caption)
+            # Caption = the batch's prompt. Don't flush immediately: Element X
+            # sends each attached image as its own message ~1s apart, so wait
+            # a grace period for sibling images to arrive first.
+            state.sched_flush(caption, room_id, grace)
+            log.info("Flush scheduled in %ds — prompt: %r", grace, caption)
+        elif state.push_flush(grace):
+            # A sibling image of a scheduled batch arrived — settle longer.
+            log.info("Flush deadline pushed out (%ds)", grace)
         return
 
     # ── text message (prompt) ──
@@ -512,8 +551,8 @@ async def handle_event(
             await send_text(client, hs_url, token, room_id,
                             "No pending images. Send image(s) first.")
             return
-        await flush_all(client, hs_url, token, api_base, api_key, model,
-                       state, poll_timeout, room_id, prompt)
+        state.sched_flush(prompt, room_id, grace)
+        log.info("Flush scheduled in %ds — prompt: %r", grace, prompt)
 
 
 # ── Job execution ──────────────────────────────────────────────────────────
@@ -691,10 +730,29 @@ async def sync_loop(
     poll_timeout: int,
     queue_cap: int,
     pending_ttl: int,
+    grace: int,
 ) -> None:
 
     while True:
-        params = {"timeout": 30000}
+        # Run a due scheduled flush before waiting for more events.
+        info = state.flush_info()
+        if info is not None and time.time() >= info[2]:
+            prompt, flush_room, _ = info
+            state.flush_clear()
+            if state.pend_count() and flush_room:
+                log.info("Flush due — running edit (%d image(s))", state.pend_count())
+                await flush_all(client, hs_url, token, api_base, api_key, model,
+                                state, poll_timeout, flush_room, prompt)
+            else:
+                log.warning("Flush due but nothing to do (room=%r, %d pending)",
+                            flush_room, state.pend_count())
+
+        # Wake in time for a scheduled flush; otherwise standard 30s poll.
+        timeout_ms = 30000
+        info = state.flush_info()
+        if info is not None:
+            timeout_ms = int(max(1.0, min(30.0, info[2] - time.time())) * 1000)
+        params = {"timeout": timeout_ms}
         if state.since:
             params["since"] = state.since
 
@@ -739,7 +797,7 @@ async def sync_loop(
         for room_id, room_data in sync_data.get("rooms", {}).get("join", {}).items():
             for event in room_data.get("timeline", {}).get("events", []):
                 await handle_event(client, hs_url, token, api_base, api_key, model,
-                                   state, poll_timeout, queue_cap, pending_ttl,
+                                   state, poll_timeout, queue_cap, pending_ttl, grace,
                                    room_id, event, allowed, whoami or "")
 
         # Expire old pending
@@ -827,6 +885,7 @@ async def main() -> None:
     poll_timeout = env_int("POLL_TIMEOUT")
     queue_cap = env_int("QUEUE_CAP")
     pending_ttl = env_int("PENDING_TTL")
+    grace = env_int("FLUSH_GRACE")
 
     log.info("wavegen starting — user=%s, hs=%s", env_str("MATRIX_USER"), hs_url)
 
@@ -835,7 +894,7 @@ async def main() -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         try:
             await sync_loop(client, hs_url, token, allowed, api_base, api_key, model,
-                           state, poll_timeout, queue_cap, pending_ttl)
+                           state, poll_timeout, queue_cap, pending_ttl, grace)
         except Exception:
             log.exception("Fatal error")
             sys.exit(1)

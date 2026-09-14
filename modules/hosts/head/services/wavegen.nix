@@ -72,6 +72,7 @@
             "WAVEGEN_POLL_TIMEOUT=300"
             "WAVEGEN_QUEUE_CAP=5"
             "WAVEGEN_PENDING_TTL=600"
+            "WAVEGEN_FLUSH_GRACE=6"
           ];
 
           # ── Hardening ──
