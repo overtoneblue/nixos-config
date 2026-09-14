@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wavegen"
+version = "0.1.0"
+description = "Zero-LLM Matrix bot for WaveSpeedAI image editing (Seedream V5.0 Pro Edit)"
+requires-python = ">=3.11"
+dependencies = ["httpx"]
+
+[project.scripts]
+wavegen = "wavegen:run"
+
+[tool.setuptools]
+py-modules = ["wavegen"]
