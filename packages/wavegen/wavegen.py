@@ -74,6 +74,17 @@ def ensure_extension(filename: str, content_type: str) -> str:
     return f"{filename}{ext}"
 
 
+def http_error_detail(e: Exception) -> str:
+    """Human-usable error text; includes the API response body when present."""
+    if isinstance(e, httpx.HTTPStatusError):
+        try:
+            body = e.response.text.strip()
+        except Exception:
+            body = ""
+        return f"HTTP {e.response.status_code}" + (f": {body[:300]}" if body else "")
+    return str(e)
+
+
 # ── State persistence ──────────────────────────────────────────────────────
 
 class State:
@@ -157,6 +168,11 @@ async def wavespeed_upload(
 ) -> str:
     """Upload bytes to WaveSpeed via two-step ticket flow. Returns download_url."""
 
+    # WaveSpeed requires a file extension on the filename in the ticket
+    # request (400 otherwise). Matrix media IDs carry none, so derive one
+    # from the content type. Must happen BEFORE the ticket POST.
+    filename = ensure_extension(filename, content_type)
+
     # Step 1: request upload ticket
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -176,9 +192,6 @@ async def wavespeed_upload(
     upload_headers = dict(ticket["upload"].get("headers", {}))
 
     # Step 2: upload bytes to the temporary URL
-    # WaveSpeed requires an extension on the filename (400 otherwise);
-    # Matrix media IDs have none, so derive one from the content type.
-    filename = ensure_extension(filename, content_type) if content_type else filename
     if "Content-Type" not in upload_headers:
         guessed, _ = mimetypes.guess_type(filename)
         if guessed:
@@ -504,7 +517,7 @@ async def flush_all(
             image_urls.append(ws_url)
         except Exception as e:
             log.error("Failed to process tid %s: %s", tid, e)
-            await send_text(client, hs_url, token, room_id, f"Image upload failed: {e}")
+            await send_text(client, hs_url, token, room_id, f"Image upload failed: {http_error_detail(e)}")
             return
 
     state.pend_clear()
@@ -542,7 +555,7 @@ async def flush_job(
         ws_url = await wavespeed_upload(client, api_base, api_key, data, fname, ctype)
     except Exception as e:
         log.error("Failed to process tid %s: %s", tid, e)
-        await send_text(client, hs_url, token, room_id, f"Image upload failed: {e}")
+        await send_text(client, hs_url, token, room_id, f"Image upload failed: {http_error_detail(e)}")
         return
 
     await run_job(client, hs_url, token, api_base, api_key, model,
