@@ -65,6 +65,15 @@ def mask_auth(headers: dict[str, str]) -> dict[str, str]:
             for k, v in headers.items()}
 
 
+def ensure_extension(filename: str, content_type: str) -> str:
+    """WaveSpeed requires a file extension (e.g. .png/.jpg). Matrix media IDs
+    carry none, so derive one from the Content-Type when it's missing."""
+    if Path(filename).suffix:
+        return filename
+    ext = mimetypes.guess_extension(content_type or "") or ".jpg"
+    return f"{filename}{ext}"
+
+
 # ── State persistence ──────────────────────────────────────────────────────
 
 class State:
@@ -144,6 +153,7 @@ async def wavespeed_upload(
     api_key: str,
     data_bytes: bytes,
     filename: str,
+    content_type: str = "",
 ) -> str:
     """Upload bytes to WaveSpeed via two-step ticket flow. Returns download_url."""
 
@@ -166,6 +176,9 @@ async def wavespeed_upload(
     upload_headers = dict(ticket["upload"].get("headers", {}))
 
     # Step 2: upload bytes to the temporary URL
+    # WaveSpeed requires an extension on the filename (400 otherwise);
+    # Matrix media IDs have none, so derive one from the content type.
+    filename = ensure_extension(filename, content_type) if content_type else filename
     if "Content-Type" not in upload_headers:
         guessed, _ = mimetypes.guess_type(filename)
         if guessed:
@@ -310,6 +323,21 @@ async def matrix_upload_media(
     return resp.json()["content_uri"]
 
 
+async def matrix_put(
+    client: httpx.AsyncClient,
+    hs_url: str,
+    token: str,
+    path: str,
+    **kw: Any,
+) -> httpx.Response:
+    """PUT with auth headers. Matrix /send/{type}/{txnId} is PUT-only."""
+    headers = kw.pop("headers", {})
+    headers.setdefault("Authorization", f"Bearer {token}")
+    if "json" in kw:
+        headers.setdefault("Content-Type", "application/json")
+    return await client.put(f"{hs_url}{path}", headers=headers, **kw)
+
+
 async def send_text(
     client: httpx.AsyncClient,
     hs_url: str,
@@ -318,7 +346,7 @@ async def send_text(
     text: str,
 ) -> None:
     txn = str(uuid.uuid4())
-    await matrix_post(
+    await matrix_put(
         client, hs_url, token,
         f"/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn}",
         json={"msgtype": "m.text", "body": text},
@@ -334,7 +362,7 @@ async def send_image(
     body_text: str,
 ) -> None:
     txn = str(uuid.uuid4())
-    await matrix_post(
+    await matrix_put(
         client, hs_url, token,
         f"/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn}",
         json={"msgtype": "m.image", "body": body_text, "url": mxc_url},
@@ -472,7 +500,7 @@ async def flush_all(
     for tid, mxc_url, _ in pending:
         try:
             data, fname, ctype = await matrix_download(client, hs_url, token, mxc_url)
-            ws_url = await wavespeed_upload(client, api_base, api_key, data, fname)
+            ws_url = await wavespeed_upload(client, api_base, api_key, data, fname, ctype)
             image_urls.append(ws_url)
         except Exception as e:
             log.error("Failed to process tid %s: %s", tid, e)
@@ -511,7 +539,7 @@ async def flush_job(
 
     try:
         data, fname, ctype = await matrix_download(client, hs_url, token, mxc_url)
-        ws_url = await wavespeed_upload(client, api_base, api_key, data, fname)
+        ws_url = await wavespeed_upload(client, api_base, api_key, data, fname, ctype)
     except Exception as e:
         log.error("Failed to process tid %s: %s", tid, e)
         await send_text(client, hs_url, token, room_id, f"Image upload failed: {e}")
