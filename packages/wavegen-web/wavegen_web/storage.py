@@ -25,6 +25,7 @@ import json
 import logging
 import mimetypes
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -80,7 +81,9 @@ class Storage:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.state_dir / "runs.db"
-        self._conn = sqlite3.connect(str(self.db_path))
+        self._lock = threading.RLock()
+        self._conn = sqlite3.connect(str(self.db_path),
+                                     check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute(SQL_CREATE_TABLE)
         self._conn.commit()
@@ -91,21 +94,25 @@ class Storage:
     def create_run(self, run_id: str, prompt: str, num_inputs: int,
                    retry_of: str | None = None) -> None:
         """Insert a new run record."""
-        self._conn.execute(SQL_INSERT,
-                           (run_id, prompt, time.time(), num_inputs, retry_of))
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(SQL_INSERT,
+                               (run_id, prompt, time.time(), num_inputs,
+                                retry_of))
+            self._conn.commit()
 
     def save_input_filename(self, run_id: str, input_name: str) -> None:
         """Append an input filename to the run's input_filenames JSON."""
-        cur = self._conn.execute("SELECT input_filenames FROM runs WHERE id=?",
-                                 (run_id,))
-        row = cur.fetchone()
-        if row:
-            names = json.loads(row[0])
-            names.append(input_name)
-            self._conn.execute("UPDATE runs SET input_filenames=? WHERE id=?",
-                               (json.dumps(names), run_id))
-            self._conn.commit()
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT input_filenames FROM runs WHERE id=?", (run_id,))
+            row = cur.fetchone()
+            if row:
+                names = json.loads(row[0])
+                names.append(input_name)
+                self._conn.execute(
+                    "UPDATE runs SET input_filenames=? WHERE id=?",
+                    (json.dumps(names), run_id))
+                self._conn.commit()
 
     def update_status(self, run_id: str, status: str, *,
                       error: str | None = None,
@@ -123,8 +130,9 @@ class Storage:
             updates["result_filename"] = result_filename
         set_clause = ", ".join(f"{k}=?" for k in updates)
         values = [*updates.values(), run_id]
-        self._conn.execute(SQL_UPDATE.format(set_clause), values)
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(SQL_UPDATE.format(set_clause), values)
+            self._conn.commit()
 
     def save_result(self, run_id: str, data: bytes,
                     content_type: str) -> str:
@@ -141,26 +149,29 @@ class Storage:
     def mark_stuck_as_failed(self) -> None:
         """On boot: any rows stuck in 'running' are marked failed."""
         now = time.time()
-        self._conn.execute(SQL_SET_STUCK_FAILED,
-                           ("interrupted by restart", now))
-        self._conn.commit()
-        changed = self._conn.total_changes
+        with self._lock:
+            self._conn.execute(SQL_SET_STUCK_FAILED,
+                               ("interrupted by restart", now))
+            self._conn.commit()
+            changed = self._conn.total_changes
         if changed:
             log.info("Marked %d stuck run(s) as 'failed (interrupted by restart)'",
                      changed)
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         """Return a single run dict, or None."""
-        cur = self._conn.execute(SQL_GET, (run_id,))
-        row = cur.fetchone()
+        with self._lock:
+            cur = self._conn.execute(SQL_GET, (run_id,))
+            row = cur.fetchone()
         if not row:
             return None
         return self._row_to_dict(row)
 
     def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
         """Return newest-first runs."""
-        cur = self._conn.execute(SQL_LIST, (limit,))
-        return [self._row_to_dict(row) for row in cur.fetchall()]
+        with self._lock:
+            rows = self._conn.execute(SQL_LIST, (limit,)).fetchall()
+        return [self._row_to_dict(row) for row in rows]
 
     # ── File helpers ──────────────────────────────────────────────────────
 
@@ -215,7 +226,8 @@ class Storage:
         }
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
 
 _manager: Storage | None = None

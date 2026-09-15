@@ -45,6 +45,31 @@ class JobEngine:
             t.start()
             self._workers.append(t)
         log.info("Job engine started (%d workers)", self._concurrency)
+        self._requeue_pending()
+
+    def _requeue_pending(self) -> None:
+        """Re-enqueue runs left 'queued' by a previous process."""
+        try:
+            pending = self._storage.list_runs(limit=200)
+        except Exception:
+            log.exception("Could not scan for pending runs")
+            return
+        for run in reversed(pending):  # oldest first
+            if run["status"] != "queued":
+                continue
+            try:
+                files: list[tuple[str, bytes]] = []
+                for name in run["input_filenames"]:
+                    files.append((name, (self._storage.runs_dir / run["id"]
+                                         / name).read_bytes()))
+                if not files:
+                    self._storage.update_status(
+                        run["id"], "failed", error="inputs lost on restart")
+                    continue
+                self.enqueue(run["id"], files, run["prompt"])
+                log.info("Re-enqueued interrupted run %s", run["id"])
+            except Exception:
+                log.exception("Could not re-enqueue run %s", run["id"])
 
     def stop(self) -> None:
         """Signal workers to stop."""
@@ -65,21 +90,26 @@ class JobEngine:
             except queue.Empty:
                 continue
 
-            # Persist input files to disk (they arrive as in-memory bytes)
-            for i, (fname, data) in enumerate(input_files, 1):
-                self._storage.store_input(run_id, i, fname, data)
-
-            # Mark running
-            self._storage.update_status(run_id, "running")
-            log.info("Run %s started (%d image(s))", run_id, len(input_files))
-
             try:
+                # Persist input files to disk (they arrive as in-memory bytes)
+                for i, (fname, data) in enumerate(input_files, 1):
+                    self._storage.store_input(run_id, i, fname, data)
+
+                # Mark running
+                self._storage.update_status(run_id, "running")
+                log.info("Run %s started (%d image(s))",
+                         run_id, len(input_files))
+
                 self._process_job(run_id, prompt,
                                   [d for _, d in input_files],
                                   [f for f, _ in input_files])
             except Exception as exc:
                 err_text = self._error_detail(exc)
-                self._storage.update_status(run_id, "failed", error=err_text)
+                try:
+                    self._storage.update_status(run_id, "failed",
+                                                error=err_text)
+                except Exception:
+                    log.exception("Could not mark run %s as failed", run_id)
                 log.error("Run %s failed: %s", run_id, err_text)
             finally:
                 self._queue.task_done()
