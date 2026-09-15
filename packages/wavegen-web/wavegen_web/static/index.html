@@ -125,7 +125,7 @@
   .status-chip.failed { background: #3a1a1a; color: var(--danger); }
 
   .run-card .card-result { margin-top: 8px; }
-  .run-card .card-result img { max-width: 100%; border-radius: var(--radius-sm); cursor: pointer; }
+  .run-card .card-result img { max-width: 100%; min-height: 160px; background: var(--surface2); border-radius: var(--radius-sm); cursor: pointer; }
   .run-card .card-actions { margin-top: 8px; display: flex; gap: 8px; }
   .run-card .card-actions button { padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 0.85rem; cursor: pointer; }
   .run-card .card-actions button:active { background: var(--border); }
@@ -180,6 +180,7 @@
   // ── State ──
   let pollTimer = null;
   let lastRuns = {};
+  let histSig = null;
   const slots = [];
   let slotSeq = 0;
   let wsInited = false;
@@ -686,14 +687,27 @@
     pollTimer = setTimeout(pollRuns, 2500);
   }
 
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) { fetchHistory(); }
+  });
+
   function fetchHistory() {
     fetch('/api/runs?limit=50', { method: 'GET' })
       .then(function(r) { return r.json(); })
       .then(function(runs) {
         lastRuns = {};
         runs.forEach(function(r) { lastRuns[r.id] = r; });
-        renderHistory(runs);
-        slots.forEach(function(s) { renderSlotStatus(s); });
+        // Only touch the DOM when something actually changed (and the page is
+        // visible). Rebuilding the full list on every poll tick made history
+        // images flash and jump-scroll on mobile.
+        var sig = runs.map(function(r) { return r.id + '|' + r.status; }).join(';');
+        if (!document.hidden && sig !== histSig) {
+          histSig = sig;
+          renderHistory(runs);
+        }
+        if (!document.hidden) {
+          slots.forEach(function(s) { renderSlotStatus(s); });
+        }
         // If any run is queued or running, continue polling
         const active = runs.some(function(r) { return r.status === 'queued' || r.status === 'running'; });
         if (!active && pollTimer) {
@@ -727,7 +741,7 @@
       html += '<div class="run-card" data-id="' + r.id + '">';
       html += '<div class="card-header">';
       if (thumbUrl) {
-        html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy">';
+        html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy" decoding="async">';
       }
       html += '<div class="card-info">';
       html += '<div class="card-prompt">' + esc(r.prompt) + '</div>';
@@ -739,7 +753,7 @@
       html += '</div></div></div>';
 
       if (resultUrl) {
-        html += '<div class="card-result"><a href="' + resultUrl + '" download><img src="' + resultUrl + '" alt="Result" loading="lazy"></a></div>';
+        html += '<div class="card-result"><a href="' + resultUrl + '" download><img src="' + resultUrl + '" alt="Result" loading="lazy" decoding="async"></a></div>';
       }
 
       var isActive = (r.status === 'queued' || r.status === 'running');
