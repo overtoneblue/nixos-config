@@ -41,6 +41,11 @@
   .clear-btn:active { color: var(--danger); border-color: var(--danger); }
   .delete-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.85rem; cursor: pointer; margin-left: auto; }
   .delete-btn:active { color: var(--danger); border-color: var(--danger); }
+  .edit-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.85rem; cursor: pointer; }
+  .edit-btn:active { color: var(--accent); border-color: var(--accent); }
+  .edit-banner { display: none; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 0.85rem; color: var(--text2); margin-bottom: 12px; }
+  .edit-banner.visible { display: flex; }
+  .edit-banner button { margin-left: auto; background: none; border: none; color: var(--text2); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
 
   /* App layout */
   #app { display: none; flex-direction: column; min-height: 100vh; }
@@ -118,11 +123,16 @@
 
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="new">New</button>
+    <button class="tab-btn" data-tab="active">Active</button>
     <button class="tab-btn" data-tab="history">History</button>
   </div>
 
   <!-- New tab -->
   <div class="tab-content active" id="tab-new">
+    <div class="edit-banner" id="edit-banner">
+      <span>Editing a copy of <b id="edit-banner-id"></b> — Generate creates a new run</span>
+      <button id="edit-banner-clear" aria-label="detach">&times;</button>
+    </div>
     <div class="upload-zone" id="upload-zone">
       <div class="icon">+</div>
       <div>Tap to add images<br><small style="color:var(--text2)">JPG, PNG, WebP · max 10 · 20 MB each</small></div>
@@ -131,6 +141,12 @@
     <div class="thumb-strip" id="thumb-strip"></div>
     <textarea id="prompt-area" placeholder="Describe the edit you want..." rows="3"></textarea>
     <button class="btn-generate" id="btn-generate" disabled>Generate</button>
+  </div>
+
+  <!-- Active tab -->
+  <div class="tab-content" id="tab-active">
+    <div id="active-list"></div>
+    <div class="empty-state" id="active-empty">Nothing running right now — start something from New</div>
   </div>
 
   <!-- History tab -->
@@ -148,6 +164,8 @@
   // ── State ──
   let selectedFiles = [];
   let pollTimer = null;
+  let lastRuns = {};
+  let editingFromId = null;
 
   // ── DOM refs ──
   const loginScreen = document.getElementById('login-screen');
@@ -163,6 +181,10 @@
   const historyList = document.getElementById('history-list');
   const historyEmpty = document.getElementById('history-empty');
   const clearBtn = document.getElementById('btn-clear');
+  const activeList = document.getElementById('active-list');
+  const activeEmpty = document.getElementById('active-empty');
+  const editBanner = document.getElementById('edit-banner');
+  const editBannerId = document.getElementById('edit-banner-id');
 
   // ── Tabs ──
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
@@ -171,7 +193,7 @@
       document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-      if (btn.dataset.tab === 'history') { fetchHistory(); }
+      if (btn.dataset.tab === 'history' || btn.dataset.tab === 'active') { fetchHistory(); }
     });
   });
 
@@ -183,6 +205,12 @@
       .then(function(r) { return r.json(); })
       .then(function() { clearBtn.disabled = false; fetchHistory(); })
       .catch(function() { clearBtn.disabled = false; });
+  });
+
+  // ── Edit banner: detach lineage ──
+  document.getElementById('edit-banner-clear').addEventListener('click', function() {
+    editingFromId = null;
+    editBanner.classList.remove('visible');
   });
 
   // ── File picker ──
@@ -245,6 +273,7 @@
     const formData = new FormData();
     selectedFiles.forEach(function(f) { formData.append('files', f, f.name); });
     formData.append('prompt', promptArea.value.trim());
+    if (editingFromId) { formData.append('retry_of', editingFromId); }
 
     genBtn.disabled = true;
     genBtn.textContent = 'Submitting…';
@@ -255,6 +284,8 @@
         if (resp.status === 201) {
           // Clear form
           selectedFiles = [];
+          editingFromId = null;
+          editBanner.classList.remove('visible');
           updateThumbnails();
           promptArea.value = '';
           genBtn.textContent = 'Generate';
@@ -327,7 +358,10 @@
     fetch('/api/runs?limit=50', { method: 'GET' })
       .then(function(r) { return r.json(); })
       .then(function(runs) {
+        lastRuns = {};
+        runs.forEach(function(r) { lastRuns[r.id] = r; });
         renderHistory(runs);
+        renderActive(runs);
         // If any run is queued or running, continue polling
         const active = runs.some(function(r) { return r.status === 'queued' || r.status === 'running'; });
         if (!active && pollTimer) {
@@ -336,6 +370,38 @@
         }
       })
       .catch(function() {});
+  }
+
+  function renderActive(runs) {
+    // In-flight lens: queued + running runs
+    var act = (runs || []).filter(function(r) { return r.status === 'queued' || r.status === 'running'; });
+    if (act.length === 0) {
+      activeList.innerHTML = '';
+      activeEmpty.style.display = 'block';
+      return;
+    }
+    activeEmpty.style.display = 'none';
+    var now = Math.floor(Date.now() / 1000);
+    var html = '';
+    act.forEach(function(r) {
+      var thumbUrl = (r.input_filenames && r.input_filenames.length > 0) ? ('/api/runs/' + r.id + '/input/1') : '';
+      var elapsed = '';
+      if (r.status === 'running' && r.started_at) {
+        elapsed = 'generating · ' + Math.max(0, now - Math.floor(r.started_at)) + 's';
+      } else if (r.created_at) {
+        elapsed = 'waiting · ' + Math.max(0, now - Math.floor(r.created_at)) + 's';
+      }
+      html += '<div class="run-card" data-id="' + r.id + '">';
+      html += '<div class="card-header">';
+      if (thumbUrl) html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy">';
+      html += '<div class="card-info">';
+      html += '<div class="card-prompt">' + esc(r.prompt) + '</div>';
+      html += '<div class="card-meta">';
+      html += '<span class="status-chip ' + r.status + '">' + (r.status === 'running' ? 'Running' : 'Queued') + '</span> ';
+      html += elapsed;
+      html += '</div></div></div></div>';
+    });
+    activeList.innerHTML = html;
   }
 
   function renderHistory(runs) {
@@ -356,7 +422,7 @@
       }
       var resultUrl = r.status === 'done' && r.result_filename ? ('/api/runs/' + r.id + '/result') : '';
       var retryLink = '/api/runs/' + r.id + '/retry';
-      var retryOf = r.retry_of ? 'Retry of ' + r.retry_of.slice(0, 8) : '';
+      var retryOf = r.retry_of ? 'From ' + r.retry_of.slice(0, 8) : '';
 
       html += '<div class="run-card" data-id="' + r.id + '">';
       html += '<div class="card-header">';
@@ -379,6 +445,9 @@
       var isActive = (r.status === 'queued' || r.status === 'running');
       html += '<div class="card-actions">';
       html += '<button class="retry-btn" data-id="' + r.id + '">Retry</button>';
+      if (r.status !== 'queued') {
+        html += '<button class="edit-btn" data-id="' + r.id + '">Edit</button>';
+      }
       if (resultUrl) {
         html += '<a href="' + resultUrl + '" download><button>Download</button></a>';
       }
@@ -423,6 +492,41 @@
             fetchHistory();
           })
           .catch(function() { btn.disabled = false; });
+      });
+    });
+
+    // Attach edit handlers — reopen a copy in the New tab
+    historyList.querySelectorAll('.edit-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.dataset.id;
+        var r = lastRuns[id];
+        if (!r) return;
+        btn.disabled = true;
+        var fnames = r.input_filenames || [];
+        Promise.all(fnames.map(function(name, i) {
+          return fetch('/api/runs/' + id + '/input/' + (i + 1))
+            .then(function(res) {
+              if (!res.ok) throw new Error('input ' + (i + 1));
+              return res.blob().then(function(b) {
+                return new File([b], name, { type: b.type || 'image/jpeg' });
+              });
+            });
+        })).then(function(files) {
+          selectedFiles = files.slice(0, 10);
+          editingFromId = id;
+          promptArea.value = r.prompt || '';
+          updateThumbnails();
+          updateGenBtn();
+          editBannerId.textContent = id.slice(0, 8);
+          editBanner.classList.add('visible');
+          var tabBtn = document.querySelector('.tab-btn[data-tab="new"]');
+          if (tabBtn) tabBtn.click();
+          window.scrollTo(0, 0);
+          btn.disabled = false;
+        }).catch(function() {
+          btn.disabled = false;
+          alert("Could not reload that run's images.");
+        });
       });
     });
   }

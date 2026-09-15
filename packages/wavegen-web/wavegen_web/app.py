@@ -144,9 +144,15 @@ async def handle_create_run(request: Request) -> JSONResponse:
     if len(valid_files) > 10:
         return JSONResponse({"error": "maximum 10 images"}, status_code=400)
 
+    # Optional lineage ("Edit" from the UI re-sends the source run id)
+    import re as _re
+    parent = (form.get("retry_of") or "").strip()
+    retry_of = parent if _re.fullmatch(r"[0-9a-f]{6,64}", parent) else None
+
     # Create run record
     run_id = uuid.uuid4().hex
-    get_storage().create_run(run_id, prompt, len(valid_files))
+    get_storage().create_run(run_id, prompt, len(valid_files),
+                             retry_of=retry_of)
 
     # Enqueue
     get_engine().enqueue(run_id, valid_files, prompt)

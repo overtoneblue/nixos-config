@@ -92,7 +92,7 @@
     };
 
   # ── wavegen-web: web UI for WaveSpeedAI image editing ─────────────
-  # Starlette + uvicorn, queue with 2-parallel workers, history, retry,
+  # Starlette + uvicorn, queue with 4-parallel workers, history, retry,
   # single-password auth.  Tailnet-only on port 8443 (no firewall).
   flake.nixosModules.headWavegenWeb =
     { config, lib, pkgs, ... }:
@@ -146,7 +146,7 @@
           EnvironmentFile = config.sops.templates."wavegen-web-env".path;
 
           Environment = [
-            "WAVEGEN_WEB_CONCURRENCY=2"
+            "WAVEGEN_WEB_CONCURRENCY=4"
             "WAVEGEN_WEB_PORT=8443"
             "WAVEGEN_WEB_STATE=/var/lib/wavegen-web"
             "WAVEGEN_WEB_POLL_TIMEOUT=300"
