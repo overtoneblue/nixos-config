@@ -125,6 +125,7 @@
         self.nixosModules.headWavegen
         self.nixosModules.base
         self.nixosModules.network
+        self.nixosModules.tailscale
         self.nixosModules.nix-settings
         self.nixosModules.dev
       ];
