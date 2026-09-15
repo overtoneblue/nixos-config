@@ -186,6 +186,29 @@ async def handle_retry_run(request: Request) -> JSONResponse:
                         status_code=201)
 
 
+async def handle_delete_run(request: Request) -> JSONResponse:
+    """DELETE /api/runs/{id} — remove a finished run and its files."""
+    from wavegen_web.storage import get as get_storage
+
+    run_id = request.path_params["id"]
+    run = get_storage().get_run(run_id)
+    if not run:
+        return JSONResponse({"error": "run not found"}, status_code=404)
+    if run["status"] in ("queued", "running"):
+        return JSONResponse(
+            {"error": "run is still active — wait for it to finish"},
+            status_code=409)
+    get_storage().delete_run(run_id)
+    return JSONResponse({"deleted": run_id})
+
+
+async def handle_clear_runs(request: Request) -> JSONResponse:
+    """POST /api/runs/clear — delete all finished runs (active kept)."""
+    from wavegen_web.storage import get as get_storage
+
+    return JSONResponse(get_storage().clear_finished())
+
+
 async def handle_get_input(request: Request) -> Response:
     """GET /api/runs/{id}/input/{index} — serve input image bytes."""
     from wavegen_web.storage import get as get_storage
@@ -262,6 +285,8 @@ def create_app() -> Starlette:
         Route("/api/runs", handle_list_runs, methods=["GET"]),
         Route("/api/runs", handle_create_run, methods=["POST"]),
         Route("/api/runs/{id:str}/retry", handle_retry_run, methods=["POST"]),
+        Route("/api/runs/clear", handle_clear_runs, methods=["POST"]),
+        Route("/api/runs/{id:str}", handle_delete_run, methods=["DELETE"]),
         Route("/api/runs/{id:str}/input/{index:int}", handle_get_input,
               methods=["GET"]),
         Route("/api/runs/{id:str}/result", handle_get_result, methods=["GET"]),

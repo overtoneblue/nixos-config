@@ -24,6 +24,7 @@ File layout:
 import json
 import logging
 import mimetypes
+import shutil
 import sqlite3
 import threading
 import time
@@ -172,6 +173,32 @@ class Storage:
         with self._lock:
             rows = self._conn.execute(SQL_LIST, (limit,)).fetchall()
         return [self._row_to_dict(row) for row in rows]
+
+    def delete_run(self, run_id: str) -> bool:
+        """Delete a run row and its files. False if the run didn't exist."""
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM runs WHERE id=?", (run_id,))
+            self._conn.commit()
+            deleted = cur.rowcount > 0
+        if deleted:
+            shutil.rmtree(self.runs_dir / run_id, ignore_errors=True)
+        return deleted
+
+    def clear_finished(self) -> dict[str, int]:
+        """Delete every run not queued/running; return counts."""
+        with self._lock:
+            ids = [r[0] for r in self._conn.execute(
+                "SELECT id FROM runs WHERE status NOT IN ('queued','running')"
+            ).fetchall()]
+            active = self._conn.execute(
+                "SELECT COUNT(*) FROM runs WHERE status IN ('queued','running')"
+            ).fetchone()[0]
+            for rid in ids:
+                self._conn.execute("DELETE FROM runs WHERE id=?", (rid,))
+            self._conn.commit()
+        for rid in ids:
+            shutil.rmtree(self.runs_dir / rid, ignore_errors=True)
+        return {"deleted": len(ids), "active": active}
 
     # ── File helpers ──────────────────────────────────────────────────────
 
