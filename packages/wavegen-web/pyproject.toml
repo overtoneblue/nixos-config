@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wavegen-web"
+version = "0.1.0"
+description = "Web UI for WaveSpeedAI image editing (Seedream V5.0 Pro Edit)"
+requires-python = ">=3.11"
+dependencies = [
+    "starlette",
+    "uvicorn",
+    "python-multipart",
+    "httpx",
+    "aiofiles",
+]
+
+[project.scripts]
+wavegen-web = "wavegen_web:run"
+
+[tool.setuptools.packages.find]
+include = ["wavegen_web*"]
+
+[tool.setuptools.package-data]
+wavegen_web = ["static/*"]

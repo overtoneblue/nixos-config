@@ -123,6 +123,7 @@
         self.nixosModules.headNginxProxy
         self.nixosModules.headMatrix
         self.nixosModules.headWavegen
+        self.nixosModules.headWavegenWeb
         self.nixosModules.base
         self.nixosModules.network
         self.nixosModules.tailscale
@@ -294,6 +295,13 @@
         self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
         self.packages.${pkgs.stdenv.hostPlatform.system}.atlas
       ];
+
+      # head-specific: never let Tailscale manage this host's DNS.
+      # The tailnet's global resolver is the (currently offline) pihole; with default
+      # accept-dns, head forwards every lookup to it and loses all name resolution
+      # (this took the gateway down on 2026-09-14). tailscaled-set.service applies
+      # extraSetFlags on every boot; merges with the shared module's netfilter flag.
+      services.tailscale.extraSetFlags = [ "--accept-dns=false" ];
 
       system.stateVersion = "26.05";
     };

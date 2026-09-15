@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>wavegen-web</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #111;
+    --bg2: #1a1a1a;
+    --surface: #222;
+    --surface2: #2a2a2a;
+    --border: #333;
+    --text: #e0e0e0;
+    --text2: #999;
+    --accent: #4a9eff;
+    --accent-hover: #3a8eef;
+    --danger: #ff4444;
+    --success: #44cc66;
+    --warning: #ffaa33;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5; }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* Login screen */
+  #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  #login-screen h1 { font-size: 1.6rem; margin-bottom: 8px; }
+  #login-screen p { color: var(--text2); margin-bottom: 24px; }
+  #login-form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+  #login-form input { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 1rem; }
+  #login-form button { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--accent); color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+  #login-form button:active { background: var(--accent-hover); }
+  #login-error { color: var(--danger); font-size: 0.9rem; margin-top: 8px; display: none; }
+
+  /* App layout */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .app-header { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  .app-header h1 { font-size: 1.2rem; font-weight: 600; }
+
+  /* Tabs */
+  .tab-bar { display: flex; background: var(--bg2); border-bottom: 1px solid var(--border); }
+  .tab-btn { flex: 1; padding: 14px 16px; text-align: center; font-size: 0.95rem; font-weight: 500; color: var(--text2); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; flex: 1; padding: 16px; }
+  .tab-content.active { display: block; }
+
+  /* New tab */
+  .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px 16px; text-align: center; color: var(--text2); cursor: pointer; transition: border-color 0.2s; background: var(--surface); }
+  .upload-zone:active, .upload-zone.dragover { border-color: var(--accent); background: var(--surface2); }
+  .upload-zone input { display: none; }
+  .upload-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+
+  /* Thumbnail strip */
+  .thumb-strip { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; }
+  .thumb-strip img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0; }
+
+  /* Input area */
+  #prompt-area { width: 100%; min-height: 80px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 1rem; resize: vertical; margin: 12px 0; font-family: inherit; }
+  #prompt-area:focus { outline: none; border-color: var(--accent); }
+
+  .btn-generate { width: 100%; padding: 16px; border-radius: var(--radius); border: none; background: var(--accent); color: #fff; font-size: 1.1rem; font-weight: 600; cursor: pointer; }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-generate:not(:disabled):active { background: var(--accent-hover); }
+
+  /* History cards */
+  .run-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 12px; margin-bottom: 12px; }
+  .run-card .card-header { display: flex; gap: 12px; align-items: start; }
+  .run-card .card-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0; }
+  .run-card .card-info { flex: 1; min-width: 0; }
+  .run-card .card-prompt { font-size: 0.95rem; word-break: break-word; margin-bottom: 4px; }
+  .run-card .card-meta { font-size: 0.8rem; color: var(--text2); }
+
+  .status-chip { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+  .status-chip.queued { background: #333; color: var(--text2); }
+  .status-chip.running { background: #1a3a6a; color: var(--accent); }
+  .status-chip.done { background: #1a3a1a; color: var(--success); }
+  .status-chip.failed { background: #3a1a1a; color: var(--danger); }
+
+  .run-card .card-result { margin-top: 8px; }
+  .run-card .card-result img { max-width: 100%; border-radius: var(--radius-sm); cursor: pointer; }
+  .run-card .card-actions { margin-top: 8px; display: flex; gap: 8px; }
+  .run-card .card-actions button { padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 0.85rem; cursor: pointer; }
+  .run-card .card-actions button:active { background: var(--border); }
+  .run-card .card-actions .retry-btn { border-color: var(--accent); color: var(--accent); }
+
+  .empty-state { text-align: center; color: var(--text2); padding: 40px 16px; }
+
+  /* Totop spacing */
+  .spacer { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <h1>wavegen-web</h1>
+  <p>WaveSpeedAI image editor</p>
+  <form id="login-form">
+    <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+    <div id="login-error">Invalid password</div>
+  </form>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <div class="app-header"><h1>wavegen-web</h1></div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="new">New</button>
+    <button class="tab-btn" data-tab="history">History</button>
+  </div>
+
+  <!-- New tab -->
+  <div class="tab-content active" id="tab-new">
+    <div class="upload-zone" id="upload-zone">
+      <div class="icon">+</div>
+      <div>Tap to add images<br><small style="color:var(--text2)">JPG, PNG, WebP · max 10 · 20 MB each</small></div>
+      <input type="file" id="file-input" accept="image/*" multiple>
+    </div>
+    <div class="thumb-strip" id="thumb-strip"></div>
+    <textarea id="prompt-area" placeholder="Describe the edit you want..." rows="3"></textarea>
+    <button class="btn-generate" id="btn-generate" disabled>Generate</button>
+  </div>
+
+  <!-- History tab -->
+  <div class="tab-content" id="tab-history">
+    <div id="history-list"></div>
+    <div class="empty-state" id="history-empty">No runs yet</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── State ──
+  let selectedFiles = [];
+  let pollTimer = null;
+
+  // ── DOM refs ──
+  const loginScreen = document.getElementById('login-screen');
+  const app = document.getElementById('app');
+  const loginForm = document.getElementById('login-form');
+  const passwordInput = document.getElementById('password-input');
+  const loginError = document.getElementById('login-error');
+  const fileInput = document.getElementById('file-input');
+  const uploadZone = document.getElementById('upload-zone');
+  const thumbStrip = document.getElementById('thumb-strip');
+  const promptArea = document.getElementById('prompt-area');
+  const genBtn = document.getElementById('btn-generate');
+  const historyList = document.getElementById('history-list');
+  const historyEmpty = document.getElementById('history-empty');
+
+  // ── Tabs ──
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'history') { fetchHistory(); }
+    });
+  });
+
+  // ── File picker ──
+  uploadZone.addEventListener('click', function() { fileInput.click(); });
+  fileInput.addEventListener('change', function() { handleFiles(this.files); });
+
+  function handleFiles(files) {
+    const remaining = 10 - selectedFiles.length;
+    const toAdd = Math.min(files.length, remaining);
+    for (let i = 0; i < toAdd; i++) {
+      selectedFiles.push(files[i]);
+    }
+    updateThumbnails();
+    updateGenBtn();
+  }
+
+  function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateThumbnails();
+    updateGenBtn();
+  }
+
+  function updateThumbnails() {
+    thumbStrip.innerHTML = '';
+    selectedFiles.forEach(function(file, i) {
+      const url = URL.createObjectURL(file);
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:relative;flex-shrink:0;';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = file.name;
+      img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #333;';
+      const rm = document.createElement('button');
+      rm.textContent = 'x';
+      rm.style.cssText = 'position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;border:none;background:#ff4444;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+      rm.addEventListener('click', function(e) { e.stopPropagation(); removeFile(i); });
+      wrapper.appendChild(img);
+      wrapper.appendChild(rm);
+      thumbStrip.appendChild(wrapper);
+    });
+  }
+
+  function updateGenBtn() {
+    genBtn.disabled = selectedFiles.length === 0 || promptArea.value.trim() === '';
+  }
+  promptArea.addEventListener('input', updateGenBtn);
+
+  // ── Drag & drop ──
+  uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
+  uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
+  uploadZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files) { handleFiles(e.dataTransfer.files); }
+  });
+
+  // ── Generate ──
+  genBtn.addEventListener('click', function() {
+    if (genBtn.disabled) return;
+    const formData = new FormData();
+    selectedFiles.forEach(function(f) { formData.append('files', f, f.name); });
+    formData.append('prompt', promptArea.value.trim());
+
+    genBtn.disabled = true;
+    genBtn.textContent = 'Submitting…';
+
+    fetch('/api/runs', { method: 'POST', body: formData })
+      .then(function(r) { return r.json().then(function(d) { return {status: r.status, data: d}; }); })
+      .then(function(resp) {
+        if (resp.status === 201) {
+          // Clear form
+          selectedFiles = [];
+          updateThumbnails();
+          promptArea.value = '';
+          genBtn.textContent = 'Generate';
+          updateGenBtn();
+          // Start polling if needed
+          pollRuns();
+        } else {
+          alert('Error: ' + (resp.data.error || 'unknown'));
+          genBtn.textContent = 'Generate';
+          updateGenBtn();
+        }
+      })
+      .catch(function(err) {
+        alert('Network error: ' + err);
+        genBtn.textContent = 'Generate';
+        updateGenBtn();
+      });
+  });
+
+  // ── Login ──
+  loginForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const pw = passwordInput.value;
+    loginError.style.display = 'none';
+
+    fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'password=' + encodeURIComponent(pw),
+    }).then(function(r) {
+      if (r.status === 303 || r.status === 302) {
+        // Login OK — show app
+        loginScreen.style.display = 'none';
+        app.style.display = 'flex';
+        fetchHistory();
+        pollRuns();
+      } else {
+        loginError.style.display = 'block';
+      }
+    }).catch(function() {
+      loginError.style.display = 'block';
+    });
+  });
+
+  // ── Check if already authed on load ──
+  function checkAuth() {
+    fetch('/api/runs?limit=1', { method: 'GET' })
+      .then(function(r) {
+        if (r.ok) {
+          loginScreen.style.display = 'none';
+          app.style.display = 'flex';
+          fetchHistory();
+          pollRuns();
+        }
+      })
+      .catch(function() {});
+  }
+  checkAuth();
+
+  // ── Poll runs ──
+  function pollRuns() {
+    if (pollTimer) clearTimeout(pollTimer);
+    fetchHistory();
+    pollTimer = setTimeout(pollRuns, 2500);
+  }
+
+  function fetchHistory() {
+    fetch('/api/runs?limit=50', { method: 'GET' })
+      .then(function(r) { return r.json(); })
+      .then(function(runs) {
+        renderHistory(runs);
+        // If any run is queued or running, continue polling
+        const active = runs.some(function(r) { return r.status === 'queued' || r.status === 'running'; });
+        if (!active && pollTimer) {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+      })
+      .catch(function() {});
+  }
+
+  function renderHistory(runs) {
+    if (!runs || runs.length === 0) {
+      historyList.innerHTML = '';
+      historyEmpty.style.display = 'block';
+      return;
+    }
+    historyEmpty.style.display = 'none';
+    var html = '';
+    runs.forEach(function(r) {
+      var statusClass = r.status;
+      var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+      var timeStr = r.created_at ? new Date(r.created_at * 1000).toLocaleString() : '';
+      var thumbUrl = '';
+      if (r.input_filenames && r.input_filenames.length > 0) {
+        thumbUrl = '/api/runs/' + r.id + '/input/1';
+      }
+      var resultUrl = r.status === 'done' && r.result_filename ? ('/api/runs/' + r.id + '/result') : '';
+      var retryLink = '/api/runs/' + r.id + '/retry';
+      var retryOf = r.retry_of ? 'Retry of ' + r.retry_of.slice(0, 8) : '';
+
+      html += '<div class="run-card" data-id="' + r.id + '">';
+      html += '<div class="card-header">';
+      if (thumbUrl) {
+        html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy">';
+      }
+      html += '<div class="card-info">';
+      html += '<div class="card-prompt">' + esc(r.prompt) + '</div>';
+      html += '<div class="card-meta">';
+      html += '<span class="status-chip ' + statusClass + '">' + statusLabel + '</span> ';
+      html += timeStr + ' ';
+      if (retryOf) html += '· ' + retryOf + ' ';
+      if (r.error) html += '· ' + esc(r.error.slice(0, 120));
+      html += '</div></div></div>';
+
+      if (resultUrl) {
+        html += '<div class="card-result"><a href="' + resultUrl + '" download><img src="' + resultUrl + '" alt="Result" loading="lazy"></a></div>';
+      }
+
+      html += '<div class="card-actions">';
+      html += '<button class="retry-btn" data-id="' + r.id + '">Retry</button>';
+      if (resultUrl) {
+        html += '<a href="' + resultUrl + '" download><button>Download</button></a>';
+      }
+      html += '</div>';
+      html += '</div>';
+    });
+    historyList.innerHTML = html;
+
+    // Attach retry handlers
+    historyList.querySelectorAll('.retry-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.dataset.id;
+        btn.disabled = true;
+        btn.textContent = 'Retrying…';
+        fetch('/api/runs/' + id + '/retry', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            btn.textContent = 'Retry';
+            btn.disabled = false;
+            pollRuns();
+          })
+          .catch(function() {
+            btn.textContent = 'Retry';
+            btn.disabled = false;
+          });
+      });
+    });
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+})();
+</script>
+</body>
+</html>
