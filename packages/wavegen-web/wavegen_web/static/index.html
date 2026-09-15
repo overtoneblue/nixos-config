@@ -266,7 +266,9 @@
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'password=' + encodeURIComponent(pw),
     }).then(function(r) {
-      if (r.status === 303 || r.status === 302) {
+      // fetch() follows the redirect automatically, so a successful
+      // login arrives here as 200 (r.ok); direct 302/303 also handled.
+      if (r.ok || r.status === 303 || r.status === 302) {
         // Login OK — show app
         loginScreen.style.display = 'none';
         app.style.display = 'flex';

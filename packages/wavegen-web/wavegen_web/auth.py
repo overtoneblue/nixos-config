@@ -15,8 +15,14 @@ class SessionManager:
         self._sessions: dict[str, bool] = {}
 
     def check_password(self, candidate: str) -> bool:
-        """Constant-time compare against the stored password."""
-        return hmac.compare_digest(self._password, candidate)
+        """Constant-time compare against the stored password.
+
+        Compares as UTF-8 bytes (compare_digest rejects str containing
+        non-ASCII) and tolerates stray leading/trailing whitespace from
+        mobile keyboards (including non-breaking spaces).
+        """
+        return hmac.compare_digest(self._password.encode("utf-8"),
+                                   candidate.strip().encode("utf-8"))
 
     def create_session(self) -> str:
         """Generate a new session token."""
