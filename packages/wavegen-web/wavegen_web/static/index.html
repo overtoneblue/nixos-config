@@ -48,12 +48,13 @@
   .edit-banner button { margin-left: auto; background: none; border: none; color: var(--text2); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
 
   /* Workstation slots */
-  .slot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 14px; }
+  .slot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 14px; transition: border-color .2s, box-shadow .2s; }
   .slot-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .slot-title { font-weight: 600; font-size: 0.95rem; }
   .slot-lineage { color: var(--text2); font-size: 0.75rem; }
   .slot-copy { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; height: 28px; padding: 0 10px; font-size: 0.8rem; cursor: pointer; }
   .slot-copy:active { color: var(--accent); border-color: var(--accent); }
+  .slot.drop-hint, .slot.flash { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .slot-remove { margin-left: 4px; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; width: 28px; height: 28px; font-size: 1rem; line-height: 1; cursor: pointer; }
   .slot-thumbs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 8px; }
   .slot-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #333; display: block; }
@@ -177,6 +178,7 @@
   const slots = [];
   let slotSeq = 0;
   let wsInited = false;
+  let lastTouchedSlot = null;
 
   // ── DOM refs ──
   const loginScreen = document.getElementById('login-screen');
@@ -224,7 +226,7 @@
       '</div>' +
       '<div class="slot-upload">' +
         '<div class="slot-thumbs"></div>' +
-        '<div class="slot-add">+ add images (max 10)<input type="file" accept="image/*" multiple style="display:none"></div>' +
+        '<div class="slot-add">+ add images (paste / drop work too)<input type="file" accept="image/*" multiple style="display:none"></div>' +
       '</div>' +
       '<textarea class="slot-prompt" placeholder="Describe the edit you want..." rows="2"></textarea>' +
       '<div class="slot-statusrow"><span class="slot-chip"></span><span class="slot-elapsed"></span></div>' +
@@ -284,12 +286,28 @@
         updateSlotGen(slot);
       }
     });
-    slot.addZone.addEventListener('dragover', function(e) { e.preventDefault(); slot.addZone.classList.add('dragover'); });
-    slot.addZone.addEventListener('dragleave', function() { slot.addZone.classList.remove('dragover'); });
-    slot.addZone.addEventListener('drop', function(e) {
+    // hover / focus / click — used to route clipboard pastes
+    ['mouseenter', 'focusin', 'click'].forEach(function(ev) {
+      el.addEventListener(ev, function() { lastTouchedSlot = slot; });
+    });
+    // drag & drop — anywhere on the worker card
+    el.addEventListener('dragover', function(e) {
+      if (e.dataTransfer && e.dataTransfer.types && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') !== -1) {
+        e.preventDefault();
+        el.classList.add('drop-hint');
+      }
+    });
+    el.addEventListener('dragleave', function(e) {
+      if (!el.contains(e.relatedTarget)) { el.classList.remove('drop-hint'); }
+    });
+    el.addEventListener('drop', function(e) {
       e.preventDefault();
-      slot.addZone.classList.remove('dragover');
-      if (e.dataTransfer && e.dataTransfer.files) { addSlotFiles(slot, e.dataTransfer.files); }
+      el.classList.remove('drop-hint');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        lastTouchedSlot = slot;
+        addSlotFiles(slot, e.dataTransfer.files);
+        flashSlot(slot);
+      }
     });
 
     slotsContainer.appendChild(el);
@@ -336,6 +354,7 @@
     var active = slot.runId && lastRuns[slot.runId] &&
       (lastRuns[slot.runId].status === 'queued' || lastRuns[slot.runId].status === 'running');
     if ((slot.fs.length || slot.prompt.value.trim() || active) && !confirm('Remove Worker ' + slot.n + '?')) { return; }
+    if (lastTouchedSlot === slot) { lastTouchedSlot = null; }
     slots.splice(slots.indexOf(slot), 1);
     if (slot.el.parentNode) { slot.el.parentNode.removeChild(slot.el); }
     renumberSlots();
@@ -454,6 +473,40 @@
   }
 
   addSlotBtn.addEventListener('click', function() { addSlot(); });
+
+  // ── Clipboard paste → attach to the relevant worker ──
+  document.addEventListener('paste', function(e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    var imgs = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && items[i].type.indexOf('image/') === 0) {
+        var f = items[i].getAsFile();
+        if (f) { imgs.push(f); }
+      }
+    }
+    if (!imgs.length) { return; }
+    var target = null;
+    var t = e.target;
+    if (t && t.closest) {
+      var card = t.closest('.slot');
+      if (card) {
+        for (var j = 0; j < slots.length; j++) {
+          if (slots[j].el === card) { target = slots[j]; break; }
+        }
+      }
+    }
+    if (!target) { target = lastTouchedSlot; }
+    if (!target && slots.length) { target = slots[0]; }
+    if (!target) { return; }
+    e.preventDefault();
+    addSlotFiles(target, imgs);
+    flashSlot(target);
+  });
+
+  function flashSlot(slot) {
+    slot.el.classList.add('flash');
+    setTimeout(function() { slot.el.classList.remove('flash'); }, 700);
+  }
 
   function initWorkstation() {
     if (!wsInited) {
