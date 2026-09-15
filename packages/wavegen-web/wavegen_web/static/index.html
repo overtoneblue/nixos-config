@@ -47,6 +47,31 @@
   .edit-banner.visible { display: flex; }
   .edit-banner button { margin-left: auto; background: none; border: none; color: var(--text2); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
 
+  /* Workstation slots */
+  .slot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 14px; }
+  .slot-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .slot-title { font-weight: 600; font-size: 0.95rem; }
+  .slot-lineage { color: var(--text2); font-size: 0.75rem; }
+  .slot-remove { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; width: 28px; height: 28px; font-size: 1rem; line-height: 1; cursor: pointer; }
+  .slot-thumbs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 8px; }
+  .slot-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #333; display: block; }
+  .slot-thumbwrap { position: relative; flex-shrink: 0; }
+  .slot-thumbwrap button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: none; background: #ff4444; color: #fff; font-size: 12px; cursor: pointer; }
+  .slot-add { display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 10px; color: var(--text2); font-size: 0.85rem; cursor: pointer; margin-bottom: 8px; }
+  .slot-prompt { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-size: 0.95rem; resize: vertical; margin-bottom: 8px; }
+  .slot-statusrow { display: none; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text2); margin-bottom: 8px; }
+  .slot-statusrow.visible { display: flex; }
+  .slot-gen { width: 100%; padding: 12px; border-radius: var(--radius-sm); border: none; background: var(--accent); color: #fff; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+  .slot-gen:disabled { opacity: 0.5; cursor: default; }
+  .slot-result { margin-top: 10px; }
+  .slot-result img { width: 100%; border-radius: var(--radius-sm); display: block; }
+  .slot-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .slot-actions button { flex: 1; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text); font-size: 0.85rem; cursor: pointer; }
+  .slot-actions a { flex: 1; display: flex; text-decoration: none; }
+  .slot-actions a button { width: 100%; }
+  .add-slot-btn { width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border); background: none; color: var(--text2); font-size: 0.9rem; cursor: pointer; margin-top: 4px; }
+  .add-slot-btn:disabled { opacity: 0.5; }
+
   /* App layout */
   #app { display: none; flex-direction: column; min-height: 100vh; }
   .app-header { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); padding: 12px 16px; }
@@ -122,31 +147,14 @@
   <div class="app-header"><h1>wavegen-web</h1></div>
 
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="new">New</button>
-    <button class="tab-btn" data-tab="active">Active</button>
+    <button class="tab-btn active" data-tab="new">Workstation</button>
     <button class="tab-btn" data-tab="history">History</button>
   </div>
 
-  <!-- New tab -->
+  <!-- Workstation tab -->
   <div class="tab-content active" id="tab-new">
-    <div class="edit-banner" id="edit-banner">
-      <span>Editing a copy of <b id="edit-banner-id"></b> — Generate creates a new run</span>
-      <button id="edit-banner-clear" aria-label="detach">&times;</button>
-    </div>
-    <div class="upload-zone" id="upload-zone">
-      <div class="icon">+</div>
-      <div>Tap to add images<br><small style="color:var(--text2)">JPG, PNG, WebP · max 10 · 20 MB each</small></div>
-      <input type="file" id="file-input" accept="image/*" multiple>
-    </div>
-    <div class="thumb-strip" id="thumb-strip"></div>
-    <textarea id="prompt-area" placeholder="Describe the edit you want..." rows="3"></textarea>
-    <button class="btn-generate" id="btn-generate" disabled>Generate</button>
-  </div>
-
-  <!-- Active tab -->
-  <div class="tab-content" id="tab-active">
-    <div id="active-list"></div>
-    <div class="empty-state" id="active-empty">Nothing running right now — start something from New</div>
+    <div id="slots"></div>
+    <button class="add-slot-btn" id="btn-add-slot">+ Add worker</button>
   </div>
 
   <!-- History tab -->
@@ -162,10 +170,11 @@
   'use strict';
 
   // ── State ──
-  let selectedFiles = [];
   let pollTimer = null;
   let lastRuns = {};
-  let editingFromId = null;
+  const slots = [];
+  let slotSeq = 0;
+  let wsInited = false;
 
   // ── DOM refs ──
   const loginScreen = document.getElementById('login-screen');
@@ -173,18 +182,11 @@
   const loginForm = document.getElementById('login-form');
   const passwordInput = document.getElementById('password-input');
   const loginError = document.getElementById('login-error');
-  const fileInput = document.getElementById('file-input');
-  const uploadZone = document.getElementById('upload-zone');
-  const thumbStrip = document.getElementById('thumb-strip');
-  const promptArea = document.getElementById('prompt-area');
-  const genBtn = document.getElementById('btn-generate');
+  const slotsContainer = document.getElementById('slots');
+  const addSlotBtn = document.getElementById('btn-add-slot');
   const historyList = document.getElementById('history-list');
   const historyEmpty = document.getElementById('history-empty');
   const clearBtn = document.getElementById('btn-clear');
-  const activeList = document.getElementById('active-list');
-  const activeEmpty = document.getElementById('active-empty');
-  const editBanner = document.getElementById('edit-banner');
-  const editBannerId = document.getElementById('edit-banner-id');
 
   // ── Tabs ──
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
@@ -193,7 +195,7 @@
       document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-      if (btn.dataset.tab === 'history' || btn.dataset.tab === 'active') { fetchHistory(); }
+      if (btn.dataset.tab === 'history') { fetchHistory(); }
     });
   });
 
@@ -207,103 +209,244 @@
       .catch(function() { clearBtn.disabled = false; });
   });
 
-  // ── Edit banner: detach lineage ──
-  document.getElementById('edit-banner-clear').addEventListener('click', function() {
-    editingFromId = null;
-    editBanner.classList.remove('visible');
-  });
+  // ── Workstation slots ──
+  function makeSlotEl(n) {
+    var el = document.createElement('div');
+    el.className = 'slot';
+    el.innerHTML =
+      '<div class="slot-head">' +
+        '<span class="slot-title">Worker ' + n + '</span>' +
+        '<span class="slot-lineage"></span>' +
+        '<button class="slot-remove" title="Remove">&times;</button>' +
+      '</div>' +
+      '<div class="slot-upload">' +
+        '<div class="slot-thumbs"></div>' +
+        '<div class="slot-add">+ add images (max 10)<input type="file" accept="image/*" multiple style="display:none"></div>' +
+      '</div>' +
+      '<textarea class="slot-prompt" placeholder="Describe the edit you want..." rows="2"></textarea>' +
+      '<div class="slot-statusrow"><span class="slot-chip"></span><span class="slot-elapsed"></span></div>' +
+      '<button class="slot-gen" disabled>Generate</button>' +
+      '<div class="slot-result" style="display:none">' +
+        '<a class="slot-result-link" target="_blank"><img class="slot-result-img" alt="Result" loading="lazy"></a>' +
+        '<div class="slot-actions">' +
+          '<button class="slot-rerun">Rerun</button>' +
+          '<button class="slot-useinput">Use as input</button>' +
+          '<a class="slot-download" download><button>Download</button></a>' +
+        '</div>' +
+      '</div>';
+    return el;
+  }
 
-  // ── File picker ──
-  uploadZone.addEventListener('click', function() { fileInput.click(); });
-  fileInput.addEventListener('change', function() { handleFiles(this.files); });
+  function addSlot(opts) {
+    opts = opts || {};
+    if (slots.length >= 6) { alert('Max 6 workers — remove one first.'); return null; }
+    slotSeq++;
+    var el = makeSlotEl(slotSeq);
+    var slot = {
+      n: slotSeq,
+      el: el,
+      thumbs: el.querySelector('.slot-thumbs'),
+      addZone: el.querySelector('.slot-add'),
+      fileInput: el.querySelector('.slot-add input'),
+      prompt: el.querySelector('.slot-prompt'),
+      chip: el.querySelector('.slot-chip'),
+      elapsed: el.querySelector('.slot-elapsed'),
+      statusRow: el.querySelector('.slot-statusrow'),
+      genBtn: el.querySelector('.slot-gen'),
+      resultBox: el.querySelector('.slot-result'),
+      resultImg: el.querySelector('.slot-result-img'),
+      resultLink: el.querySelector('.slot-result-link'),
+      downloadLink: el.querySelector('.slot-download'),
+      lineageLabel: el.querySelector('.slot-lineage'),
+      fs: (opts.files || []).slice(0, 10),
+      runId: null,
+      lineage: opts.lineage || null
+    };
+    if (opts.prompt) { slot.prompt.value = opts.prompt; }
+    if (slot.lineage) { slot.lineageLabel.textContent = 'from ' + slot.lineage.slice(0, 8); }
 
-  function handleFiles(files) {
-    const remaining = 10 - selectedFiles.length;
-    const toAdd = Math.min(files.length, remaining);
-    for (let i = 0; i < toAdd; i++) {
-      selectedFiles.push(files[i]);
+    slot.addZone.addEventListener('click', function() { slot.fileInput.click(); });
+    slot.fileInput.addEventListener('change', function() { addSlotFiles(slot, this.files); });
+    slot.prompt.addEventListener('input', function() { updateSlotGen(slot); });
+    slot.genBtn.addEventListener('click', function() { submitSlot(slot); });
+    el.querySelector('.slot-remove').addEventListener('click', function() { removeSlot(slot); });
+    el.querySelector('.slot-rerun').addEventListener('click', function() { rerunSlot(slot); });
+    el.querySelector('.slot-useinput').addEventListener('click', function() { useResultAsInput(slot); });
+    slot.thumbs.addEventListener('click', function(e) {
+      if (e.target && e.target.classList.contains('slot-thumb-x')) {
+        var idx = parseInt(e.target.getAttribute('data-i'), 10);
+        slot.fs.splice(idx, 1);
+        renderSlotThumbs(slot);
+        updateSlotGen(slot);
+      }
+    });
+    slot.addZone.addEventListener('dragover', function(e) { e.preventDefault(); slot.addZone.classList.add('dragover'); });
+    slot.addZone.addEventListener('dragleave', function() { slot.addZone.classList.remove('dragover'); });
+    slot.addZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      slot.addZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files) { addSlotFiles(slot, e.dataTransfer.files); }
+    });
+
+    slotsContainer.appendChild(el);
+    slots.push(slot);
+    renderSlotThumbs(slot);
+    updateSlotGen(slot);
+    renderSlotStatus(slot);
+    renumberSlots();
+    return slot;
+  }
+
+  function addSlotFiles(slot, files) {
+    var remaining = 10 - slot.fs.length;
+    for (var i = 0; i < Math.min(files.length, remaining); i++) {
+      slot.fs.push(files[i]);
     }
-    updateThumbnails();
-    updateGenBtn();
+    renderSlotThumbs(slot);
+    updateSlotGen(slot);
   }
 
-  function removeFile(index) {
-    selectedFiles.splice(index, 1);
-    updateThumbnails();
-    updateGenBtn();
-  }
-
-  function updateThumbnails() {
-    thumbStrip.innerHTML = '';
-    selectedFiles.forEach(function(file, i) {
-      const url = URL.createObjectURL(file);
-      const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'position:relative;flex-shrink:0;';
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = file.name;
-      img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #333;';
-      const rm = document.createElement('button');
-      rm.textContent = 'x';
-      rm.style.cssText = 'position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;border:none;background:#ff4444;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
-      rm.addEventListener('click', function(e) { e.stopPropagation(); removeFile(i); });
-      wrapper.appendChild(img);
-      wrapper.appendChild(rm);
-      thumbStrip.appendChild(wrapper);
+  function renderSlotThumbs(slot) {
+    slot.thumbs.innerHTML = '';
+    slot.fs.forEach(function(file, i) {
+      var wrap = document.createElement('div');
+      wrap.className = 'slot-thumbwrap';
+      var img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.alt = '';
+      var x = document.createElement('button');
+      x.textContent = '\u00d7';
+      x.className = 'slot-thumb-x';
+      x.setAttribute('data-i', String(i));
+      wrap.appendChild(img);
+      wrap.appendChild(x);
+      slot.thumbs.appendChild(wrap);
     });
   }
 
-  function updateGenBtn() {
-    genBtn.disabled = selectedFiles.length === 0 || promptArea.value.trim() === '';
+  function updateSlotGen(slot) {
+    slot.genBtn.disabled = slot.fs.length === 0 || slot.prompt.value.trim() === '';
   }
-  promptArea.addEventListener('input', updateGenBtn);
 
-  // ── Drag & drop ──
-  uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
-  uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
-  uploadZone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    uploadZone.classList.remove('dragover');
-    if (e.dataTransfer.files) { handleFiles(e.dataTransfer.files); }
-  });
+  function removeSlot(slot) {
+    var active = slot.runId && lastRuns[slot.runId] &&
+      (lastRuns[slot.runId].status === 'queued' || lastRuns[slot.runId].status === 'running');
+    if ((slot.fs.length || slot.prompt.value.trim() || active) && !confirm('Remove Worker ' + slot.n + '?')) { return; }
+    slots.splice(slots.indexOf(slot), 1);
+    if (slot.el.parentNode) { slot.el.parentNode.removeChild(slot.el); }
+    renumberSlots();
+  }
 
-  // ── Generate ──
-  genBtn.addEventListener('click', function() {
-    if (genBtn.disabled) return;
-    const formData = new FormData();
-    selectedFiles.forEach(function(f) { formData.append('files', f, f.name); });
-    formData.append('prompt', promptArea.value.trim());
-    if (editingFromId) { formData.append('retry_of', editingFromId); }
+  function renumberSlots() {
+    slots.forEach(function(s, i) {
+      var t = s.el.querySelector('.slot-title');
+      if (t) { t.textContent = 'Worker ' + (i + 1); }
+      s.n = i + 1;
+    });
+    addSlotBtn.disabled = slots.length >= 6;
+  }
 
-    genBtn.disabled = true;
-    genBtn.textContent = 'Submitting…';
-
-    fetch('/api/runs', { method: 'POST', body: formData })
-      .then(function(r) { return r.json().then(function(d) { return {status: r.status, data: d}; }); })
+  function submitSlot(slot) {
+    if (slot.genBtn.disabled) { return; }
+    var fd = new FormData();
+    slot.fs.forEach(function(f) { fd.append('files', f, f.name); });
+    fd.append('prompt', slot.prompt.value.trim());
+    if (slot.lineage) { fd.append('retry_of', slot.lineage); }
+    slot.genBtn.disabled = true;
+    slot.genBtn.textContent = 'Submitting…';
+    fetch('/api/runs', { method: 'POST', body: fd })
+      .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
       .then(function(resp) {
+        slot.genBtn.textContent = 'Generate';
         if (resp.status === 201) {
-          // Clear form
-          selectedFiles = [];
-          editingFromId = null;
-          editBanner.classList.remove('visible');
-          updateThumbnails();
-          promptArea.value = '';
-          genBtn.textContent = 'Generate';
-          updateGenBtn();
-          // Start polling if needed
+          slot.runId = resp.data.id;
+          slot.resultBox.style.display = 'none';
+          renderSlotStatus(slot);
           pollRuns();
         } else {
           alert('Error: ' + (resp.data.error || 'unknown'));
-          genBtn.textContent = 'Generate';
-          updateGenBtn();
         }
+        updateSlotGen(slot);
       })
       .catch(function(err) {
+        slot.genBtn.textContent = 'Generate';
+        updateSlotGen(slot);
         alert('Network error: ' + err);
-        genBtn.textContent = 'Generate';
-        updateGenBtn();
       });
-  });
+  }
+
+  function rerunSlot(slot) {
+    var r = slot.runId ? lastRuns[slot.runId] : null;
+    if (!r) { return; }
+    fetch('/api/runs/' + r.id + '/retry', { method: 'POST' })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data && data.id) {
+          slot.runId = data.id;
+          slot.resultBox.style.display = 'none';
+          renderSlotStatus(slot);
+          pollRuns();
+        } else {
+          alert(data && data.error ? data.error : 'Rerun failed');
+        }
+      })
+      .catch(function() { alert('Rerun failed'); });
+  }
+
+  function renderSlotStatus(slot) {
+    var r = slot.runId ? lastRuns[slot.runId] : null;
+    if (!r) { slot.statusRow.classList.remove('visible'); return; }
+    if (r.status === 'queued' || r.status === 'running') {
+      slot.statusRow.classList.add('visible');
+      slot.chip.className = 'slot-chip status-chip ' + r.status;
+      slot.chip.textContent = (r.status === 'running') ? 'Running' : 'Queued';
+      var now = Math.floor(Date.now() / 1000);
+      var since = (r.status === 'running' && r.started_at) ? r.started_at : r.created_at;
+      slot.elapsed.textContent = since ? (Math.max(0, now - Math.floor(since)) + 's') : '';
+      slot.resultBox.style.display = 'none';
+    } else if (r.status === 'done') {
+      slot.statusRow.classList.add('visible');
+      slot.chip.className = 'slot-chip status-chip done';
+      slot.chip.textContent = 'Done';
+      slot.elapsed.textContent = '';
+      var url = '/api/runs/' + r.id + '/result';
+      if (slot.resultImg.getAttribute('src') !== url) { slot.resultImg.src = url; }
+      slot.resultLink.href = url;
+      slot.downloadLink.href = url;
+      slot.resultBox.style.display = 'block';
+    } else if (r.status === 'failed') {
+      slot.statusRow.classList.add('visible');
+      slot.chip.className = 'slot-chip status-chip failed';
+      slot.chip.textContent = 'Failed';
+      slot.elapsed.textContent = r.error ? String(r.error).slice(0, 60) : '';
+      slot.resultBox.style.display = 'none';
+    }
+  }
+
+  function useResultAsInput(slot) {
+    var r = slot.runId ? lastRuns[slot.runId] : null;
+    if (!r || r.status !== 'done') { return; }
+    if (slot.fs.length >= 10) { alert('Already at 10 images.'); return; }
+    fetch('/api/runs/' + r.id + '/result')
+      .then(function(res) { return res.blob().then(function(b) { return new File([b], 'result-' + r.id.slice(0, 8) + '.jpg', { type: b.type || 'image/jpeg' }); }); })
+      .then(function(f) {
+        slot.fs.push(f);
+        renderSlotThumbs(slot);
+        updateSlotGen(slot);
+      })
+      .catch(function() { alert('Could not fetch result image.'); });
+  }
+
+  addSlotBtn.addEventListener('click', function() { addSlot(); });
+
+  function initWorkstation() {
+    if (!wsInited) {
+      wsInited = true;
+      addSlot();
+      addSlot();
+    }
+  }
+
 
   // ── Login ──
   loginForm.addEventListener('submit', function(e) {
@@ -322,6 +465,7 @@
         // Login OK — show app
         loginScreen.style.display = 'none';
         app.style.display = 'flex';
+        initWorkstation();
         fetchHistory();
         pollRuns();
       } else {
@@ -339,6 +483,7 @@
         if (r.ok) {
           loginScreen.style.display = 'none';
           app.style.display = 'flex';
+          initWorkstation();
           fetchHistory();
           pollRuns();
         }
@@ -361,7 +506,7 @@
         lastRuns = {};
         runs.forEach(function(r) { lastRuns[r.id] = r; });
         renderHistory(runs);
-        renderActive(runs);
+        slots.forEach(function(s) { renderSlotStatus(s); });
         // If any run is queued or running, continue polling
         const active = runs.some(function(r) { return r.status === 'queued' || r.status === 'running'; });
         if (!active && pollTimer) {
@@ -370,38 +515,6 @@
         }
       })
       .catch(function() {});
-  }
-
-  function renderActive(runs) {
-    // In-flight lens: queued + running runs
-    var act = (runs || []).filter(function(r) { return r.status === 'queued' || r.status === 'running'; });
-    if (act.length === 0) {
-      activeList.innerHTML = '';
-      activeEmpty.style.display = 'block';
-      return;
-    }
-    activeEmpty.style.display = 'none';
-    var now = Math.floor(Date.now() / 1000);
-    var html = '';
-    act.forEach(function(r) {
-      var thumbUrl = (r.input_filenames && r.input_filenames.length > 0) ? ('/api/runs/' + r.id + '/input/1') : '';
-      var elapsed = '';
-      if (r.status === 'running' && r.started_at) {
-        elapsed = 'generating · ' + Math.max(0, now - Math.floor(r.started_at)) + 's';
-      } else if (r.created_at) {
-        elapsed = 'waiting · ' + Math.max(0, now - Math.floor(r.created_at)) + 's';
-      }
-      html += '<div class="run-card" data-id="' + r.id + '">';
-      html += '<div class="card-header">';
-      if (thumbUrl) html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy">';
-      html += '<div class="card-info">';
-      html += '<div class="card-prompt">' + esc(r.prompt) + '</div>';
-      html += '<div class="card-meta">';
-      html += '<span class="status-chip ' + r.status + '">' + (r.status === 'running' ? 'Running' : 'Queued') + '</span> ';
-      html += elapsed;
-      html += '</div></div></div></div>';
-    });
-    activeList.innerHTML = html;
   }
 
   function renderHistory(runs) {
@@ -512,16 +625,12 @@
               });
             });
         })).then(function(files) {
-          selectedFiles = files.slice(0, 10);
-          editingFromId = id;
-          promptArea.value = r.prompt || '';
-          updateThumbnails();
-          updateGenBtn();
-          editBannerId.textContent = id.slice(0, 8);
-          editBanner.classList.add('visible');
-          var tabBtn = document.querySelector('.tab-btn[data-tab="new"]');
-          if (tabBtn) tabBtn.click();
-          window.scrollTo(0, 0);
+          var s = addSlot({ files: files, prompt: r.prompt, lineage: id });
+          if (s) {
+            var tabBtn = document.querySelector('.tab-btn[data-tab="new"]');
+            if (tabBtn) tabBtn.click();
+            window.scrollTo(0, 0);
+          }
           btn.disabled = false;
         }).catch(function() {
           btn.disabled = false;
