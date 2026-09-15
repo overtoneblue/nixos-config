@@ -6,6 +6,7 @@ Mobile-first UI with queue, history, retry, single-password auth.
 import logging
 import mimetypes
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -271,10 +272,17 @@ def create_app() -> Starlette:
               name="static"),
     ]
 
+    # ── Lifespan ──────────────────────────────────────────────────────
+    @asynccontextmanager
+    async def _lifespan(app):
+        engine.start()
+        yield
+        engine.stop()
+
     app = Starlette(
         routes=routes,
         middleware=[Middleware(AuthMiddleware)],
-        on_startup=[engine.start],
+        lifespan=_lifespan,
     )
 
     log.info("wavegen-web app created — concurrency=%d, poll_timeout=%d",
