@@ -52,7 +52,9 @@
   .slot-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .slot-title { font-weight: 600; font-size: 0.95rem; }
   .slot-lineage { color: var(--text2); font-size: 0.75rem; }
-  .slot-remove { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; width: 28px; height: 28px; font-size: 1rem; line-height: 1; cursor: pointer; }
+  .slot-copy { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; height: 28px; padding: 0 10px; font-size: 0.8rem; cursor: pointer; }
+  .slot-copy:active { color: var(--accent); border-color: var(--accent); }
+  .slot-remove { margin-left: 4px; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; width: 28px; height: 28px; font-size: 1rem; line-height: 1; cursor: pointer; }
   .slot-thumbs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 8px; }
   .slot-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #333; display: block; }
   .slot-thumbwrap { position: relative; flex-shrink: 0; }
@@ -217,6 +219,7 @@
       '<div class="slot-head">' +
         '<span class="slot-title">Worker ' + n + '</span>' +
         '<span class="slot-lineage"></span>' +
+        '<button class="slot-copy">Copy</button>' +
         '<button class="slot-remove" title="Remove">&times;</button>' +
       '</div>' +
       '<div class="slot-upload">' +
@@ -269,6 +272,7 @@
     slot.fileInput.addEventListener('change', function() { addSlotFiles(slot, this.files); });
     slot.prompt.addEventListener('input', function() { updateSlotGen(slot); });
     slot.genBtn.addEventListener('click', function() { submitSlot(slot); });
+    el.querySelector('.slot-copy').addEventListener('click', function() { copySlot(slot); });
     el.querySelector('.slot-remove').addEventListener('click', function() { removeSlot(slot); });
     el.querySelector('.slot-rerun').addEventListener('click', function() { rerunSlot(slot); });
     el.querySelector('.slot-useinput').addEventListener('click', function() { useResultAsInput(slot); });
@@ -334,6 +338,18 @@
     if ((slot.fs.length || slot.prompt.value.trim() || active) && !confirm('Remove Worker ' + slot.n + '?')) { return; }
     slots.splice(slots.indexOf(slot), 1);
     if (slot.el.parentNode) { slot.el.parentNode.removeChild(slot.el); }
+    renumberSlots();
+  }
+
+  function copySlot(slot) {
+    var s = addSlot({ files: slot.fs.slice(), prompt: slot.prompt.value, lineage: slot.lineage });
+    if (!s) { return; }
+    // place the copy directly after its source, then renumber everything
+    var arrIdx = slots.indexOf(s);
+    slots.splice(arrIdx, 1);
+    slots.splice(slots.indexOf(slot) + 1, 0, s);
+    if (s.el.parentNode) { s.el.parentNode.removeChild(s.el); }
+    slot.el.parentNode.insertBefore(s.el, slot.el.nextSibling);
     renumberSlots();
   }
 

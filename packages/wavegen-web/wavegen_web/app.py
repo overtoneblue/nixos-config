@@ -277,7 +277,7 @@ def create_app() -> Starlette:
     poll_timeout = env_int("POLL_TIMEOUT", 300)
 
     # ── Initialise subsystems ──
-    init_auth(password)
+    init_auth(password, f"{state_dir}/sessions.json")
     storage = init_storage(state_dir)
     engine = init_engine(storage, api_key, concurrency, poll_timeout)
     storage.mark_stuck_as_failed()
