@@ -55,6 +55,11 @@
   .slot-copy { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; height: 28px; padding: 0 10px; font-size: 0.8rem; cursor: pointer; }
   .slot-copy:active { color: var(--accent); border-color: var(--accent); }
   .slot.drop-hint, .slot.flash { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .slot-save { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .slot-fname { flex: 1; min-width: 130px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-size: 0.85rem; }
+  .slot-folder { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; height: 34px; padding: 0 10px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+  .slot-folder:active { color: var(--accent); border-color: var(--accent); }
+  .slot-save-status { font-size: 0.75rem; color: var(--accent); }
   .slot-remove { margin-left: 4px; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; width: 28px; height: 28px; font-size: 1rem; line-height: 1; cursor: pointer; }
   .slot-thumbs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 8px; }
   .slot-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #333; display: block; }
@@ -179,6 +184,7 @@
   let slotSeq = 0;
   let wsInited = false;
   let lastTouchedSlot = null;
+  var sharedDir = null;
 
   // ── DOM refs ──
   const loginScreen = document.getElementById('login-screen');
@@ -236,8 +242,13 @@
         '<div class="slot-actions">' +
           '<button class="slot-rerun">Rerun</button>' +
           '<button class="slot-useinput">Use as input</button>' +
-          '<a class="slot-download" download><button>Download</button></a>' +
+          '<button class="slot-download">Download</button>' +
         '</div>' +
+      '</div>' +
+      '<div class="slot-save">' +
+        '<input class="slot-fname" placeholder="filename (auto)" maxlength="80">' +
+        '<button class="slot-folder">&#128193; Set folder</button>' +
+        '<span class="slot-save-status"></span>' +
       '</div>';
     return el;
   }
@@ -261,7 +272,9 @@
       resultBox: el.querySelector('.slot-result'),
       resultImg: el.querySelector('.slot-result-img'),
       resultLink: el.querySelector('.slot-result-link'),
-      downloadLink: el.querySelector('.slot-download'),
+      fname: el.querySelector('.slot-fname'),
+      folderBtn: el.querySelector('.slot-folder'),
+      saveStatus: el.querySelector('.slot-save-status'),
       lineageLabel: el.querySelector('.slot-lineage'),
       fs: (opts.files || []).slice(0, 10),
       runId: null,
@@ -278,6 +291,9 @@
     el.querySelector('.slot-remove').addEventListener('click', function() { removeSlot(slot); });
     el.querySelector('.slot-rerun').addEventListener('click', function() { rerunSlot(slot); });
     el.querySelector('.slot-useinput').addEventListener('click', function() { useResultAsInput(slot); });
+    el.querySelector('.slot-download').addEventListener('click', function() { downloadResult(slot); });
+    slot.folderBtn.addEventListener('click', function() { pickFolder(slot); });
+    updateFolderBtn(slot);
     slot.thumbs.addEventListener('click', function(e) {
       if (e.target && e.target.classList.contains('slot-thumb-x')) {
         var idx = parseInt(e.target.getAttribute('data-i'), 10);
@@ -447,7 +463,6 @@
       var url = '/api/runs/' + r.id + '/result';
       if (slot.resultImg.getAttribute('src') !== url) { slot.resultImg.src = url; }
       slot.resultLink.href = url;
-      slot.downloadLink.href = url;
       slot.resultBox.style.display = 'block';
     } else if (r.status === 'failed') {
       slot.statusRow.classList.add('visible');
@@ -508,9 +523,112 @@
     setTimeout(function() { slot.el.classList.remove('flash'); }, 700);
   }
 
+  // ── Save folder + filenames (folder handle persists in IndexedDB) ──
+  function idbOpen() {
+    return new Promise(function(res, rej) {
+      var req = indexedDB.open('wavegen', 1);
+      req.onupgradeneeded = function() { req.result.createObjectStore('kv'); };
+      req.onsuccess = function() { res(req.result); };
+      req.onerror = function() { rej(req.error); };
+    });
+  }
+  function idbGet(k) {
+    return idbOpen().then(function(db) {
+      return new Promise(function(res, rej) {
+        var t = db.transaction('kv', 'readonly').objectStore('kv').get(k);
+        t.onsuccess = function() { res(t.result); };
+        t.onerror = function() { rej(t.error); };
+      });
+    });
+  }
+  function idbSet(k, v) {
+    return idbOpen().then(function(db) {
+      return new Promise(function(res, rej) {
+        var t = db.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+        t.onsuccess = function() { res(); };
+        t.onerror = function() { rej(t.error); };
+      });
+    });
+  }
+  function loadSharedDir() {
+    idbGet('saveDir').then(function(h) {
+      if (h && h.name) {
+        sharedDir = h;
+        slots.forEach(function(s2) { updateFolderBtn(s2); });
+      }
+    }).catch(function() {});
+  }
+  function saveSharedDir(h) { idbSet('saveDir', h).catch(function() {}); }
+
+  function updateFolderBtn(slot) {
+    var d = slot.dir || sharedDir;
+    slot.folderBtn.textContent = d ? ('\uD83D\uDCC1 ' + d.name) : '\uD83D\uDCC1 Set folder';
+  }
+
+  function saveStatus(slot, msg) {
+    slot.saveStatus.textContent = msg;
+    clearTimeout(slot._stTimer);
+    slot._stTimer = setTimeout(function() { slot.saveStatus.textContent = ''; }, 5000);
+  }
+
+  async function pickFolder(slot) {
+    if (!window.showDirectoryPicker) {
+      alert('Direct-to-folder saving needs an https origin (browser security rule).\n\nFor now, downloads use your filename and land in the browser download folder, which de-dupes with 1, 2, ...\n\nWant https for this app? Ask Nolan.');
+      return;
+    }
+    try {
+      var h = await window.showDirectoryPicker({ mode: 'readwrite' });
+      slot.dir = h;
+      sharedDir = h;
+      saveSharedDir(h);
+      updateFolderBtn(slot);
+      saveStatus(slot, 'folder: ' + h.name);
+    } catch (err) {}
+  }
+
+  async function downloadResult(slot) {
+    var r = slot.runId ? lastRuns[slot.runId] : null;
+    if (!r || r.status !== 'done') { return; }
+    var resp = await fetch('/api/runs/' + r.id + '/result');
+    var blob = await resp.blob();
+    var ext = blob.type.indexOf('png') !== -1 ? '.png' : '.jpg';
+    var base = (slot.fname.value.trim() || ('wavegen-' + r.id.slice(0, 8))).replace(/\.(jpe?g|png|webp)$/i, '');
+    var dir = slot.dir || sharedDir;
+    var wrote = false;
+    if (window.showDirectoryPicker && dir) {
+      try {
+        var perm = await dir.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') { perm = await dir.requestPermission({ mode: 'readwrite' }); }
+        if (perm === 'granted') {
+          var name = base + ext, i = 1;
+          for (;;) {
+            try { await dir.getFileHandle(name, { create: false }); name = base + '-' + (i++) + ext; }
+            catch (err) { break; }
+          }
+          var fh = await dir.getFileHandle(name, { create: true });
+          var w = await fh.createWritable();
+          await w.write(blob);
+          await w.close();
+          wrote = true;
+          saveStatus(slot, 'saved ' + name + ' \u2713');
+        }
+      } catch (err) {}
+    }
+    if (!wrote) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = base + ext;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() { URL.revokeObjectURL(a.href); if (a.parentNode) { a.parentNode.removeChild(a); } }, 4000);
+      saveStatus(slot, 'downloaded \u2713');
+    }
+  }
+
   function initWorkstation() {
     if (!wsInited) {
       wsInited = true;
+      loadSharedDir();
       addSlot();
       addSlot();
     }
