@@ -39,6 +39,12 @@
   .history-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
   .clear-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.85rem; cursor: pointer; }
   .clear-btn:active { color: var(--danger); border-color: var(--danger); }
+  .hist-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  #hist-search { flex: 1; min-width: 0; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.95rem; -webkit-appearance: none; }
+  #hist-search:focus { outline: none; border-color: var(--accent); }
+  .hist-count { font-size: 0.8rem; color: var(--text2); margin: 0 2px 10px; }
+  .hist-count:empty { margin: 0; }
+  .hist-more { width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border); background: none; color: var(--text2); font-size: 0.9rem; cursor: pointer; margin-top: 4px; }
   .delete-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.85rem; cursor: pointer; margin-left: auto; }
   .delete-btn:active { color: var(--danger); border-color: var(--danger); }
   .edit-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.85rem; cursor: pointer; }
@@ -167,9 +173,14 @@
 
   <!-- History tab -->
   <div class="tab-content" id="tab-history">
-    <div class="history-toolbar"><button class="clear-btn" id="btn-clear">Clear finished</button></div>
+    <div class="hist-tools">
+      <input id="hist-search" type="search" placeholder="Search prompts…" autocomplete="off">
+      <button class="clear-btn" id="btn-clear">Clear finished</button>
+    </div>
+    <div class="hist-count" id="hist-count"></div>
     <div id="history-list"></div>
     <div class="empty-state" id="history-empty">No runs yet</div>
+    <button class="hist-more" id="hist-more" style="display:none">Load older…</button>
   </div>
 </div>
 
@@ -181,6 +192,13 @@
   let pollTimer = null;
   let lastRuns = {};
   let histSig = null;
+  let histQ = '';
+  let histShown = 0;
+  let histCount = null;
+  let histLastFull = false;
+  let histMoreBusy = false;
+  let searchTimer = null;
+  const HIST_PAGE = 30;
   const slots = [];
   let slotSeq = 0;
   let wsInited = false;
@@ -198,6 +216,9 @@
   const historyList = document.getElementById('history-list');
   const historyEmpty = document.getElementById('history-empty');
   const clearBtn = document.getElementById('btn-clear');
+  const histSearch = document.getElementById('hist-search');
+  const histCountEl = document.getElementById('hist-count');
+  const histMore = document.getElementById('hist-more');
 
   // ── Tabs ──
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
@@ -219,6 +240,53 @@
       .then(function() { clearBtn.disabled = false; fetchHistory(); })
       .catch(function() { clearBtn.disabled = false; });
   });
+
+  // ── History: search + paging ──
+  function histQuerySuffix() { return histQ ? '&q=' + encodeURIComponent(histQ) : ''; }
+
+  histSearch.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() {
+      histQ = histSearch.value.trim();
+      histShown = 0;
+      histSig = null;
+      fetchHistory();
+    }, 350);
+  });
+
+  histMore.addEventListener('click', function() {
+    if (histMoreBusy) { return; }
+    histMoreBusy = true;
+    histMore.textContent = 'Loading…';
+    fetch('/api/runs?limit=' + HIST_PAGE + '&offset=' + histShown + histQuerySuffix())
+      .then(function(r) { return r.json(); })
+      .then(function(runs) {
+        runs.forEach(function(r) { lastRuns[r.id] = r; });
+        appendRuns(runs);
+        histShown += runs.length;
+        if (histSig != null && runs.length > 0) {
+          histSig += ';' + runs.map(function(r) { return r.id + '|' + r.status; }).join(';');
+        }
+        histMoreBusy = false;
+        histMore.textContent = 'Load older…';
+        updateHistCount();
+      })
+      .catch(function() { histMoreBusy = false; histMore.textContent = 'Load older…'; });
+  });
+
+  function updateHistCount() {
+    if (histCount != null) {
+      var label = histQ
+        ? (histCount + (histCount === 1 ? ' match' : ' matches'))
+        : (histCount + ' runs');
+      if (histShown > 0 && histShown < histCount) { label += ' · showing ' + histShown; }
+      histCountEl.textContent = histCount > 0 ? label : '';
+      histMore.style.display = (histShown > 0 && histShown < histCount) ? 'block' : 'none';
+    } else {
+      histCountEl.textContent = histShown > 0 ? ('showing ' + histShown) : '';
+      histMore.style.display = histLastFull ? 'block' : 'none';
+    }
+  }
 
   // ── Workstation slots ──
   function makeSlotEl(n) {
@@ -692,21 +760,25 @@
   });
 
   function fetchHistory() {
-    fetch('/api/runs?limit=50', { method: 'GET' })
+    var limit = Math.max(HIST_PAGE, histShown);
+    fetch('/api/runs?limit=' + limit + histQuerySuffix(), { method: 'GET' })
       .then(function(r) { return r.json(); })
       .then(function(runs) {
         lastRuns = {};
         runs.forEach(function(r) { lastRuns[r.id] = r; });
+        histShown = runs.length;
+        histLastFull = runs.length >= limit;
         // Only touch the DOM when something actually changed (and the page is
         // visible). Rebuilding the full list on every poll tick made history
         // images flash and jump-scroll on mobile.
-        var sig = runs.map(function(r) { return r.id + '|' + r.status; }).join(';');
+        var sig = histQ + '|' + runs.map(function(r) { return r.id + '|' + r.status; }).join(';');
         if (!document.hidden && sig !== histSig) {
           histSig = sig;
           renderHistory(runs);
         }
         if (!document.hidden) {
           slots.forEach(function(s) { renderSlotStatus(s); });
+          updateHistCount();
         }
         // If any run is queued or running, continue polling
         const active = runs.some(function(r) { return r.status === 'queued' || r.status === 'running'; });
@@ -716,65 +788,90 @@
         }
       })
       .catch(function() {});
+    fetch('/api/runs/count' + (histQ ? '?q=' + encodeURIComponent(histQ) : ''), { method: 'GET' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        histCount = (data && typeof data.count === 'number') ? data.count : null;
+        if (!document.hidden) { updateHistCount(); }
+      })
+      .catch(function() { histCount = null; if (!document.hidden) { updateHistCount(); } });
   }
 
   function renderHistory(runs) {
     if (!runs || runs.length === 0) {
       historyList.innerHTML = '';
+      historyEmpty.textContent = histQ ? ('No matches for "' + histQ + '"') : 'No runs yet';
       historyEmpty.style.display = 'block';
       return;
     }
     historyEmpty.style.display = 'none';
     var html = '';
-    runs.forEach(function(r) {
-      var statusClass = r.status;
-      var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
-      var timeStr = r.created_at ? new Date(r.created_at * 1000).toLocaleString() : '';
-      var thumbUrl = '';
-      if (r.input_filenames && r.input_filenames.length > 0) {
-        thumbUrl = '/api/runs/' + r.id + '/input/1';
-      }
-      var resultUrl = r.status === 'done' && r.result_filename ? ('/api/runs/' + r.id + '/result') : '';
-      var retryLink = '/api/runs/' + r.id + '/retry';
-      var retryOf = r.retry_of ? 'From ' + r.retry_of.slice(0, 8) : '';
-
-      html += '<div class="run-card" data-id="' + r.id + '">';
-      html += '<div class="card-header">';
-      if (thumbUrl) {
-        html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy" decoding="async">';
-      }
-      html += '<div class="card-info">';
-      html += '<div class="card-prompt">' + esc(r.prompt) + '</div>';
-      html += '<div class="card-meta">';
-      html += '<span class="status-chip ' + statusClass + '">' + statusLabel + '</span> ';
-      html += timeStr + ' ';
-      if (retryOf) html += '· ' + retryOf + ' ';
-      if (r.error) html += '· ' + esc(r.error.slice(0, 120));
-      html += '</div></div></div>';
-
-      if (resultUrl) {
-        html += '<div class="card-result"><a href="' + resultUrl + '" download><img src="' + resultUrl + '" alt="Result" loading="lazy" decoding="async"></a></div>';
-      }
-
-      var isActive = (r.status === 'queued' || r.status === 'running');
-      html += '<div class="card-actions">';
-      html += '<button class="retry-btn" data-id="' + r.id + '">Retry</button>';
-      if (r.status !== 'queued') {
-        html += '<button class="edit-btn" data-id="' + r.id + '">Edit</button>';
-      }
-      if (resultUrl) {
-        html += '<a href="' + resultUrl + '" download><button>Download</button></a>';
-      }
-      if (!isActive) {
-        html += '<button class="delete-btn" data-id="' + r.id + '">Delete</button>';
-      }
-      html += '</div>';
-      html += '</div>';
-    });
+    runs.forEach(function(r) { html += runCardHtml(r); });
     historyList.innerHTML = html;
+    attachHistoryHandlers(historyList);
+  }
 
+  function appendRuns(runs) {
+    if (!runs || runs.length === 0) { return; }
+    historyEmpty.style.display = 'none';
+    var tmp = document.createElement('div');
+    var html = '';
+    runs.forEach(function(r) { html += runCardHtml(r); });
+    tmp.innerHTML = html;
+    attachHistoryHandlers(tmp);
+    while (tmp.firstChild) { historyList.appendChild(tmp.firstChild); }
+  }
+
+  function runCardHtml(r) {
+    var statusClass = r.status;
+    var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+    var timeStr = r.created_at ? new Date(r.created_at * 1000).toLocaleString() : '';
+    var thumbUrl = '';
+    if (r.input_filenames && r.input_filenames.length > 0) {
+      thumbUrl = '/api/runs/' + r.id + '/input/1';
+    }
+    var resultUrl = r.status === 'done' && r.result_filename ? ('/api/runs/' + r.id + '/result') : '';
+    var retryOf = r.retry_of ? 'From ' + r.retry_of.slice(0, 8) : '';
+
+    var html = '';
+    html += '<div class="run-card" data-id="' + r.id + '">';
+    html += '<div class="card-header">';
+    if (thumbUrl) {
+      html += '<img class="card-thumb" src="' + thumbUrl + '" alt="" loading="lazy" decoding="async">';
+    }
+    html += '<div class="card-info">';
+    html += '<div class="card-prompt">' + esc(r.prompt) + '</div>';
+    html += '<div class="card-meta">';
+    html += '<span class="status-chip ' + statusClass + '">' + statusLabel + '</span> ';
+    html += timeStr + ' ';
+    if (retryOf) html += '· ' + retryOf + ' ';
+    if (r.error) html += '· ' + esc(r.error.slice(0, 120));
+    html += '</div></div></div>';
+
+    if (resultUrl) {
+      html += '<div class="card-result"><a href="' + resultUrl + '" download><img src="' + resultUrl + '" alt="Result" loading="lazy" decoding="async"></a></div>';
+    }
+
+    var isActive = (r.status === 'queued' || r.status === 'running');
+    html += '<div class="card-actions">';
+    html += '<button class="retry-btn" data-id="' + r.id + '">Retry</button>';
+    if (r.status !== 'queued') {
+      html += '<button class="edit-btn" data-id="' + r.id + '">Edit</button>';
+    }
+    if (resultUrl) {
+      html += '<a href="' + resultUrl + '" download><button>Download</button></a>';
+    }
+    if (!isActive) {
+      html += '<button class="delete-btn" data-id="' + r.id + '">Delete</button>';
+    }
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function attachHistoryHandlers(root) {
     // Attach retry handlers
-    historyList.querySelectorAll('.retry-btn').forEach(function(btn) {
+    root.querySelectorAll('.retry-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var id = btn.dataset.id;
         btn.disabled = true;
@@ -794,7 +891,7 @@
     });
 
     // Attach delete handlers
-    historyList.querySelectorAll('.delete-btn').forEach(function(btn) {
+    root.querySelectorAll('.delete-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var id = btn.dataset.id;
         if (!confirm('Delete this run?')) return;
@@ -809,8 +906,8 @@
       });
     });
 
-    // Attach edit handlers — reopen a copy in the New tab
-    historyList.querySelectorAll('.edit-btn').forEach(function(btn) {
+    // Attach edit handlers — reopen a copy in the workstation
+    root.querySelectorAll('.edit-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var id = btn.dataset.id;
         var r = lastRuns[id];

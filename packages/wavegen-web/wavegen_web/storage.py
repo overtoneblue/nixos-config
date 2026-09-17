@@ -66,8 +66,24 @@ FROM runs WHERE id=?
 SQL_LIST = """
 SELECT id, prompt, status, error, created_at, started_at, completed_at,
        retry_of, num_inputs, input_filenames, result_filename
-FROM runs ORDER BY created_at DESC LIMIT ?
+FROM runs ORDER BY created_at DESC LIMIT ? OFFSET ?
 """
+
+SQL_LIST_SEARCH = """
+SELECT id, prompt, status, error, created_at, started_at, completed_at,
+       retry_of, num_inputs, input_filenames, result_filename
+FROM runs WHERE prompt LIKE ? ESCAPE '\\' ORDER BY created_at DESC LIMIT ? OFFSET ?
+"""
+
+SQL_COUNT = "SELECT COUNT(*) FROM runs"
+
+SQL_COUNT_SEARCH = "SELECT COUNT(*) FROM runs WHERE prompt LIKE ? ESCAPE '\\'"
+
+
+def _like_pattern(term: str) -> str:
+    """Build a LIKE pattern; escape wildcards so '%' matches a literal percent."""
+    esc = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{esc}%"
 
 SQL_STUCK = "SELECT id FROM runs WHERE status='running'"
 SQL_SET_STUCK_FAILED = "UPDATE runs SET status='failed', error=?, completed_at=? WHERE status='running'"
@@ -168,11 +184,26 @@ class Storage:
             return None
         return self._row_to_dict(row)
 
-    def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
-        """Return newest-first runs."""
+    def list_runs(self, limit: int = 50, offset: int = 0,
+                  q: str | None = None) -> list[dict[str, Any]]:
+        """Return newest-first runs, optionally filtered by prompt substring."""
         with self._lock:
-            rows = self._conn.execute(SQL_LIST, (limit,)).fetchall()
+            if q:
+                rows = self._conn.execute(
+                    SQL_LIST_SEARCH, (_like_pattern(q), limit, offset)
+                ).fetchall()
+            else:
+                rows = self._conn.execute(SQL_LIST, (limit, offset)).fetchall()
         return [self._row_to_dict(row) for row in rows]
+
+    def count_runs(self, q: str | None = None) -> int:
+        """Total number of runs (optionally only prompt matches)."""
+        with self._lock:
+            if q:
+                n = self._conn.execute(SQL_COUNT_SEARCH, (_like_pattern(q),)).fetchone()[0]
+            else:
+                n = self._conn.execute(SQL_COUNT).fetchone()[0]
+        return int(n)
 
     def delete_run(self, run_id: str) -> bool:
         """Delete a run row and its files. False if the run didn't exist."""

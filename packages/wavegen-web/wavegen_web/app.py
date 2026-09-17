@@ -96,13 +96,30 @@ async def handle_index(request: Request) -> Response:
     return HTMLResponse(html)
 
 
+def _query_int(request: Request, name: str, default: int, lo: int, hi: int) -> int:
+    try:
+        return max(lo, min(hi, int(request.query_params.get(name, default))))
+    except (TypeError, ValueError):
+        return default
+
+
 async def handle_list_runs(request: Request) -> JSONResponse:
-    """GET /api/runs?limit=50"""
+    """GET /api/runs?limit=50&offset=0&q=search"""
     from wavegen_web.storage import get as get_storage
 
-    limit = int(request.query_params.get("limit", 50))
-    runs = get_storage().list_runs(limit)
+    limit = _query_int(request, "limit", 50, 1, 1000)
+    offset = _query_int(request, "offset", 0, 0, 1_000_000)
+    q = (request.query_params.get("q") or "").strip() or None
+    runs = get_storage().list_runs(limit, offset, q)
     return JSONResponse(runs)
+
+
+async def handle_count_runs(request: Request) -> JSONResponse:
+    """GET /api/runs/count?q=search — total number of runs (or matches)."""
+    from wavegen_web.storage import get as get_storage
+
+    q = (request.query_params.get("q") or "").strip() or None
+    return JSONResponse({"count": get_storage().count_runs(q)})
 
 
 async def handle_create_run(request: Request) -> JSONResponse:
@@ -290,6 +307,7 @@ def create_app() -> Starlette:
         Route("/", handle_index),
         Route("/api/runs", handle_list_runs, methods=["GET"]),
         Route("/api/runs", handle_create_run, methods=["POST"]),
+        Route("/api/runs/count", handle_count_runs, methods=["GET"]),
         Route("/api/runs/{id:str}/retry", handle_retry_run, methods=["POST"]),
         Route("/api/runs/clear", handle_clear_runs, methods=["POST"]),
         Route("/api/runs/{id:str}", handle_delete_run, methods=["DELETE"]),
