@@ -166,10 +166,16 @@ async def handle_create_run(request: Request) -> JSONResponse:
     parent = (form.get("retry_of") or "").strip()
     retry_of = parent if _re.fullmatch(r"[0-9a-f]{6,64}", parent) else None
 
+    # Resolution tier (WaveSpeed API values: 1k / 1.5k / 2k)
+    resolution = (form.get("resolution") or "").strip().lower() or "1.5k"
+    if resolution not in ("1k", "1.5k", "2k"):
+        return JSONResponse({"error": "resolution must be 1k, 1.5k or 2k"},
+                            status_code=400)
+
     # Create run record
     run_id = uuid.uuid4().hex
     get_storage().create_run(run_id, prompt, len(valid_files),
-                             retry_of=retry_of)
+                             retry_of=retry_of, resolution=resolution)
 
     # Enqueue
     get_engine().enqueue(run_id, valid_files, prompt)
@@ -199,10 +205,11 @@ async def handle_retry_run(request: Request) -> JSONResponse:
         return JSONResponse({"error": "original input files not found"},
                             status_code=404)
 
-    # Create retry run
+    # Create retry run (same resolution as the original)
     new_id = uuid.uuid4().hex
     get_storage().create_run(new_id, original["prompt"],
-                             len(input_files), retry_of=run_id)
+                             len(input_files), retry_of=run_id,
+                             resolution=original.get("resolution"))
     get_engine().enqueue(new_id, input_files, original["prompt"])
 
     return JSONResponse({"id": new_id, "status": "queued", "retry_of": run_id},

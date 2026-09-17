@@ -66,6 +66,10 @@
   .slot-folder { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; height: 34px; padding: 0 10px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
   .slot-folder:active { color: var(--accent); border-color: var(--accent); }
   .slot-save-status { font-size: 0.75rem; color: var(--accent); }
+  .slot-res { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .slot-res-label { font-size: 0.75rem; color: var(--text2); }
+  .slot-res button { flex: 1; padding: 8px 0; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--text2); font-size: 0.8rem; cursor: pointer; }
+  .slot-res button.active { border-color: var(--accent); color: var(--accent); }
   .slot-remove { margin-left: 4px; background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; width: 28px; height: 28px; font-size: 1rem; line-height: 1; cursor: pointer; }
   .slot-thumbs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 8px; }
   .slot-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #333; display: block; }
@@ -305,6 +309,11 @@
       '</div>' +
       '<textarea class="slot-prompt" placeholder="Describe the edit you want..." rows="2"></textarea>' +
       '<div class="slot-statusrow"><span class="slot-chip"></span><span class="slot-elapsed"></span></div>' +
+      '<div class="slot-res"><span class="slot-res-label">Res</span>' +
+        '<button type="button" data-res="1k" title="1K — $0.045">1K</button>' +
+        '<button type="button" data-res="1.5k" title="1.5K — $0.045 (same price as 1K)">1.5K</button>' +
+        '<button type="button" data-res="2k" title="2K — $0.090 (2x price)">2K</button>' +
+      '</div>' +
       '<button class="slot-gen" disabled>Generate</button>' +
       '<div class="slot-result" style="display:none">' +
         '<a class="slot-result-link" target="_blank"><img class="slot-result-img" alt="Result" loading="lazy"></a>' +
@@ -344,10 +353,12 @@
       fname: el.querySelector('.slot-fname'),
       folderBtn: el.querySelector('.slot-folder'),
       saveStatus: el.querySelector('.slot-save-status'),
+      resBtns: el.querySelectorAll('.slot-res button'),
       lineageLabel: el.querySelector('.slot-lineage'),
       fs: (opts.files || []).slice(0, 10),
       runId: null,
-      lineage: opts.lineage || null
+      lineage: opts.lineage || null,
+      res: opts.res || '1.5k'
     };
     if (opts.prompt) { slot.prompt.value = opts.prompt; }
     if (slot.lineage) { slot.lineageLabel.textContent = 'from ' + slot.lineage.slice(0, 8); }
@@ -363,6 +374,13 @@
     el.querySelector('.slot-download').addEventListener('click', function() { downloadResult(slot); });
     slot.folderBtn.addEventListener('click', function() { pickFolder(slot); });
     updateFolderBtn(slot);
+    slot.resBtns.forEach(function(b) {
+      b.addEventListener('click', function() {
+        slot.res = b.getAttribute('data-res');
+        updateResBtns(slot);
+      });
+    });
+    updateResBtns(slot);
     slot.thumbs.addEventListener('click', function(e) {
       if (e.target && e.target.classList.contains('slot-thumb-x')) {
         var idx = parseInt(e.target.getAttribute('data-i'), 10);
@@ -435,6 +453,12 @@
     slot.genBtn.disabled = slot.fs.length === 0 || slot.prompt.value.trim() === '';
   }
 
+  function updateResBtns(slot) {
+    slot.resBtns.forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-res') === slot.res);
+    });
+  }
+
   function removeSlot(slot) {
     var active = slot.runId && lastRuns[slot.runId] &&
       (lastRuns[slot.runId].status === 'queued' || lastRuns[slot.runId].status === 'running');
@@ -446,7 +470,7 @@
   }
 
   function copySlot(slot) {
-    var s = addSlot({ files: slot.fs.slice(), prompt: slot.prompt.value, lineage: slot.lineage });
+    var s = addSlot({ files: slot.fs.slice(), prompt: slot.prompt.value, lineage: slot.lineage, res: slot.res });
     if (!s) { return; }
     // place the copy directly after its source, then renumber everything
     var arrIdx = slots.indexOf(s);
@@ -471,6 +495,7 @@
     var fd = new FormData();
     slot.fs.forEach(function(f) { fd.append('files', f, f.name); });
     fd.append('prompt', slot.prompt.value.trim());
+    fd.append('resolution', slot.res);
     if (slot.lineage) { fd.append('retry_of', slot.lineage); }
     slot.genBtn.disabled = true;
     slot.genBtn.textContent = 'Submitting…';
@@ -844,6 +869,7 @@
     html += '<div class="card-meta">';
     html += '<span class="status-chip ' + statusClass + '">' + statusLabel + '</span> ';
     html += timeStr + ' ';
+    if (r.resolution) html += '· ' + r.resolution.toUpperCase() + ' ';
     if (retryOf) html += '· ' + retryOf + ' ';
     if (r.error) html += '· ' + esc(r.error.slice(0, 120));
     html += '</div></div></div>';
@@ -923,7 +949,7 @@
               });
             });
         })).then(function(files) {
-          var s = addSlot({ files: files, prompt: r.prompt, lineage: id });
+          var s = addSlot({ files: files, prompt: r.prompt, lineage: id, res: r.resolution || '1.5k' });
           if (s) {
             var tabBtn = document.querySelector('.tab-btn[data-tab="new"]');
             if (tabBtn) tabBtn.click();

@@ -45,33 +45,34 @@ CREATE TABLE IF NOT EXISTS runs (
     retry_of TEXT,
     num_inputs INTEGER NOT NULL DEFAULT 0,
     input_filenames TEXT NOT NULL DEFAULT '[]',
-    result_filename TEXT
+    result_filename TEXT,
+    resolution TEXT
 )
 """
 
 SQL_INSERT = """
 INSERT INTO runs
-    (id, prompt, status, created_at, num_inputs, input_filenames, retry_of)
-VALUES (?, ?, 'queued', ?, ?, '[]', ?)
+    (id, prompt, status, created_at, num_inputs, input_filenames, retry_of, resolution)
+VALUES (?, ?, 'queued', ?, ?, '[]', ?, ?)
 """
 
 SQL_UPDATE = "UPDATE runs SET {} WHERE id=?"
 
 SQL_GET = """
 SELECT id, prompt, status, error, created_at, started_at, completed_at,
-       retry_of, num_inputs, input_filenames, result_filename
+       retry_of, num_inputs, input_filenames, result_filename, resolution
 FROM runs WHERE id=?
 """
 
 SQL_LIST = """
 SELECT id, prompt, status, error, created_at, started_at, completed_at,
-       retry_of, num_inputs, input_filenames, result_filename
+       retry_of, num_inputs, input_filenames, result_filename, resolution
 FROM runs ORDER BY created_at DESC LIMIT ? OFFSET ?
 """
 
 SQL_LIST_SEARCH = """
 SELECT id, prompt, status, error, created_at, started_at, completed_at,
-       retry_of, num_inputs, input_filenames, result_filename
+       retry_of, num_inputs, input_filenames, result_filename, resolution
 FROM runs WHERE prompt LIKE ? ESCAPE '\\' ORDER BY created_at DESC LIMIT ? OFFSET ?
 """
 
@@ -103,18 +104,28 @@ class Storage:
                                      check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute(SQL_CREATE_TABLE)
+        self._migrate()
         self._conn.commit()
         log.info("Storage ready — db=%s, dir=%s", self.db_path, self.state_dir)
+
+    def _migrate(self) -> None:
+        """Apply additive schema migrations for pre-existing DBs."""
+        cols = {row[1] for row in
+                self._conn.execute("PRAGMA table_info(runs)").fetchall()}
+        if "resolution" not in cols:
+            self._conn.execute("ALTER TABLE runs ADD COLUMN resolution TEXT")
+            log.info("Migrated runs table: added resolution column")
 
     # ── Run CRUD ──────────────────────────────────────────────────────────
 
     def create_run(self, run_id: str, prompt: str, num_inputs: int,
-                   retry_of: str | None = None) -> None:
+                   retry_of: str | None = None,
+                   resolution: str | None = None) -> None:
         """Insert a new run record."""
         with self._lock:
             self._conn.execute(SQL_INSERT,
                                (run_id, prompt, time.time(), num_inputs,
-                                retry_of))
+                                retry_of, resolution))
             self._conn.commit()
 
     def save_input_filename(self, run_id: str, input_name: str) -> None:
@@ -281,6 +292,7 @@ class Storage:
             "num_inputs": row[8],
             "input_filenames": json.loads(row[9]),
             "result_filename": row[10],
+            "resolution": row[11],
         }
 
     def close(self) -> None:

@@ -21,6 +21,11 @@ STATUS_TERMINAL = frozenset({"completed", "failed", "cancelled", "timeout"})
 API_BASE = "https://api.wavespeed.ai/api/v3"
 MODEL = "bytedance/seedream-v5.0-pro/edit"
 
+# Resolution tiers per the WaveSpeed API for this model: 1k / 1.5k / 2k.
+# 1.5k costs the same as 1k; 2k is 2x. We always send the field explicitly.
+DEFAULT_RESOLUTION = "1.5k"
+VALID_RESOLUTIONS = ("1k", "1.5k", "2k")
+
 
 class JobEngine:
     """FIFO queue with N parallel workers processing WaveSpeed jobs."""
@@ -122,6 +127,8 @@ class JobEngine:
         This is a sync port of the validated wavegen bot pattern
         (packages/wavegen/wavegen.py).
         """
+        run = self._storage.get_run(run_id) or {}
+        resolution = run.get("resolution") or DEFAULT_RESOLUTION
         with httpx.Client(timeout=30) as client:
             # 1. Upload every input image
             download_urls: list[str] = []
@@ -130,7 +137,8 @@ class JobEngine:
                 download_urls.append(url)
 
             # 2. Submit the edit job (with retry)
-            submit_data = self._wavespeed_submit(client, prompt, download_urls)
+            submit_data = self._wavespeed_submit(client, prompt, download_urls,
+                                                resolution)
             task_id = submit_data.get("data", {}).get("id", "")
             get_url = submit_data.get("data", {}).get("urls", {}).get("get", "")
             if not task_id:
@@ -193,11 +201,16 @@ class JobEngine:
         return ticket["download_url"]
 
     def _wavespeed_submit(self, client: httpx.Client, prompt: str,
-                          image_urls: list[str]) -> dict[str, Any]:
-        """Submit an edit job with retry."""
+                          image_urls: list[str],
+                          resolution: str = DEFAULT_RESOLUTION) -> dict[str, Any]:
+        """Submit an edit job with retry. Resolution tiers match the
+        WaveSpeed API for this model: 1k / 1.5k / 2k."""
         headers = {"Authorization": f"Bearer {self._api_key}",
                    "Content-Type": "application/json"}
-        body = {"prompt": prompt, "images": image_urls}
+        if resolution not in VALID_RESOLUTIONS:
+            resolution = DEFAULT_RESOLUTION
+        body = {"prompt": prompt, "images": image_urls,
+                "resolution": resolution}
         for attempt in range(3):
             try:
                 resp = client.post(
