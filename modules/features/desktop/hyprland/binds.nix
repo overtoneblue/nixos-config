@@ -90,8 +90,8 @@
           (mkBind (modShiftKey "k") ''hl.dsp.window.move({ direction = "u" })'')
           (mkBind (modShiftKey "j") ''hl.dsp.window.move({ direction = "d" })'')
 
-          (mkBind (modKey "B") ''hl.dsp.workspace.move({ monitor = "DP-2" })'')
-          (mkBind (modShiftKey "B") ''hl.dsp.workspace.move({ monitor = "DP-1" })'')
+          (mkBind (modKey "B") ''hl.dsp.workspace.move({ monitor = "DP-1" })'')
+          (mkBind (modShiftKey "B") ''hl.dsp.workspace.move({ monitor = "DP-2" })'')
 
           (mkBind (modKey "I") (exec "${noctaliaExe} msg session lock"))
           (mkBind (modShiftKey "I") (exec "${noctaliaExe} msg session lock-and-suspend"))

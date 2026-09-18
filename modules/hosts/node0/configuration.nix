@@ -68,6 +68,8 @@
         libnotify
         vscode
         jetbrains.idea
+        pavucontrol
+        rimsort
       ];
       hm.programs = {
         # `ssh head` from node0 maps to the account that exists on head. node0
