@@ -235,6 +235,14 @@
             printf 'dir=%s\n' "$dir"
             printf 'model=%s\n' "$model"
             printf 'created=%s\n' "$(date -Is)"
+            # Parent stamp: lets Atlas nest this task under the chat that
+            # dispatched it (env is set when run from an agent session).
+            if [[ -n "''${HERMES_SESSION_ID:-}" ]]; then
+              printf 'parent_session=%s\n' "$HERMES_SESSION_ID"
+            fi
+            if [[ -n "''${HERMES_SESSION_CHAT_ID:-}" ]]; then
+              printf 'parent_chat=%s\n' "$HERMES_SESSION_CHAT_ID"
+            fi
           } > "$tasks/$id.meta"
           chmod 0640 "$tasks/$id.spec" "$tasks/$id.meta"
 
