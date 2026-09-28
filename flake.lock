@@ -40,11 +40,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790626141,
-        "narHash": "sha256-08eqfyoqRZWQHycToW6275jvj7w5mREjdfP+v+s8Vz0=",
+        "lastModified": 1790629490,
+        "narHash": "sha256-EoKYOjeS1A7uyZbs+CSirdcIbi52SW06DIZ9P9//oXI=",
         "owner": "overtoneblue",
         "repo": "atlas",
-        "rev": "765ab16a5807b87f57e7e5a44e833ced45d03b7b",
+        "rev": "73f5087f563f827b9851bc8decdce2ce00fb82fe",
         "type": "github"
       },
       "original": {
