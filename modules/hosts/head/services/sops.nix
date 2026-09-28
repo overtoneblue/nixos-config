@@ -138,6 +138,15 @@
             mode = "0400";
             restartUnits = [ "hermes-agent.service" ];
           };
+
+          # ── nix flake-input auth (private github:overtoneblue/atlas) ──
+          # Read-only GitHub PAT consumed by the nix-access-tokens template.
+          # Every nix CLI on head reads the rendered snippet per invocation
+          # (via the /etc/nix/nix.conf include in configuration.nix), so
+          # rotating this value requires no unit restarts.
+          "atlas-read-token" = {
+            restartUnits = [ ];
+          };
         };
 
         templates = {
@@ -201,6 +210,20 @@
             content = ''
               MAKORA_API_KEY=${ph."makora-api-key"}
               DEEPSEEK_API_KEY=${ph."deepseek-api-key"}
+            '';
+          };
+
+          # nix.conf snippet including the private-repo access token, read
+          # via `!include` (see configuration.nix) by every nix CLI on head:
+          # root for system fetches, hermes for `nh os build` gates. The
+          # rendered file stays root:hermes 0640 — other users' nix runs
+          # silently skip it (nix tolerates unreadable include targets).
+          "nix-access-tokens" = {
+            owner = "root";
+            group = "hermes";
+            mode = "0640";
+            content = ''
+              access-tokens = github.com=${ph."atlas-read-token"}
             '';
           };
         };
