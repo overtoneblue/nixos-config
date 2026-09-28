@@ -40,11 +40,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790584000,
-        "narHash": "sha256-okn/IU4DkP6lyNOQJq2d8kDzlq70DVXi8Cx2+gmrf1w=",
+        "lastModified": 1790594002,
+        "narHash": "sha256-iK9Ubf54dKUekpjJApsTZXjdv5BDKNYDEDVlVyfgDBA=",
         "owner": "overtoneblue",
         "repo": "atlas",
-        "rev": "bc0b58a7332393bcbd7ce664e7084a5973d42a0b",
+        "rev": "46812e5cc96d51dbc4d18c924196bb7678bcb282",
         "type": "github"
       },
       "original": {
@@ -350,15 +350,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790394715,
-        "narHash": "sha256-6guR2TYEkqw04Qt+8Ek7ciOxdAtoTO9S9vBeQzv/hFc=",
-        "owner": "NousResearch",
+        "lastModified": 1790594048,
+        "narHash": "sha256-kyRY6PIUJA/dwCERPPBwFpD/bPVYIjwSRA3x/TIctUI=",
+        "owner": "overtoneblue",
         "repo": "hermes-agent",
-        "rev": "d0288be5b3330d2442e3907185b8e9d0958297bb",
+        "rev": "485f89bf731f76d10169bc145d57c923adad0030",
         "type": "github"
       },
       "original": {
-        "owner": "NousResearch",
+        "owner": "overtoneblue",
+        "ref": "atlas-archive",
         "repo": "hermes-agent",
         "type": "github"
       }

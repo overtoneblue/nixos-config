@@ -43,7 +43,14 @@
     # (salvage of #98555, merged 2026-09-01, verified surviving the 0.21.0
     # refactor), so the overtoneblue/ttfb-on-main fork pin (@cc09928c) is
     # retired in favor of upstream main.
-    hermes-agent.url = "github:NousResearch/hermes-agent";
+    #
+    # 2026-09-28: fork pin overtoneblue/hermes-agent @ atlas-archive —
+    # deployed d0288be5b3 plus one commit plumbing `include_compacted`
+    # through GET /api/sessions/{id}/messages (the DB layer already
+    # supports it; the route dropped it). Atlas pages the deduped display
+    # history so compaction-archived turns stay scrollable. Upstream PR
+    # candidate — retire this pin once it merges.
+    hermes-agent.url = "github:overtoneblue/hermes-agent/atlas-archive";
     # Atlas: the workstream client app, sourced from the public
     # github:overtoneblue/atlas repo. The sops access-tokens include
     # (modules/hosts/head/configuration.nix) is kept as an inert safety
