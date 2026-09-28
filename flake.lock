@@ -40,17 +40,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1790577874,
-        "narHash": "sha256-rz3ldNUqMHjC6xGF51p22rPgBAKiBi+OFpwQCEarYUg=",
-        "ref": "refs/heads/main",
-        "rev": "e0c6ff9c87a13c2d7efd7126493daf999adcdc38",
-        "revCount": 36,
-        "type": "git",
-        "url": "file:///srv/atlas"
+        "lastModified": 1790580195,
+        "narHash": "sha256-r6z6gev/+q5g80wbIyZKlIajDt6qY/0Xs/UrbOyhPYw=",
+        "owner": "overtoneblue",
+        "repo": "atlas",
+        "rev": "9da018dbef74449d7a7d27b8605c93273be0730d",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:///srv/atlas"
+        "owner": "overtoneblue",
+        "repo": "atlas",
+        "type": "github"
       }
     },
     "base16": {
