@@ -40,11 +40,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789357083,
-        "narHash": "sha256-zTd7q0Gf9ctQGOlFV/R4Va0aaR+rnSfbHEV7iwJNwYo=",
+        "lastModified": 1790577874,
+        "narHash": "sha256-rz3ldNUqMHjC6xGF51p22rPgBAKiBi+OFpwQCEarYUg=",
         "ref": "refs/heads/main",
-        "rev": "2cb9f269d62ca622cff408a46a4818db48b00b67",
-        "revCount": 19,
+        "rev": "e0c6ff9c87a13c2d7efd7126493daf999adcdc38",
+        "revCount": 36,
         "type": "git",
         "url": "file:///srv/atlas"
       },

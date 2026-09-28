@@ -122,6 +122,7 @@
         self.nixosModules.headNextcloud
         self.nixosModules.headNginxProxy
         self.nixosModules.headMatrix
+        self.nixosModules.headAtlasHub
         self.nixosModules.headWavegen
         self.nixosModules.headWavegenWeb
         self.nixosModules.base
