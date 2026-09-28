@@ -123,6 +123,7 @@
         self.nixosModules.headNginxProxy
         self.nixosModules.headMatrix
         self.nixosModules.headAtlasHub
+        self.nixosModules.headAtlasd
         self.nixosModules.headWavegen
         self.nixosModules.headWavegenWeb
         self.nixosModules.base
