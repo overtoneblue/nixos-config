@@ -226,6 +226,7 @@
       environment.systemPackages = with pkgs; [
         usbutils
         nodeRebuild
+        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas-electron
       ];
     };
 }

@@ -387,6 +387,49 @@
         };
       };
 
+      # Atlas tunnels: node0's Atlas app (local atlasd on :8644) reaches
+      # head's loopback services through these forwards — Hermes API
+      # (:8642), atlas hub (:8643), and head's atlasd (:8645 → head:8644,
+      # the image/paste relay the app points ATLAS_UPSTREAM at). Same
+      # identity as the browser/audio/desktop tunnels; local forwards
+      # because node0 is the side that initiates.
+      hm.systemd.user.services.atlas-tunnel = {
+        Unit = {
+          Description = "Atlas SSH tunnels to head (8642 api, 8643 hub, 8645 relay)";
+          After = [
+            "network-online.target"
+          ];
+          Wants = [
+            "network-online.target"
+          ];
+        };
+
+        Service = {
+          ExecStart = ''
+            ${lib.getExe pkgs.openssh} \
+              -N \
+              -T \
+              -i ${homeDirectory}/.ssh/hermes_audio_tunnel \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o ExitOnForwardFailure=yes \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=3 \
+              -L 127.0.0.1:8642:127.0.0.1:8642 \
+              -L 127.0.0.1:8643:127.0.0.1:8643 \
+              -L 127.0.0.1:8645:127.0.0.1:8644 \
+              overtoneblue@10.1.1.24
+          '';
+
+          Restart = "always";
+          RestartSec = 5;
+        };
+
+        Install = {
+          WantedBy = [ "default.target" ];
+        };
+      };
+
       users.users.${username}.openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBttEvb3mNaTHjsc0lCB7oiGqXOZnncFYh4NKOzzWpmc hermes-desktop-control"
       ];
