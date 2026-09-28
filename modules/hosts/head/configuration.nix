@@ -283,13 +283,15 @@
           directory = /srv/atlas
       '';
 
-      # ── Private flake-input auth ───────────────────────────────────────
-      # nix's `github:` fetcher needs a GitHub access token for the private
-      # overtoneblue/atlas input. The token is sops-encrypted and rendered
-      # at activation by sops-nix to /run/secrets/rendered/nix-access-tokens
-      # (see services/sops.nix); this include makes every nix CLI on head
-      # read it at fetch time. Missing or unreadable include targets are
-      # silently skipped by nix, so activation/boot ordering is safe.
+      # ── Flake-input auth (atlas) ───────────────────────────────────────
+      # github:overtoneblue/atlas is public since 2026-09-28, so this
+      # include is a no-op safety net kept for one reason: re-privatizing
+      # the repo then works without a rebuild. A revoked or expired token
+      # does not break public fetches (verified). The token is
+      # sops-encrypted (secrets/head.yaml -> atlas-read-token) and rendered
+      # by sops-nix to /run/secrets/rendered/nix-access-tokens (see
+      # services/sops.nix). Missing/unreadable include targets are silently
+      # skipped by nix, so activation/boot ordering is safe.
       nix.extraOptions = ''
         !include /run/secrets/rendered/nix-access-tokens
       '';

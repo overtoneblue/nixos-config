@@ -44,11 +44,11 @@
     # refactor), so the overtoneblue/ttfb-on-main fork pin (@cc09928c) is
     # retired in favor of upstream main.
     hermes-agent.url = "github:NousResearch/hermes-agent";
-    # Atlas: the workstream client app. Source + package definition live in
-    # the private github:overtoneblue/atlas repo, consumed here as a pinned
-    # input. The fetcher authenticates via the sops-rendered access-tokens
-    # include in modules/hosts/head/configuration.nix (secrets/head.yaml →
-    # key `atlas-read-token`).
+    # Atlas: the workstream client app, sourced from the public
+    # github:overtoneblue/atlas repo. The sops access-tokens include
+    # (modules/hosts/head/configuration.nix) is kept as an inert safety
+    # net: revoked/expired tokens don't break public fetches (verified
+    # 2026-09-28), and re-privatizing the repo works without a rebuild.
     atlas = {
       url = "github:overtoneblue/atlas";
       inputs.nixpkgs.follows = "nixpkgs";
