@@ -430,6 +430,31 @@
         };
       };
 
+      # Atlas daemon as a persistent user service: in-flight turns keep
+      # streaming into the session store while the app is closed, and any
+      # client (the app — which probes :8644 and attaches instead of
+      # spawning — a browser, a second window) reattaches to the live turn
+      # on open. Reads its keys/tokens from ~/.config/atlas/env.
+      hm.systemd.user.services.atlasd = {
+        Unit = {
+          Description = "Atlas daemon (:8644 — persistent bridge, survives app close)";
+          After = [
+            "atlas-tunnel.service"
+          ];
+        };
+
+        Service = {
+          ExecStart = "${lib.getExe' inputs.atlas.packages.${pkgs.system}.default "atlasd"} -addr 127.0.0.1 -port 8644 -web ${inputs.atlas.packages.${pkgs.system}.atlas-web}";
+          EnvironmentFile = "%h/.config/atlas/env";
+          Restart = "always";
+          RestartSec = 3;
+        };
+
+        Install = {
+          WantedBy = [ "default.target" ];
+        };
+      };
+
       users.users.${username}.openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBttEvb3mNaTHjsc0lCB7oiGqXOZnncFYh4NKOzzWpmc hermes-desktop-control"
       ];
