@@ -53,19 +53,21 @@
 
       # steamworkspy (dep of rimsort) ships no dist-info → pythonMetadataCheckHook
       # (nixpkgs June 2026 default-on) fails. Disable only for that leaf.
-      nixpkgs.overlays = [ (final: prev: {
-        python3 = prev.python3.override {
-          packageOverrides = pf: pp: {
-            steamworkspy = pp.steamworkspy.overridePythonAttrs (_: {
-              dontCheckPythonMetadata = true;
-            });
+      nixpkgs.overlays = [
+        (final: prev: {
+          python3 = prev.python3.override {
+            packageOverrides = pf: pp: {
+              steamworkspy = pp.steamworkspy.overridePythonAttrs (_: {
+                dontCheckPythonMetadata = true;
+              });
+            };
           };
-        };
-        # Must also rebind the top-level alias or rimsort (which uses
-        # python3Packages / python314Packages directly) still gets the
-        # un-overridden steamworkspy.
-        python314Packages = final.python3.pkgs;
-      }) ];
+          # Must also rebind the top-level alias or rimsort (which uses
+          # python3Packages / python314Packages directly) still gets the
+          # un-overridden steamworkspy.
+          python314Packages = final.python3.pkgs;
+        })
+      ];
 
       hm.home.packages = with pkgs; [
         wl-clipboard
@@ -84,7 +86,7 @@
         nextcloud-client
         libnotify
         vscode
-        jetbrains.idea
+        # jetbrains.idea
         pavucontrol
         rimsort
       ];
