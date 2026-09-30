@@ -350,16 +350,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790718697,
-        "narHash": "sha256-bH1BkXWgvzPz+hLlaktfioFew4YQMolLKfMkyBGta9E=",
+        "lastModified": 1790732326,
+        "narHash": "sha256-3OCMKjgBw5TNdQA/Dig9IMS8kg9tb+JSkdtJG71DuUg=",
         "owner": "overtoneblue",
         "repo": "hermes-agent",
-        "rev": "2e92e1691e76faf3ffa02cb1f1d2ef4507a2b1f9",
+        "rev": "78d15350f667670b670df16ea7b317292a78f84a",
         "type": "github"
       },
       "original": {
         "owner": "overtoneblue",
-        "ref": "atlas-archive",
+        "ref": "atlas",
         "repo": "hermes-agent",
         "type": "github"
       }
