@@ -214,6 +214,10 @@
               provider = "custom";
               base_url = "https://api.orcarouter.ai/v1";
             };
+            sonnet55 = {
+              model = "claude-sonnet-5-5[1m]";
+              provider = "claude-subscription-directsdk-experimental";
+            };
           };
           mcp_servers.computer-use-linux.enabled = true;
           # Route through the Nix-managed `desktop` bridge (head-side wrapper
