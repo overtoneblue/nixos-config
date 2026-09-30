@@ -218,9 +218,19 @@
               model = "claude-sonnet-5-5[1m]";
               provider = "claude-subscription-directsdk-experimental";
             };
-            sol900 = {
-              model = "gpt-6-sol-900k";
+            sol61 = {
+              model = "gpt-6.1-sol";
               provider = "openai-codex";
+            };
+          };
+          # Model context overrides: supported self-unblock path (step 0b in
+          # agent/models_dev.py) — applied before the openai-codex OAuth 272K
+          # fallback. 872000 = gpt-6.1-sol max_context_window on this account.
+          model_overrides = {
+            "openai-codex" = {
+              "gpt-6.1-sol" = {
+                context_window = 872000;
+              };
             };
           };
           mcp_servers.computer-use-linux.enabled = true;
