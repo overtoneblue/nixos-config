@@ -52,10 +52,13 @@
     # candidate — retire this pin once it merges.
     # 2026-09-29: fast-forwarded the fork to upstream main (a9a54245b2) on
     # branch `atlas` — the include_compacted port is upstream now (with
-    # include_ancestors), so the stack is just one commit:
-    # keep_run_on_disconnect (dropped chat streams must not kill the live
-    # run — Atlas relays reconnect and phones sleep mid-turn). The old
-    # atlas-archive branch is retired but kept for history.
+    # include_ancestors). Stack on top of main:
+    #   1. keep_run_on_disconnect (dropped chat streams must not kill the
+    #      live run — Atlas relays reconnect and phones sleep mid-turn);
+    #   2. session-persisted models honor the row's persisted provider
+    #      (cross-provider /model picks half-applied: the model switched but
+    #      turns kept the default provider's route → provider 400).
+    # The old atlas-archive branch is retired but kept for history.
     hermes-agent.url = "github:overtoneblue/hermes-agent/atlas";
     # Atlas: the workstream client app, sourced from the public
     # github:overtoneblue/atlas repo. The sops access-tokens include

@@ -350,11 +350,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1790732326,
-        "narHash": "sha256-3OCMKjgBw5TNdQA/Dig9IMS8kg9tb+JSkdtJG71DuUg=",
+        "lastModified": 1790734872,
+        "narHash": "sha256-SCK0Sn41qs9dR53uTCvXoKxkdH89D6kvvCOS+Qtgy24=",
         "owner": "overtoneblue",
         "repo": "hermes-agent",
-        "rev": "78d15350f667670b670df16ea7b317292a78f84a",
+        "rev": "8f54feddd834522cf0addc853c344767a1d0de0c",
         "type": "github"
       },
       "original": {
