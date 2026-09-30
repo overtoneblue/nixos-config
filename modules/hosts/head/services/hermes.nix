@@ -233,6 +233,13 @@
               };
             };
           };
+          # Subscription image generation: first-party openai-codex image-gen
+          # provider (gpt-image-2 through the ChatGPT/Codex OAuth credential
+          # pool; no API key). model left unset -> plugin default tier
+          # (gpt-image-2-medium; low/medium/high selectable later).
+          image_gen = {
+            provider = "openai-codex";
+          };
           mcp_servers.computer-use-linux.enabled = true;
           # Route through the Nix-managed `desktop` bridge (head-side wrapper
           # that SSHes to node0 and execs `desktop-session computer-use-linux
