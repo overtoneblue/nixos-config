@@ -247,12 +247,13 @@
           # nudge 0 kills the turn-nudge and its save instruction cadence;
           # background_review off kills the aux-model fork that proactively
           # staged memory/skill writes; curator off stops background
-          # stale-marking/archiving of the skills tree. write_approval off:
-          # deliberate saves land directly (no pending queue). Manual-by-
-          # convention: memory/skill writes happen only when Caden asks.
-          memory.write_approval = false;
+          # stale-marking/archiving of the skills tree. write_approval ON
+          # (Caden, 2026-09-30): memory/skill writes stage in
+          # pending/{memory,skills}/ and land only on approval; written
+          # per-bot on demand.
+          memory.write_approval = true;
           memory.nudge_interval = 0;
-          skills.write_approval = false;
+          skills.write_approval = true;
           skills.creation_nudge_interval = 0;
           auxiliary.background_review.enabled = false;
           curator.enabled = false;
