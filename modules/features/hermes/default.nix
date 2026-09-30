@@ -446,6 +446,11 @@
         Service = {
           ExecStart = "${lib.getExe' inputs.atlas.packages.${pkgs.system}.default "atlasd"} -addr 127.0.0.1 -port 8644 -web ${inputs.atlas.packages.${pkgs.system}.atlas-web}";
           EnvironmentFile = "%h/.config/atlas/env";
+          # The image/paste relay: /media and /api/attach for files that live
+          # on head (the agent's world) relay through the atlas-tunnel forward
+          # 8645 → head's atlasd :8644. Without it, head-side images 404 in the
+          # app and node0 pastes save locally instead of where the agent lives.
+          Environment = [ "ATLAS_UPSTREAM=http://127.0.0.1:8645" ];
           Restart = "always";
           RestartSec = 3;
         };
