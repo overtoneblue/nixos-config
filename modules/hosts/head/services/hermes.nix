@@ -275,6 +275,7 @@
           pkgs.git
           pkgs.nix-output-monitor
           pkgs.systemd
+          pkgs.claude-code
         ];
       };
 
@@ -416,7 +417,7 @@
 
         # Make NixOS security wrappers resolvable (sudo head-rebuild) and
         # keep the same runtime PATH shape as the gateway unit.
-        path = [ "/run/wrappers" ];
+        path = [ "/run/wrappers" pkgs.claude-code ];
       };
 
       # ── Shared Hermes credential store permissions ────────────────────

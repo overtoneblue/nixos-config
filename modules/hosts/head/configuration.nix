@@ -310,6 +310,7 @@
         intel-gpu-tools
         self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
         self.packages.${pkgs.stdenv.hostPlatform.system}.atlas
+        pkgs.claude-code
       ];
 
       # head-specific: never let Tailscale manage this host's DNS.
