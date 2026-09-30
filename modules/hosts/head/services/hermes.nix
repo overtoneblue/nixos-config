@@ -218,6 +218,10 @@
               model = "claude-sonnet-5-5[1m]";
               provider = "claude-subscription-directsdk-experimental";
             };
+            sol900 = {
+              model = "gpt-6-sol-900k";
+              provider = "openai-codex";
+            };
           };
           mcp_servers.computer-use-linux.enabled = true;
           # Route through the Nix-managed `desktop` bridge (head-side wrapper
