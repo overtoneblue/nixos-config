@@ -89,6 +89,7 @@
         # jetbrains.idea
         pavucontrol
         rimsort
+        jellyfin-desktop
       ];
       hm.programs = {
         # `ssh head` from node0 maps to the account that exists on head. node0
