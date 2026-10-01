@@ -31,9 +31,15 @@
             RestartSec = "10s";
             TimeoutStopSec = "10s";
 
+            # The native shape store (categories/channels/templates) is the one
+            # thing the hub owns rather than derives; systemd makes this the
+            # single writable path under the otherwise strict sandbox.
+            StateDirectory = "atlas-hub";
+            StateDirectoryMode = "0700";
+
             # Read-only access to hermes state (./env for tokens, state.db for
-            # session data, profiles/ for sub-profile registries). No write
-            # paths, no media access.
+            # session data, profiles/ for sub-profile registries). Write access
+            # limited to the StateDirectory above; no media access.
             UMask = "0077";
 
             # Sandboxing — minimal surface for a read-only Python HTTP server.
