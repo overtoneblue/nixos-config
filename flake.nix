@@ -50,15 +50,17 @@
     # supports it; the route dropped it). Atlas pages the deduped display
     # history so compaction-archived turns stay scrollable. Upstream PR
     # candidate — retire this pin once it merges.
-    # 2026-09-29: fast-forwarded the fork to upstream main (a9a54245b2) on
-    # branch `atlas` — the include_compacted port is upstream now (with
-    # include_ancestors). Stack on top of main:
+    # 2026-10-01: rebased `atlas` onto upstream main (6d49922875); both
+    # stacked commits re-ported unchanged (gateway tests green):
     #   1. keep_run_on_disconnect (dropped chat streams must not kill the
     #      live run — Atlas relays reconnect and phones sleep mid-turn);
     #   2. session-persisted models honor the row's persisted provider
     #      (cross-provider /model picks half-applied: the model switched but
     #      turns kept the default provider's route → provider 400).
-    # The old atlas-archive branch is retired but kept for history.
+    # Both patches remain unmerged upstream (tracking issues #94017 and
+    # #118426 open; candidate PRs #94014/#117136/#117776/#117819/#123802 all
+    # still open as of 2026-10-01 — zero merges in this area). Filing our
+    # own PRs is optional; retire this pin if either patch lands upstream.
     hermes-agent.url = "github:overtoneblue/hermes-agent/atlas";
     # Atlas: the workstream client app, sourced from the public
     # github:overtoneblue/atlas repo. The sops access-tokens include
