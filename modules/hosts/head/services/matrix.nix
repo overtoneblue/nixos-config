@@ -3,8 +3,7 @@
 # PostgreSQL, public at matrix.cenunix.dev, identity suffix @user:cenunix.dev.
 #
 # Scope: homeserver only — no bridges, no TURN, no metrics, no extra
-# listeners. Hermes bot accounts/profiles are a separate later phase; this
-# module must never touch hermes-agent/hermes-serve.
+# listeners.
 #
 # Registration: public registration stays disabled; accounts are created with
 # the registration shared secret (matrix-synapse-register_new_matrix_user).
@@ -22,8 +21,7 @@
       # Raw value -> /run/secrets/matrix-registration-shared-secret, 0400,
       # owned by the synapse service user. The sops render dir is root-only,
       # so the file must be matrix-synapse-scoped for the service to read it.
-      # restartUnits targets ONLY the synapse unit — never
-      # hermes-agent/hermes-serve.
+      # restartUnits targets ONLY the synapse unit.
       sops.secrets."matrix-registration-shared-secret" = {
         sopsFile = "/srv/nixos-config/secrets/head-matrix.yaml";
         owner = "matrix-synapse";

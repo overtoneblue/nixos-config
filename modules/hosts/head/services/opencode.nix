@@ -17,13 +17,13 @@
       runtimeStateDir = "${stateDir}/state";
       cacheDir = "${stateDir}/cache";
       # Sops-rendered credential file (see services/sops.nix). Replaces the
-      # hand-maintained server.env; owned overtoneblue:hermes 0640 so both the
-      # service and the opencode-client wrapper (overtoneblue + hermes) can read.
+      # hand-maintained server.env; owner-only overtoneblue 0400, read by the
+      # service and the opencode-client wrapper.
       environmentFile = config.sops.templates."opencode-env".path;
 
       # Client wrapper command — sources the sops-rendered opencode-env
       # template (sets OPENCODE_SERVER_PASSWORD etc.) then execs the real
-      # OpenCode CLI. Usable from the interactive user AND the hermes gateway.
+      # OpenCode CLI. Usable from interactive sessions.
       # `set -a` ensures the sourced vars are exported to the child CLI
       # process (sourcing without it leaves them shell-only => client 401s).
       opencodeClient = pkgs.writeShellScriptBin "opencode-client" ''
@@ -51,7 +51,7 @@
         # The stringAfter "users" ensures ${user} exists before chown.
         system.activationScripts."opencode-config" = lib.stringAfter [ "users" ] ''
           mkdir -p ${configDir}/opencode
-          install -o ${user} -g hermes -m 0640 \
+          install -o ${user} -g users -m 0640 \
             ${../../../../opencode.jsonc} \
             ${configDir}/opencode/opencode.jsonc
         '';
@@ -60,21 +60,19 @@
         # persistent backend). The server reads the same file via systemd
         # EnvironmentFile; the wrapper sources it for client invocations.
         # The file is rendered by sops-nix from secrets/head.yaml (owner
-        # overtoneblue, group hermes, mode 0640) so both the interactive user
-        # and the hermes gateway can use the CLI without ever typing the
+        # overtoneblue, mode 0400) so the CLI works without ever typing the
         # password. Never world-readable; never in Git.
         systemd.tmpfiles.rules = [
           "d ${repository} 2770 ${user} admin - -"
-          "z ${stateDir} 0750 ${user} hermes - -"
-          "z ${homeDir} 0700 ${user} hermes - -"
-          "z ${configDir} 0700 ${user} hermes - -"
-          "z ${dataDir} 0700 ${user} hermes - -"
-          "z ${runtimeStateDir} 0700 ${user} hermes - -"
-          "z ${cacheDir} 0700 ${user} hermes - -"
+          "z ${stateDir} 0750 ${user} users - -"
+          "z ${homeDir} 0700 ${user} users - -"
+          "z ${configDir} 0700 ${user} users - -"
+          "z ${dataDir} 0700 ${user} users - -"
+          "z ${runtimeStateDir} 0700 ${user} users - -"
+          "z ${cacheDir} 0700 ${user} users - -"
         ];
 
-        # Expose the wrapper to other modules: interactive systemPackages
-        # (overtoneblue TUI) and hermes-agent extraPackages (gateway PATH).
+        # Expose the wrapper to interactive sessions.
         environment.systemPackages = [ config.services.opencode-client.package ];
 
         systemd.services.opencode = {
@@ -124,8 +122,8 @@
             RestartSec = "5s";
             TimeoutStopSec = "30s";
             # Group-shared file/dir modes (0660/0770) for the shared admin group,
-            # so OpenCode commits are readable/writable by overtoneblue + hermes
-            # without manual chmod. Repo + .git are setgid admin to inherit group.
+            # so OpenCode commits stay group-writable without manual chmod.
+            # Repo + .git are setgid admin to inherit group.
             UMask = "0007";
 
             CapabilityBoundingSet = "";
@@ -146,7 +144,8 @@
               stateDir
             ];
             InaccessiblePaths = [
-              "/mnt/cache/appdata/hermes-agent"
+              # Leftover Hermes state (credentials) until it is archived.
+              "-/mnt/cache/appdata/hermes-agent"
               "-/mnt/user"
               "-/mnt/disk1"
               "-/mnt/disk2"

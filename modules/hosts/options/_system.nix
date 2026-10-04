@@ -32,10 +32,9 @@ in
       type = types.package;
       description = ''
         `desktop` command: SSH bridge into the node0 graphical session.
-        Defined on head (modules/hosts/head/configuration.nix) and referenced
-        by the head system profile (interactive overtoneblue TUI) and by
-        services.hermes-agent extraPackages (gateway PATH) so both the TUI and
-        the hermes service can run desktop commands on node0.
+        Defined on head (modules/hosts/head/configuration.nix) and installed
+        in the head system profile so interactive sessions can run desktop
+        commands on node0.
       '';
     };
   };

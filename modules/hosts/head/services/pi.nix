@@ -23,7 +23,7 @@
       tmuxConf = ../../../../pi/tmux.conf;
 
       # Sops-rendered credential file (see services/sops.nix): owner
-      # overtoneblue, group hermes, mode 0640; read by the service via
+      # overtoneblue, mode 0400; read by the service via
       # systemd EnvironmentFile. Never in git.
       environmentFile = config.sops.templates."pi-env".path;
 
@@ -37,18 +37,11 @@
       # below passes (service active + socket present + responsive server).
       tmuxShim = ''
         tmuxBin="${pkgs.tmux}/bin/tmux"
-        sudoBin="/run/wrappers/bin/sudo"
         sock="${socketPath}"
-        svcUser="${user}"
         tasks="${tasksDir}"
 
-        # The socket is owner-only (overtoneblue); non-owner admins reach the
-        # server through the setuid sudo wrapper (hermes holds NOPASSWD).
-        if [[ "$(id -un)" == "$svcUser" ]]; then
-          tmux_run() { "$tmuxBin" -S "$sock" "$@"; }
-        else
-          tmux_run() { "$sudoBin" -n -u "$svcUser" "$tmuxBin" -S "$sock" "$@"; }
-        fi
+        # The socket is owner-only (overtoneblue).
+        tmux_run() { "$tmuxBin" -S "$sock" "$@"; }
 
         guard() {
           local prog="$1" probe=""
@@ -235,14 +228,6 @@
             printf 'dir=%s\n' "$dir"
             printf 'model=%s\n' "$model"
             printf 'created=%s\n' "$(date -Is)"
-            # Parent stamp: lets Atlas nest this task under the chat that
-            # dispatched it (env is set when run from an agent session).
-            if [[ -n "''${HERMES_SESSION_ID:-}" ]]; then
-              printf 'parent_session=%s\n' "$HERMES_SESSION_ID"
-            fi
-            if [[ -n "''${HERMES_SESSION_CHAT_ID:-}" ]]; then
-              printf 'parent_chat=%s\n' "$HERMES_SESSION_CHAT_ID"
-            fi
           } > "$tasks/$id.meta"
           chmod 0640 "$tasks/$id.spec" "$tasks/$id.meta"
 
@@ -511,15 +496,15 @@
         # files are approval-gated; the dispatched session had no approver).
         # To complete: add pi/AGENTS.md to the repo and extend this activation
         # script with an install of it to <agent-dir>/AGENTS.md
-        # (owner overtoneblue, group hermes, mode 0640).
+        # (owner overtoneblue, group users, mode 0640).
         system.activationScripts."pi-config" = lib.stringAfter [ "users" ] ''
-          install -d -o ${user} -g hermes -m 0750 ${stateDir} ${agentDir} ${agentDir}/extensions ${agentDir}/skills
-          install -d -o ${user} -g hermes -m 0700 ${homeDir}
-          install -d -o ${user} -g hermes -m 2770 ${tasksDir} ${tmuxDir}
-          install -o ${user} -g hermes -m 0640 \
+          install -d -o ${user} -g users -m 0750 ${stateDir} ${agentDir} ${agentDir}/extensions ${agentDir}/skills
+          install -d -o ${user} -g users -m 0700 ${homeDir}
+          install -d -o ${user} -g users -m 2770 ${tasksDir} ${tmuxDir}
+          install -o ${user} -g users -m 0640 \
             ${../../../../pi/settings.json} \
             ${agentDir}/settings.json
-          install -o ${user} -g hermes -m 0640 \
+          install -o ${user} -g users -m 0640 \
             ${../../../../pi/models.json} \
             ${agentDir}/models.json
         '';
@@ -528,16 +513,15 @@
         # script above also creates them (first-switch ordering safety);
         # tmpfiles re-asserts modes/ownership at boot.
         systemd.tmpfiles.rules = [
-          "z ${stateDir} 0750 ${user} hermes - -"
-          "z ${homeDir} 0700 ${user} hermes - -"
-          "z ${agentDir} 0750 ${user} hermes - -"
-          "z ${tasksDir} 2770 ${user} hermes - -"
-          "z ${tmuxDir} 2770 ${user} hermes - -"
+          "z ${stateDir} 0750 ${user} users - -"
+          "z ${homeDir} 0700 ${user} users - -"
+          "z ${agentDir} 0750 ${user} users - -"
+          "z ${tasksDir} 2770 ${user} users - -"
+          "z ${tmuxDir} 2770 ${user} users - -"
         ];
 
-        # Expose the wrappers to the interactive systemPackages (Caden) and,
-        # via the module option, to hermes-agent extraPackages (gateway PATH).
-        # pkgs.pi-coding-agent is exported system-wide for interactive use.
+        # Expose the wrappers to interactive sessions. pkgs.pi-coding-agent is
+        # exported system-wide for interactive use.
         environment.systemPackages = [
           config.services.pi-client.package
           pkgs.pi-coding-agent
@@ -625,7 +609,8 @@
               stateDir
             ];
             InaccessiblePaths = [
-              "/mnt/cache/appdata/hermes-agent"
+              # Leftover Hermes state (credentials) until it is archived.
+              "-/mnt/cache/appdata/hermes-agent"
               "-/mnt/user"
               "-/mnt/disk1"
               "-/mnt/disk2"

@@ -54,22 +54,16 @@
       # session via a dedicated SSH identity. It SSHes non-interactively to
       # overtoneblue@node0 and executes the command under `desktop-session`,
       # which imports the live Wayland/DBus/XDG/Hyprland session environment
-      # (see modules/features/hermes).
+      # (see modules/features/desktop/automation.nix).
       #
-      # Identity is identity-aware via env vars, so the SAME wrapper serves
-      # both callers without touching /home/overtoneblue permissions:
-      #   - interactive overtoneblue TUI  -> defaults to the overtoneblue key
-      #     + known_hosts (unchanged behavior)
-      #   - hermes-agent.service          -> DESKTOP_SSH_KEY /
-      #     DESKTOP_KNOWN_HOSTS are injected by the service unit (sops-rendered
-      #     hermes-owned key + Nix-managed system known_hosts), keeping this
-      #     wrapper and the interactive path identical.
+      # The identity defaults to the overtoneblue key + known_hosts; a
+      # service caller can override both via DESKTOP_SSH_KEY /
+      # DESKTOP_KNOWN_HOSTS (e.g. the system known_hosts populated
+      # declaratively by programs.ssh.knownHosts).
       #
       # Each argument is shell-quoted with bash %q so the remote zsh
       # reconstructs the exact argv (no word-splitting / injection).
-      # Host verification stays strict; the known_hosts file is supplied via
-      # the env var (interactive: user file; service: /etc/ssh/ssh_known_hosts
-      # populated declaratively by programs.ssh.knownHosts).
+      # Host verification stays strict.
       desktop = pkgs.writeShellApplication {
         name = "desktop";
         runtimeInputs = [ pkgs.openssh ];
@@ -103,10 +97,8 @@
       };
     in
     {
-      # Expose the shared `desktop` command so both the interactive head
-      # profile (environment.systemPackages below) and the Hermes gateway
-      # (services/head/hermes.nix extraPackages) can reference the same
-      # wrapper package.
+      # Expose the shared `desktop` command (installed via
+      # environment.systemPackages below).
       modules.system.desktopCommand = desktop;
 
       imports = [
@@ -115,17 +107,12 @@
         self.nixosModules.headHardware
         self.nixosModules.headStorage
         self.nixosModules.headSops
-        self.nixosModules.headHermes
         self.nixosModules.headOpenCode
         self.nixosModules.headPi
-        self.nixosModules.headDebbieTask
         self.nixosModules.headJellyfin
         self.nixosModules.headNextcloud
         self.nixosModules.headNginxProxy
         self.nixosModules.headMatrix
-        self.nixosModules.headAtlasHub
-        self.nixosModules.headAtlasd
-        self.nixosModules.headAtlasWeb
         self.nixosModules.headWavegen
         self.nixosModules.headWavegenWeb
         self.nixosModules.base
@@ -143,8 +130,6 @@
       networking = {
         hostName = "head";
         firewall.allowPing = true;
-        # Hermes dashboard — LAN access on port 9119 (requested 2026-08-25)
-        firewall.allowedTCPPorts = [ 9119 ];
       };
 
       services.logind.settings.Login = {
@@ -176,10 +161,8 @@
       # ── System-wide SSH known-hosts (host public keys are NOT secrets) ──
       # Node0's ED25519 host key, managed declaratively (writes
       # /etc/ssh/ssh_known_hosts, world-readable) so any local user or service
-      # — including hermes-agent.service — can connect to node0 with strict
-      # host verification. The `desktop` bridge uses this file when running
-      # under the service (DESKTOP_KNOWN_HOSTS); the interactive TUI keeps its
-      # user-scoped known_hosts.
+      # can connect to node0 with strict host verification (the `desktop`
+      # bridge accepts it via DESKTOP_KNOWN_HOSTS).
       programs.ssh.knownHosts.node0 = {
         hostNames = [ "node0" "10.1.1.174" ];
         publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIyoNmOgQES9ANxbKTjb9p6zTc4+sRC325cFwd426dnU";
@@ -195,8 +178,7 @@
       security.sudo.wheelNeedsPassword = true;
 
       # ── Shared declarative admin group ────────────────────────────────
-      # Both trusted admins (overtoneblue and hermes) share group `admin`
-      # for the /srv/nixos-config worktree and loose sudo administration.
+      # Group `admin` owns the /srv/nixos-config worktree.
       users.groups.admin = { };
 
       # ── /srv/nixos-config group ownership + setgid inheritance ────────
@@ -209,25 +191,8 @@
         find /srv/nixos-config -type f -exec chmod g+rw {} +
       '';
 
-      # ── Passwordless sudo for autonomous administration ───────────────
-      # Nolan (the gateway service user, hermes) is intentionally trusted
-      # to administer this host autonomously. It already holds effective
-      # root-equivalent authority (writable /srv/nixos-config + the deploy
-      # path), so avoid brittle per-command/path sudoers matching and grant
-      # broad passwordless sudo instead: `sudo <anything>` from the gateway
-      # just works.
+      # ── Passwordless deploy ───────────────────────────────────────────
       security.sudo.extraRules = [
-        {
-          # Gateway service (Nolan): any command, any user, no password.
-          users = [ "hermes" ];
-          runAs = "ALL";
-          commands = [
-            {
-              command = "ALL";
-              options = [ "NOPASSWD" ];
-            }
-          ];
-        }
         {
           # Use the stable system-profile path: sudo matches the invoked
           # symlink path, not the immutable /nix/store target it resolves to.
@@ -255,48 +220,18 @@
         }
       ];
 
-      # The service PATH is deliberately explicit; make the only authorized
-      # deployment target resolvable as `head-rebuild` without adding the
-      # whole system profile.
-      systemd.services.hermes-agent.path = [ headRebuild ];
-
-      # ── Nix-daemon privilege boundary ──────────────────────────────────
-      # hermes (the gateway service user) may submit builds to the Nix
-      # daemon for validation/debugging (`nh os build`), but must NOT be a
-      # trusted user — trusted users are root-equivalent for Nix (arbitrary
-      # substituters, settings, cross-user builds). hermes is therefore kept
-      # OUT of wheel (so @wheel in nix-settings' trusted-users does not cover
-      # it) and granted only allowed-users here. overtoneblue stays in wheel
-      # and remains trusted; the single-command head-rebuild sudo grant is
-      # per-user, independent of wheel.
-      nix.settings.allowed-users = [ "hermes" ];
-
       virtualisation.docker.enable = true;
 
       # libgit2 (Nix's flake fetcher) refuses git repos not owned by euid /
-      # SUDO_UID. `sudo head-rebuild` runs as root with SUDO_UID=hermes(994)
-      # against this overtoneblue-owned repo, so root's flake fetch of
-      # git+file:///srv/nixos-config needs a safe.directory allowlist for
-      # exactly this path. System scope (not global `*`): the fetch runs with
-      # HOME=/root (no root global gitconfig) and GIT_CONFIG_* env is ignored
-      # because libgit2 is opened with use_env=false.
+      # SUDO_UID. `sudo head-rebuild` runs root's flake fetch of
+      # git+file:///srv/nixos-config, whose files are not all owned by the
+      # invoking user, so allowlist exactly this path. System scope (not
+      # global `*`): the fetch runs with HOME=/root (no root global
+      # gitconfig) and GIT_CONFIG_* env is ignored because libgit2 is opened
+      # with use_env=false.
       environment.etc."gitconfig".text = ''
         [safe]
           directory = /srv/nixos-config
-          directory = /srv/atlas
-      '';
-
-      # ── Flake-input auth (atlas) ───────────────────────────────────────
-      # github:overtoneblue/atlas is public since 2026-09-28, so this
-      # include is a no-op safety net kept for one reason: re-privatizing
-      # the repo then works without a rebuild. A revoked or expired token
-      # does not break public fetches (verified). The token is
-      # sops-encrypted (secrets/head.yaml -> atlas-read-token) and rendered
-      # by sops-nix to /run/secrets/rendered/nix-access-tokens (see
-      # services/sops.nix). Missing/unreadable include targets are silently
-      # skipped by nix, so activation/boot ordering is safe.
-      nix.extraOptions = ''
-        !include /run/secrets/rendered/nix-access-tokens
       '';
 
       environment.systemPackages = with pkgs; [
@@ -310,7 +245,6 @@
         mergerfs
         intel-gpu-tools
         self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
-        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas
         pkgs.claude-code
       ];
 
