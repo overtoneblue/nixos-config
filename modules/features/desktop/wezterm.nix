@@ -1,26 +1,32 @@
-{ self, inputs, ... }:
+{ self, config, ... }:
+let
+  # Flake-level theme, captured by closure so the wrapper module below (which
+  # only receives pkgs/wlib) can read it.
+  topTheme = config.theme;
+in
 {
   flake.nixosModules.wezterm =
     { pkgs, ... }:
     {
       environment.systemPackages = [
-        self.packages.${pkgs.system}.myWezterm
+        self.packages.${pkgs.stdenv.hostPlatform.system}.myWezterm
       ];
     };
+
   perSystem =
+    { config, ... }:
     {
-      pkgs,
-      self',
-      config,
-      ...
-    }:
+      packages.myWezterm = config.packages.wezterm;
+    };
+
+  flake.wrappers.wezterm =
+    { pkgs, wlib, ... }:
     let
-      colors = config.myTheme.colors;
-      fonts = config.myTheme.fonts;
+      inherit (topTheme) colors fonts;
+      myZsh = self.packages.${pkgs.stdenv.hostPlatform.system}.myZsh;
     in
     {
-      packages.myWezterm = inputs.wrapper-modules.wrappers.wezterm.wrap {
-        inherit pkgs;
+      imports = [ wlib.wrapperModules.wezterm ];
 
         "wezterm.lua".content = ''
           local wezterm = require 'wezterm'
@@ -28,7 +34,7 @@
           local config = wezterm.config_builder()
           local act = wezterm.action
 
-          config.default_prog = { "${self'.packages.myZsh}/bin/zsh", "-l" }
+          config.default_prog = { "${myZsh}/bin/zsh", "-l" }
 
           config.max_fps = 240
           config.animation_fps = 240
@@ -192,6 +198,5 @@
 
           return config
         '';
-      };
     };
 }

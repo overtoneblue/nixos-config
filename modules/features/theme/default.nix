@@ -1,17 +1,17 @@
 {
-  self,
   inputs,
-  moduleWithSystem,
+  config,
   ...
 }:
-
+let
+  # Flake-level theme, captured before the NixOS module below shadows
+  # `config` with its own.
+  topTheme = config.theme;
+in
 {
-  flake.nixosModules.theme = moduleWithSystem (
-    perSystem@{ config, ... }:
-    { config, ... }:
+  flake.nixosModules.theme =
+    { config, pkgs, ... }:
     let
-      colors = perSystem.config.myTheme.colors;
-      fonts = perSystem.config.myTheme.fonts;
       inherit (config.modules.style) pointerCursor;
     in
     {
@@ -37,14 +37,13 @@
           nixos-icons.enable = false;
         };
         enable = true;
-        base16Scheme = colors;
+        base16Scheme = topTheme.colors;
         image = ./images/Greek.png;
-        inherit fonts;
+        fonts = topTheme.fontsFor pkgs;
 
         cursor = {
           inherit (pointerCursor) package name size;
         };
       };
-    }
-  );
+    };
 }
