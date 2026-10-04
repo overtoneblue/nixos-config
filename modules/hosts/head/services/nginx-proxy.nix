@@ -1,26 +1,18 @@
 { self, ... }:
-# Public reverse proxy for head services behind the cenunix.dev domain,
-# restoring what Nginx Proxy Manager provided on the old Tower — implemented
-# natively with NixOS nginx + Let's Encrypt via Cloudflare DNS-01.
-#
-# TLS strategy: DNS-01 on the Cloudflare zone (works regardless of router
-# port-80 forwarding, matches the old cert's issuance method). The Cloudflare
-# credential is a scoped Zone-DNS-Write API token (NOT the global account
-# key), stashed in secrets/head-cf.yaml encrypted to head's own age identity
-# plus the operator recipient. Head's SSH host key decrypts it at activation.
+# Public reverse proxy for *.cenunix.dev. Certs use Cloudflare DNS-01 so
+# issuance doesn't depend on the router forwarding port 80. The token is a
+# scoped Zone-DNS-Write token, not the global account key.
 {
   flake.nixosModules.headNginxProxy =
     { config, ... }:
     {
-      # ── Cloudflare DNS-01 credential (sops) ──────────────────────
       sops.secrets."cloudflare-api-token" = {
         sopsFile = "/srv/nixos-config/secrets/head-cf.yaml";
         owner = "acme";
         mode = "0400";
       };
 
-      # acme's lego service consumes `environmentFile` (KEY=VALUE format),
-      # so render the token as an EnvironmentFile via a sops template.
+      # lego wants a KEY=VALUE environmentFile.
       sops.templates."cloudflare-credentials" = {
         owner = "acme";
         group = "acme";
@@ -30,7 +22,6 @@
         '';
       };
 
-      # ── Let's Encrypt, DNS-01 via Cloudflare ─────────────────────
       security.acme = {
         acceptTerms = true;
         defaults = {
@@ -46,8 +37,6 @@
         certs."files.cenunix.dev" = {
           domain = "files.cenunix.dev";
         };
-        # Matrix homeserver + apex federation delegation (added 2026-09-11;
-        # the apex serves only /.well-known/matrix/server).
         certs."matrix.cenunix.dev" = {
           domain = "matrix.cenunix.dev";
         };
@@ -56,7 +45,6 @@
         };
       };
 
-      # ── nginx reverse proxy ──────────────────────────────────────
       services.nginx = {
         enable = true;
         recommendedProxySettings = true;
@@ -78,8 +66,7 @@
           forceSSL = true;
           useACMEHost = "files.cenunix.dev";
           locations."/" = {
-            # Upstream = LSIO container's own TLS on the 4143->443 mapping
-            # (restored self-signed cert) — proxy_ssl_verify off is deliberate.
+            # The upstream cert is self-signed, hence proxy_ssl_verify off.
             proxyPass = "https://127.0.0.1:4143";
             extraConfig = ''
               proxy_ssl_verify off;
@@ -89,8 +76,7 @@
           };
         };
 
-        # Matrix homeserver ingress (added 2026-09-11): synapse listens on
-        # 127.0.0.1:8008; client + federation traffic terminate here.
+        # Client and federation traffic both terminate here.
         virtualHosts."matrix.cenunix.dev" = {
           forceSSL = true;
           useACMEHost = "matrix.cenunix.dev";
@@ -110,8 +96,7 @@
           };
         };
 
-        # Apex (cenunix.dev): ONLY federation delegation is served; all other
-        # paths return 404.
+        # The apex only serves Matrix federation delegation.
         virtualHosts."cenunix.dev" = {
           forceSSL = true;
           useACMEHost = "cenunix.dev";
@@ -130,7 +115,6 @@
         };
       };
 
-      # Expose the public web ports (nginx serves 80/443).
       networking.firewall.allowedTCPPorts = [ 80 443 ];
     };
 }

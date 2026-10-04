@@ -3,8 +3,7 @@
   flake.nixosModules.headStorage =
     { ... }:
     {
-      # Disk numbers follow the verified inventory order and are pinned by UUID:
-      # disk1 = ZVTB4QKW, disk2 = ZVTB4S0J, disk3 = ZVTAZ81M.
+      # Drive serials: disk1 = ZVTB4QKW, disk2 = ZVTB4S0J, disk3 = ZVTAZ81M.
       fileSystems."/mnt/disk1" = {
         device = "/dev/disk/by-uuid/e714b3ee-c168-43bb-b84b-9d0d821599e3";
         fsType = "xfs";

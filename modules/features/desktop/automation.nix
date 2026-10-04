@@ -1,9 +1,7 @@
 { inputs, ... }:
 {
-  # Desktop automation surface for node0: the `desktop-session` env shim the
-  # head-side `desktop` bridge execs into (modules/hosts/head/configuration.nix),
-  # the computer-use-linux MCP server, and the accessibility/input plumbing
-  # computer-use backends rely on (at-spi2, ydotool, envfs, nix-ld).
+  # node0 end of head's `desktop` bridge, plus computer-use tooling and the
+  # accessibility/input plumbing it relies on.
   flake.nixosModules.desktop-automation =
     {
       pkgs,
@@ -20,9 +18,7 @@
 
         src = inputs.computer-use-linux;
 
-        # Monitor/output targeting for the screenshot tool, applied on top of
-        # upstream. If upstream changes so this no longer applies, the build
-        # fails loudly rather than silently losing monitor targeting.
+        # Adds monitor targeting to the screenshot tool.
         patches = [
           ../../../patches/computer-use-linux-monitor-target.patch
         ];
@@ -111,16 +107,13 @@
         chromium
       ];
 
-      # cua-driver 0.19.2 is installed by its own installer under
-      # ~/.cua-driver (not in nixpkgs). CUA_DRIVER_RS_ENABLE_WAYLAND makes the
-      # driver use wlroots screencopy + foreign-toplevel instead of the
+      # cua-driver isn't in nixpkgs; its own installer puts it under
+      # ~/.cua-driver. This makes it use wlroots screencopy instead of the
       # X11-only fallback.
       hm.home.sessionVariables = {
         CUA_DRIVER_RS_ENABLE_WAYLAND = "1";
       };
 
-      # Ease the driver onto PATH (its user-local bin link is stale after the
-      # cenunix->overtoneblue migration).
       hm.home.sessionPath = [ "${homeDirectory}/.local/bin" ];
 
       # Key behind head's `desktop` bridge (head -> node0 graphical session).

@@ -1,7 +1,6 @@
 { self, ... }:
-# wavegen: standalone Matrix bot for WaveSpeedAI image editing.
-# Zero-LLM, no Hermes integration, no public exposure.
-# See packages/wavegen/wavegen.py.
+# Matrix bot for WaveSpeedAI image editing (packages/wavegen). Not publicly
+# exposed.
 {
   flake.nixosModules.headWavegen =
     { config, lib, pkgs, ... }:
@@ -11,9 +10,6 @@
     {
       imports = [ ];
 
-      # ── sops secrets ──────────────────────────────────────────────────
-      # WAVESPEED_API_KEY  from secrets/head.yaml (defaultSopsFile)
-      # WAVEGEN_MATRIX_TOKEN from secrets/head-matrix-bots.yaml
       sops.secrets = {
         "wavespeed-api-key" = {
           restartUnits = [ "wavegen.service" ];
@@ -34,7 +30,6 @@
         '';
       };
 
-      # ── System user ───────────────────────────────────────────────────
       users.users.wavegen = {
         isSystemUser = true;
         group = "wavegen";
@@ -43,7 +38,6 @@
       };
       users.groups.wavegen = {};
 
-      # ── Service ───────────────────────────────────────────────────────
       systemd.services.wavegen = {
         description = "wavegen — Matrix bot for WaveSpeedAI image editing";
         after = [ "network-online.target" "matrix-synapse.service" ];
@@ -58,10 +52,8 @@
           Restart = "on-failure";
           RestartSec = "5";
 
-          # ── sops-rendered env ──
           EnvironmentFile = config.sops.templates."wavegen-env".path;
 
-          # Declarative non-secret env
           Environment = [
             "WAVEGEN_HOMESERVER=http://127.0.0.1:8008"
             "WAVEGEN_MATRIX_USER=@wavegen:cenunix.dev"
@@ -75,7 +67,6 @@
             "WAVEGEN_FLUSH_GRACE=6"
           ];
 
-          # ── Hardening ──
           NoNewPrivileges = true;
           ProtectSystem = "strict";
           ProtectHome = true;
@@ -91,9 +82,8 @@
       };
     };
 
-  # ── wavegen-web: web UI for WaveSpeedAI image editing ─────────────
-  # Starlette + uvicorn, queue with 4-parallel workers, history, retry,
-  # single-password auth.  Tailnet-only on port 8443 (no firewall).
+  # Web UI for the same thing. Port 8443 isn't opened in the firewall, so it
+  # is only reachable over the tailnet.
   flake.nixosModules.headWavegenWeb =
     { config, lib, pkgs, ... }:
     let

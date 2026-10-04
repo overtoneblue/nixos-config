@@ -3,8 +3,7 @@
   perSystem =
     { pkgs, ... }:
     {
-      # wavegen: standalone Matrix bot for WaveSpeedAI image editing
-      # (ByteDance Seedream V5.0 Pro Edit). See packages/wavegen/wavegen.py.
+      # Matrix bot for WaveSpeedAI image editing.
       packages.wavegen =
         pkgs.python3Packages.buildPythonApplication rec {
           pname = "wavegen";
@@ -18,8 +17,7 @@
           meta.mainProgram = "wavegen";
         };
 
-      # wavegen-web: web UI for WaveSpeedAI image editing.
-      # (Starlette + uvicorn, queue with 2-parallel workers, history, retry).
+      # Web UI for the same.
       packages.wavegen-web =
         pkgs.python3Packages.buildPythonApplication rec {
           pname = "wavegen-web";

@@ -16,16 +16,11 @@
       dataDir = "${stateDir}/data";
       runtimeStateDir = "${stateDir}/state";
       cacheDir = "${stateDir}/cache";
-      # Sops-rendered credential file (see services/sops.nix). Replaces the
-      # hand-maintained server.env; owner-only overtoneblue 0400, read by the
-      # service and the opencode-client wrapper.
+      # Rendered by sops (see services/sops.nix).
       environmentFile = config.sops.templates."opencode-env".path;
 
-      # Client wrapper command — sources the sops-rendered opencode-env
-      # template (sets OPENCODE_SERVER_PASSWORD etc.) then execs the real
-      # OpenCode CLI. Usable from interactive sessions.
-      # `set -a` ensures the sourced vars are exported to the child CLI
-      # process (sourcing without it leaves them shell-only => client 401s).
+      # Loads the server password, then runs the real CLI. Without `set -a`
+      # the sourced vars aren't exported and the client gets 401s.
       opencodeClient = pkgs.writeShellScriptBin "opencode-client" ''
         set -a
         if [ -r "${environmentFile}" ]; then
@@ -43,12 +38,8 @@
       };
 
       config = {
-        # ── Declarative OpenCode config ──────────────────────────────────
-        # The repo's opencode.jsonc (model/provider config, tracked in git)
-        # is installed to the service's global config dir at activation, so
-        # OpenCode always reads the declared config regardless of cwd.
-        # NixOS overwrites on every switch: the repo is the source of truth.
-        # The stringAfter "users" ensures ${user} exists before chown.
+        # The repo's opencode.jsonc is overwritten on every switch; the repo
+        # is the source of truth.
         system.activationScripts."opencode-config" = lib.stringAfter [ "users" ] ''
           mkdir -p ${configDir}/opencode
           install -o ${user} -g users -m 0640 \
@@ -56,12 +47,6 @@
             ${configDir}/opencode/opencode.jsonc
         '';
 
-        # Runtime-only credential for OpenCode *clients* (CLI against the
-        # persistent backend). The server reads the same file via systemd
-        # EnvironmentFile; the wrapper sources it for client invocations.
-        # The file is rendered by sops-nix from secrets/head.yaml (owner
-        # overtoneblue, mode 0400) so the CLI works without ever typing the
-        # password. Never world-readable; never in Git.
         systemd.tmpfiles.rules = [
           "d ${repository} 2770 ${user} admin - -"
           "z ${stateDir} 0750 ${user} users - -"
@@ -72,7 +57,6 @@
           "z ${cacheDir} 0700 ${user} users - -"
         ];
 
-        # Expose the wrapper to interactive sessions.
         environment.systemPackages = [ config.services.opencode-client.package ];
 
         systemd.services.opencode = {
@@ -121,9 +105,7 @@
             Restart = "always";
             RestartSec = "5s";
             TimeoutStopSec = "30s";
-            # Group-shared file/dir modes (0660/0770) for the shared admin group,
-            # so OpenCode commits stay group-writable without manual chmod.
-            # Repo + .git are setgid admin to inherit group.
+            # Keeps files it writes in the setgid repo group-writable for admin.
             UMask = "0007";
 
             CapabilityBoundingSet = "";

@@ -58,23 +58,19 @@
     in
     {
       hm.wayland.windowManager.hyprland.settings = {
-        # Lua has one bind entry point. Former bindm/bindle behavior is
-        # represented by the flags table passed as the third argument.
+        # bindm/bindle behaviour is the flags table (third argument).
         bind = [
-          # Mouse move / resize.
           (mkBindWith (modKey "mouse:272") "hl.dsp.window.drag()" { mouse = true; })
           (mkBindWith (modKey "mouse:273") "hl.dsp.window.resize()" { mouse = true; })
 
-          # UWSM users should not call Hyprland's exit dispatcher directly.
+          # Under UWSM, don't use Hyprland's exit dispatcher.
           (mkBind (modKey "M") (exec "uwsm stop"))
 
           (mkBind (modKey "Q") "hl.dsp.window.close()")
           (mkBind (modKey "F") ''hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" })'')
           (mkBind (modShiftKey "SPACE") ''hl.dsp.window.float({ action = "toggle" })'')
 
-          # The old unnamed special workspace is represented as a named
-          # scratchpad because the current Lua dispatcher explicitly takes a
-          # special-workspace name.
+          # The Lua dispatcher requires a special-workspace name.
           (mkBind (modKey "y") ''hl.dsp.window.move({ workspace = "special:scratchpad" })'')
           (mkBind (modKey "t") ''hl.dsp.workspace.toggle_special("scratchpad")'')
 
@@ -103,7 +99,7 @@
           (mkBind (modShiftKey "P") (exec "${grimblast} --notify copysave area"))
           (mkBind (modKey "SPACE") (exec "${noctaliaExe} msg panel-toggle launcher"))
 
-          # Former bindle = locked + repeating.
+          # bindle = locked + repeating.
           (mkBindWith "XF86MonBrightnessUp" (exec "${noctaliaExe} msg brightness-up") {
             locked = true;
             repeating = true;

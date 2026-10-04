@@ -17,24 +17,17 @@
       tmuxDir = "${stateDir}/tmux";
       socketPath = "${tmuxDir}/pi.sock";
 
-      # Repo tmux config referenced as a store path (same relative-import
-      # trick as opencode.jsonc), so the server always reads exactly what
-      # git tracks.
+      # Store path, so the server reads exactly what git tracks.
       tmuxConf = ../../../../pi/tmux.conf;
 
-      # Sops-rendered credential file (see services/sops.nix): owner
-      # overtoneblue, mode 0400; read by the service via
-      # systemd EnvironmentFile. Never in git.
+      # Rendered by sops (see services/sops.nix).
       environmentFile = config.sops.templates."pi-env".path;
 
-      # ── Shared tmux plumbing for the pi-task/pi-tasks wrappers ───────────
-      # tmux auto-spawn footgun (validated live on tmux 3.7b, 2026-09-13):
-      # when a client targets a DEAD socket, most tmux commands (new-session,
-      # attach, ...) silently start a fresh UNSANDBOXED server in the caller's
-      # context — a sandbox escape. `tmux ls` is the exception: it refuses
-      # with rc=1 and spawns nothing, so it is the only safe liveness probe.
-      # Dispatch/attach must never reach new-session/attach unless the guard
-      # below passes (service active + socket present + responsive server).
+      # When a client targets a dead socket, most tmux commands (new-session,
+      # attach, ...) silently start a fresh unsandboxed server in the caller's
+      # context, which is a sandbox escape. `tmux ls` refuses with rc=1 and
+      # spawns nothing, so it is the only safe liveness probe. Never reach
+      # new-session/attach unless guard passes.
       tmuxShim = ''
         tmuxBin="${pkgs.tmux}/bin/tmux"
         sock="${socketPath}"
@@ -61,10 +54,8 @@
         }
       '';
 
-      # Runs INSIDE a pi.service tmux pane (sandboxed, user overtoneblue).
-      # Invoked by pi-task; reads tasks/<id>.spec + .meta, runs `pi -p`, tees
-      # the transcript to tasks/<id>.log, and writes the exit code to
-      # tasks/<id>.status (the completion signal pi-task --wait polls).
+      # Runs inside a pi.service tmux pane. Writes the exit code to
+      # tasks/<id>.status, which is what pi-task --wait polls for.
       piTaskRunner = pkgs.writeShellApplication {
         name = "pi-task-runner";
         runtimeInputs = with pkgs; [
@@ -483,20 +474,9 @@
       };
 
       config = {
-        # ── Declarative pi config ──────────────────────────────────────────
-        # The repo's pi/settings.json + pi/models.json (tracked in git) are
-        # installed to the service's PI_CODING_AGENT_DIR at activation, so pi
-        # always reads the declared config regardless of cwd. NixOS overwrites
-        # on every switch: the repo is the source of truth. extensions/ and
-        # skills/ exist but stay EMPTY in this build.
-        #
-        # NOTE (deferred 2026-09-13): the global worker-context file
-        # pi/AGENTS.md is NOT installed yet — it could not be added to the
-        # repo from the dispatching session (writes to agent-instruction
-        # files are approval-gated; the dispatched session had no approver).
-        # To complete: add pi/AGENTS.md to the repo and extend this activation
-        # script with an install of it to <agent-dir>/AGENTS.md
-        # (owner overtoneblue, group users, mode 0640).
+        # pi/settings.json and pi/models.json are overwritten on every
+        # switch; the repo is the source of truth.
+        # TODO: also install a pi/AGENTS.md once one exists in the repo.
         system.activationScripts."pi-config" = lib.stringAfter [ "users" ] ''
           install -d -o ${user} -g users -m 0750 ${stateDir} ${agentDir} ${agentDir}/extensions ${agentDir}/skills
           install -d -o ${user} -g users -m 0700 ${homeDir}
@@ -509,9 +489,8 @@
             ${agentDir}/models.json
         '';
 
-        # State dirs (mirror the opencode tmpfiles style). The activation
-        # script above also creates them (first-switch ordering safety);
-        # tmpfiles re-asserts modes/ownership at boot.
+        # The activation script creates these on first switch; tmpfiles
+        # re-asserts modes and ownership at boot.
         systemd.tmpfiles.rules = [
           "z ${stateDir} 0750 ${user} users - -"
           "z ${homeDir} 0700 ${user} users - -"
@@ -520,8 +499,6 @@
           "z ${tmuxDir} 2770 ${user} users - -"
         ];
 
-        # Expose the wrappers to interactive sessions. pkgs.pi-coding-agent is
-        # exported system-wide for interactive use.
         environment.systemPackages = [
           config.services.pi-client.package
           pkgs.pi-coding-agent
@@ -537,8 +514,7 @@
             "network-online.target"
           ];
 
-          # Runtime PATH for the server and every task pane: pi plus its
-          # working toolset. NixOS merges this with the default unit path.
+          # Also the PATH of every task pane.
           path = with pkgs; [
             bashInteractive
             coreutils
@@ -577,12 +553,10 @@
             WorkingDirectory = repository;
             EnvironmentFile = environmentFile;
 
-            # tmux runs in the FOREGROUND as the unit's main process (-D): a
-            # daemonizing `tmux new-session -d` server is killed the moment
-            # its initial client exits. -D also disables exit-empty, so the
-            # server survives with zero sessions. (Validated live on tmux
-            # 3.7b: a fresh `tmux -D` also rebinds cleanly over a stale
-            # socket left by a SIGKILLed server.)
+            # -D keeps tmux in the foreground as the main process: a
+            # daemonized server is killed as soon as its initial client
+            # exits. -D also disables exit-empty, so the server survives with
+            # zero sessions.
             ExecStart = "${pkgs.tmux}/bin/tmux -D -f ${tmuxConf} -S ${socketPath}";
 
             Restart = "always";
@@ -590,7 +564,7 @@
             TimeoutStopSec = "30s";
             UMask = "0007";
 
-            # Hardening: identical to opencode.service (services/opencode.nix).
+            # Same hardening as opencode.service.
             CapabilityBoundingSet = "";
             LockPersonality = true;
             NoNewPrivileges = true;

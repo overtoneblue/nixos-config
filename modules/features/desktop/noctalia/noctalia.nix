@@ -71,8 +71,7 @@
       stylixPalette = {
         dark = preferredNoctaliaColors;
 
-        # Intentionally mirrors dark mode so your exact preferred mapping
-        # remains consistent even if Noctalia expects both keys.
+        # Same as dark; Noctalia may expect both keys.
         light = preferredNoctaliaColors;
       };
       # noctaliaPkg = inputs.wrapper-modules.wrappers.noctalia-shell.wrap {

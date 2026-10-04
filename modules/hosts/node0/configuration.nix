@@ -11,10 +11,8 @@
       inherit (config) modules;
       inherit (modules) device;
 
-      # ── Passwordless single-command deployment (mirror of head) ────────
-      # `sudo node-rebuild` rebuilds/switches the node0 flake. Wrapper is
-      # argumentless; the sudoers rule below pins the `''` empty-arg form so
-      # the grant can never be widened by appending arguments.
+      # Passwordless `sudo node-rebuild`. The sudoers rule below pins an
+      # empty argument list so the grant can't be widened with arguments.
       nodeRebuild = pkgs.writeShellScriptBin "node-rebuild" ''
         # Transient/non-login contexts do not inherit a usable PATH: `nix`
         # becomes unresolvable and nh aborts (same flaw fixed on head's
@@ -51,8 +49,8 @@
       home-manager.useUserPackages = true;
       hm.home.stateVersion = "25.11";
 
-      # steamworkspy (dep of rimsort) ships no dist-info → pythonMetadataCheckHook
-      # (nixpkgs June 2026 default-on) fails. Disable only for that leaf.
+      # steamworkspy (a rimsort dep) ships no dist-info, so
+      # pythonMetadataCheckHook fails on it. Disable it for that leaf only.
       nixpkgs.overlays = [
         (final: prev: {
           python3 = prev.python3.override {
@@ -92,12 +90,7 @@
         jellyfin-desktop
       ];
       hm.programs = {
-        # `ssh head` from node0 maps to the account that exists on head. node0
-        # and head now share the same primary account `overtoneblue`
-        # (modules.system.username, formerly `cenunix` before the node0 account
-        # migration), and head already authorizes the `hermes_audio_tunnel` key
-        # for that account. Without this alias, `ssh head` tries the local
-        # username and fails with "Permission denied (publickey)".
+        # This is the key head authorizes for overtoneblue.
         ssh = {
           enable = true;
           matchBlocks = {
@@ -140,13 +133,8 @@
         };
       };
 
-      # ── Account migration: cenunix → overtoneblue ───────────────────
-      # The primary account on node0 moves from `cenunix` to the shared
-      # `overtoneblue` (modules.system.username). Pin UID 1000 explicitly so
-      # filesystem ownership is preserved exactly across the rename (the old
-      # cenunix account is 1000; an auto-assigned id could drift to 1001).
-      # homeDirectory resolves from the shared default
-      # (/home/${username} = /home/overtoneblue).
+      # Pinned so existing files keep their owner; an auto-assigned uid could
+      # drift to 1001.
       users.users.${config.modules.system.username}.uid = 1000;
 
       boot = {
@@ -205,10 +193,6 @@
         Defaults:${config.modules.system.username} timestamp_type=global, timestamp_timeout=120
       '';
 
-      # ── Passwordless deployment grant (mirrors head) ──────────────────
-      # Only the primary user may switch this host, and only via the exact
-      # argumentless `node-rebuild` wrapper. The `''` pin mirrors head: any
-      # `node-rebuild <arg>` invocation is rejected by sudo itself.
       security.sudo.extraRules = [
         {
           users = [ config.modules.system.username ];

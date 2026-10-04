@@ -20,8 +20,7 @@
       inherit (config) modules;
       inherit (modules) device;
 
-      # Used below to embed the existing legacy device monitor/workspace
-      # string lists as safe Lua values.
+      # Embeds the device monitor/workspace lists as Lua values.
       toLua = lib.generators.toLua { };
     in
     {
@@ -37,7 +36,7 @@
             _var = "SUPER";
           };
 
-          # Ordinary Hyprland variables now belong in hl.config({ ... }).
+          # Rendered as hl.config({ ... }).
           config = {
             input = {
               follow_mouse = 1;
@@ -45,7 +44,6 @@
             };
 
             cursor = {
-              # Current Hyprland type is int:
               # 0 = hardware cursors when possible
               # 1 = disable hardware cursors
               # 2 = auto (disable when tearing)
@@ -89,7 +87,7 @@
             };
           };
 
-          # Hyprland 0.55+ curves are first-class hl.curve(...) calls.
+          # Rendered as hl.curve(...) calls.
           curve = [
             {
               _args = [
@@ -165,7 +163,7 @@
             }
           ];
 
-          # Old "animation = ..." strings become hl.animation({ ... }).
+          # Rendered as hl.animation({ ... }) calls.
           animation = [
             {
               leaf = "windowsIn";
@@ -210,17 +208,9 @@
           ];
         };
 
-        # Transitional migration shim.
-        #
-        # Your modules.device.monitors and modules.device.workspaces are
-        # currently legacy Hyprlang strings. Home Manager's extraConfig is
-        # appended literally, so the old "monitor=..." / "workspace=..."
-        # text is invalid inside hyprland.lua.
-        #
-        # This embeds those existing Nix lists as Lua tables and translates
-        # the common legacy syntax into native hl.monitor(...) and
-        # hl.workspace_rule(...) calls. You can later replace the shim by
-        # making device.monitors/workspaces structured Nix attrsets.
+        # device.monitors/workspaces are still Hyprlang strings, which aren't
+        # valid in hyprland.lua. Translate them into hl.monitor(...) and
+        # hl.workspace_rule(...) calls until they become structured attrsets.
         extraConfig = ''
           local function trim(value)
             return (value:gsub("^%s+", ""):gsub("%s+$", ""))

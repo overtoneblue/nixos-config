@@ -38,11 +38,8 @@
         nix-direnv.enable = true;
       };
 
-      # ── Yazi terminal file manager (shared by node0 + head) ──────────
-      # Popped out of node0's home-manager block so both hosts share one
-      # source of truth. System-level module: config is baked into the
-      # wrapped package (YAZI_CONFIG_HOME → store path), so head needs no
-      # home-manager. Config identical on both hosts since 2026-08-30.
+      # NixOS module rather than home-manager: config is baked into the
+      # wrapped package, so it works on head, which has no home-manager.
       programs.yazi = {
         enable = true;
         plugins = {
@@ -73,8 +70,8 @@
               }
             ];
           };
-          # keymap.toml — wl-clipboard bind is inert on headless head
-          # (plugin lazy-loads only when the key is pressed).
+          # keymap.toml. The wl-clipboard plugin only loads on keypress, so
+          # it is harmless on headless head.
           keymap.mgr.prepend_keymap = [
             {
               on = [ "<C-y>" ];

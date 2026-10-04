@@ -9,9 +9,8 @@
       ...
     }:
     let
-      # Passwordless deployment wrapper. Root-owned (Nix store), fixed target,
-      # and a deliberately tiny action surface: only switch, boot, or test.
-      # Arbitrary user-supplied flags are rejected instead of being forwarded.
+      # Passwordless deploy wrapper with a fixed target and a tiny surface:
+      # only switch, boot or test. User-supplied flags are never forwarded.
       headRebuild = pkgs.writeShellScriptBin "head-rebuild" ''
         set -eu
 
@@ -49,21 +48,10 @@
           --show-activation-logs
       '';
 
-      # ── Desktop bridge ──────────────────────────────────────────────
-      # `desktop <command...>` runs a command inside the node0 graphical
-      # session via a dedicated SSH identity. It SSHes non-interactively to
-      # overtoneblue@node0 and executes the command under `desktop-session`,
-      # which imports the live Wayland/DBus/XDG/Hyprland session environment
-      # (see modules/features/desktop/automation.nix).
-      #
-      # The identity defaults to the overtoneblue key + known_hosts; a
-      # service caller can override both via DESKTOP_SSH_KEY /
-      # DESKTOP_KNOWN_HOSTS (e.g. the system known_hosts populated
-      # declaratively by programs.ssh.knownHosts).
-      #
-      # Each argument is shell-quoted with bash %q so the remote zsh
-      # reconstructs the exact argv (no word-splitting / injection).
-      # Host verification stays strict.
+      # `desktop <command...>` runs a command in node0's graphical session
+      # via `desktop-session` (see features/desktop/automation.nix).
+      # Arguments are %q-quoted so the remote shell rebuilds the exact argv.
+      # Services can override DESKTOP_SSH_KEY / DESKTOP_KNOWN_HOSTS.
       desktop = pkgs.writeShellApplication {
         name = "desktop";
         runtimeInputs = [ pkgs.openssh ];
@@ -97,8 +85,6 @@
       };
     in
     {
-      # Expose the shared `desktop` command (installed via
-      # environment.systemPackages below).
       modules.system.desktopCommand = desktop;
 
       imports = [
@@ -158,11 +144,8 @@
         };
       };
 
-      # ── System-wide SSH known-hosts (host public keys are NOT secrets) ──
-      # Node0's ED25519 host key, managed declaratively (writes
-      # /etc/ssh/ssh_known_hosts, world-readable) so any local user or service
-      # can connect to node0 with strict host verification (the `desktop`
-      # bridge accepts it via DESKTOP_KNOWN_HOSTS).
+      # System-wide, so services (e.g. via DESKTOP_KNOWN_HOSTS) can reach
+      # node0 with strict host key checking.
       programs.ssh.knownHosts.node0 = {
         hostNames = [ "node0" "10.1.1.174" ];
         publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIyoNmOgQES9ANxbKTjb9p6zTc4+sRC325cFwd426dnU";
@@ -177,21 +160,16 @@
 
       security.sudo.wheelNeedsPassword = true;
 
-      # ── Shared declarative admin group ────────────────────────────────
-      # Group `admin` owns the /srv/nixos-config worktree.
+      # Owns /srv/nixos-config.
       users.groups.admin = { };
 
-      # ── /srv/nixos-config group ownership + setgid inheritance ────────
-      # The %admin group gets rwx, the directory carries the setgid bit so
-      # new files/dirs inherit the admin group, and the world bit stays off
-      # (nothing in the config repo becomes world-readable).
+      # setgid dirs so new files inherit the admin group; no world access.
       system.activationScripts."nixos-config-admin-group" = lib.stringAfter [ "users" ] ''
         chgrp -R admin /srv/nixos-config 2>/dev/null || true
         find /srv/nixos-config -type d -exec chmod 2770 {} +
         find /srv/nixos-config -type f -exec chmod g+rw {} +
       '';
 
-      # ── Passwordless deploy ───────────────────────────────────────────
       security.sudo.extraRules = [
         {
           # Use the stable system-profile path: sudo matches the invoked
@@ -222,13 +200,10 @@
 
       virtualisation.docker.enable = true;
 
-      # libgit2 (Nix's flake fetcher) refuses git repos not owned by euid /
-      # SUDO_UID. `sudo head-rebuild` runs root's flake fetch of
-      # git+file:///srv/nixos-config, whose files are not all owned by the
-      # invoking user, so allowlist exactly this path. System scope (not
-      # global `*`): the fetch runs with HOME=/root (no root global
-      # gitconfig) and GIT_CONFIG_* env is ignored because libgit2 is opened
-      # with use_env=false.
+      # libgit2 (Nix's flake fetcher) refuses repos not owned by euid /
+      # SUDO_UID, and `sudo head-rebuild` fetches this repo as root. Allowlist
+      # only this path, at system scope: root has no global gitconfig and
+      # libgit2 ignores GIT_CONFIG_* env.
       environment.etc."gitconfig".text = ''
         [safe]
           directory = /srv/nixos-config
@@ -248,11 +223,9 @@
         pkgs.claude-code
       ];
 
-      # head-specific: never let Tailscale manage this host's DNS.
-      # The tailnet's global resolver is the (currently offline) pihole; with default
-      # accept-dns, head forwards every lookup to it and loses all name resolution
-      # (this took the gateway down on 2026-09-14). tailscaled-set.service applies
-      # extraSetFlags on every boot; merges with the shared module's netfilter flag.
+      # The tailnet's global resolver is the pihole; with accept-dns, head
+      # sends every lookup there and loses all name resolution whenever the
+      # pihole is down.
       services.tailscale.extraSetFlags = [ "--accept-dns=false" ];
 
       system.stateVersion = "26.05";
