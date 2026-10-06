@@ -30,6 +30,7 @@
           "kvm"
           "qemu-libvirtd"
           "wireshark"
+          "hermes"
           "ydotool"
         ];
       };

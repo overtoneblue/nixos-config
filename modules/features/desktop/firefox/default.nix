@@ -112,7 +112,7 @@
               "ui.systemUsesDarkTheme" = 1;
               "browser.compactmode.show" = true;
 
-              # Remote debugging without per-connection prompts (agents / browser toolbox)
+              # Remote debugging without per-connection prompts (hermes / browser toolbox)
               "devtools.debugger.prompt-connection" = false;
 
               # Sidebar / vertical tabs

@@ -36,6 +36,29 @@
             _var = "SUPER";
           };
 
+          window_rule = [
+            {
+              name = "hermes-scratchpad";
+
+              match = {
+                class = "^HERMES$";
+              };
+
+              workspace = "special:scratchpad";
+              no_initial_focus = false;
+            }
+            {
+              name = "hermes-browser";
+
+              match = {
+                class = "^hermes-browser$";
+              };
+
+              workspace = "special:hermes-browser silent";
+              no_initial_focus = true;
+            }
+          ];
+
           # Rendered as hl.config({ ... }).
           config = {
             input = {

@@ -42,19 +42,19 @@
         # is the source of truth.
         system.activationScripts."opencode-config" = lib.stringAfter [ "users" ] ''
           mkdir -p ${configDir}/opencode
-          install -o ${user} -g users -m 0640 \
+          install -o ${user} -g hermes -m 0640 \
             ${../../../../opencode.jsonc} \
             ${configDir}/opencode/opencode.jsonc
         '';
 
         systemd.tmpfiles.rules = [
           "d ${repository} 2770 ${user} admin - -"
-          "z ${stateDir} 0750 ${user} users - -"
-          "z ${homeDir} 0700 ${user} users - -"
-          "z ${configDir} 0700 ${user} users - -"
-          "z ${dataDir} 0700 ${user} users - -"
-          "z ${runtimeStateDir} 0700 ${user} users - -"
-          "z ${cacheDir} 0700 ${user} users - -"
+          "z ${stateDir} 0750 ${user} hermes - -"
+          "z ${homeDir} 0700 ${user} hermes - -"
+          "z ${configDir} 0700 ${user} hermes - -"
+          "z ${dataDir} 0700 ${user} hermes - -"
+          "z ${runtimeStateDir} 0700 ${user} hermes - -"
+          "z ${cacheDir} 0700 ${user} hermes - -"
         ];
 
         environment.systemPackages = [ config.services.opencode-client.package ];
@@ -126,8 +126,7 @@
               stateDir
             ];
             InaccessiblePaths = [
-              # Leftover Hermes state (credentials) until it is archived.
-              "-/mnt/cache/appdata/hermes-agent"
+              "/mnt/cache/appdata/hermes-agent"
               "-/mnt/user"
               "-/mnt/disk1"
               "-/mnt/disk2"

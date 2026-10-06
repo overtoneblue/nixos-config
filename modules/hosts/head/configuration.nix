@@ -49,9 +49,9 @@
       '';
 
       # `desktop <command...>` runs a command in node0's graphical session
-      # via `desktop-session` (see features/desktop/automation.nix).
-      # Arguments are %q-quoted so the remote shell rebuilds the exact argv.
-      # Services can override DESKTOP_SSH_KEY / DESKTOP_KNOWN_HOSTS.
+      # via `desktop-session` (see features/hermes). Arguments are
+      # %q-quoted so the remote shell rebuilds the exact argv. The
+      # hermes-agent unit overrides DESKTOP_SSH_KEY / DESKTOP_KNOWN_HOSTS.
       desktop = pkgs.writeShellApplication {
         name = "desktop";
         runtimeInputs = [ pkgs.openssh ];
@@ -93,12 +93,17 @@
         self.nixosModules.headHardware
         self.nixosModules.headStorage
         self.nixosModules.headSops
+        self.nixosModules.headHermes
         self.nixosModules.headOpenCode
         self.nixosModules.headPi
+        self.nixosModules.headDebbieTask
         self.nixosModules.headJellyfin
         self.nixosModules.headNextcloud
         self.nixosModules.headNginxProxy
         self.nixosModules.headMatrix
+        self.nixosModules.headAtlasHub
+        self.nixosModules.headAtlasd
+        self.nixosModules.headAtlasWeb
         self.nixosModules.headWavegen
         self.nixosModules.headWavegenWeb
         self.nixosModules.base
@@ -116,6 +121,8 @@
       networking = {
         hostName = "head";
         firewall.allowPing = true;
+        # Hermes dashboard — LAN access on port 9119 (requested 2026-08-25)
+        firewall.allowedTCPPorts = [ 9119 ];
       };
 
       services.logind.settings.Login = {
@@ -170,7 +177,21 @@
         find /srv/nixos-config -type f -exec chmod g+rw {} +
       '';
 
+      # hermes already has root-equivalent reach (writable /srv/nixos-config
+      # plus the deploy path), so it gets unrestricted passwordless sudo
+      # rather than brittle per-command rules.
       security.sudo.extraRules = [
+        {
+          # Gateway service (Nolan): any command, any user, no password.
+          users = [ "hermes" ];
+          runAs = "ALL";
+          commands = [
+            {
+              command = "ALL";
+              options = [ "NOPASSWD" ];
+            }
+          ];
+        }
         {
           # Use the stable system-profile path: sudo matches the invoked
           # symlink path, not the immutable /nix/store target it resolves to.
@@ -198,6 +219,22 @@
         }
       ];
 
+      # The service PATH is deliberately explicit; make the only authorized
+      # deployment target resolvable as `head-rebuild` without adding the
+      # whole system profile.
+      systemd.services.hermes-agent.path = [ headRebuild ];
+
+      # ── Nix-daemon privilege boundary ──────────────────────────────────
+      # hermes (the gateway service user) may submit builds to the Nix
+      # daemon for validation/debugging (`nh os build`), but must NOT be a
+      # trusted user — trusted users are root-equivalent for Nix (arbitrary
+      # substituters, settings, cross-user builds). hermes is therefore kept
+      # OUT of wheel (so @wheel in nix-settings' trusted-users does not cover
+      # it) and granted only allowed-users here. overtoneblue stays in wheel
+      # and remains trusted; the single-command head-rebuild sudo grant is
+      # per-user, independent of wheel.
+      nix.settings.allowed-users = [ "hermes" ];
+
       virtualisation.docker.enable = true;
 
       # libgit2 (Nix's flake fetcher) refuses repos not owned by euid /
@@ -207,6 +244,20 @@
       environment.etc."gitconfig".text = ''
         [safe]
           directory = /srv/nixos-config
+          directory = /srv/atlas
+      '';
+
+      # ── Flake-input auth (atlas) ───────────────────────────────────────
+      # github:overtoneblue/atlas is public since 2026-09-28, so this
+      # include is a no-op safety net kept for one reason: re-privatizing
+      # the repo then works without a rebuild. A revoked or expired token
+      # does not break public fetches (verified). The token is
+      # sops-encrypted (secrets/head.yaml -> atlas-read-token) and rendered
+      # by sops-nix to /run/secrets/rendered/nix-access-tokens (see
+      # services/sops.nix). Missing/unreadable include targets are silently
+      # skipped by nix, so activation/boot ordering is safe.
+      nix.extraOptions = ''
+        !include /run/secrets/rendered/nix-access-tokens
       '';
 
       environment.systemPackages = with pkgs; [
@@ -220,6 +271,7 @@
         mergerfs
         intel-gpu-tools
         self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
+        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas
         pkgs.claude-code
       ];
 

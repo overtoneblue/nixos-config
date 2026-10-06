@@ -42,7 +42,7 @@
         self.nixosModules.dev
         self.nixosModules.desktop
         self.nixosModules.ai
-        self.nixosModules.desktop-automation
+        self.nixosModules.hermes
       ];
 
       home-manager.useGlobalPkgs = true;
@@ -213,6 +213,7 @@
       environment.systemPackages = with pkgs; [
         usbutils
         nodeRebuild
+        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas-electron
       ];
     };
 }

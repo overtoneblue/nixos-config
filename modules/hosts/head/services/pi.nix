@@ -30,11 +30,18 @@
       # new-session/attach unless guard passes.
       tmuxShim = ''
         tmuxBin="${pkgs.tmux}/bin/tmux"
+        sudoBin="/run/wrappers/bin/sudo"
         sock="${socketPath}"
+        svcUser="${user}"
         tasks="${tasksDir}"
 
-        # The socket is owner-only (overtoneblue).
-        tmux_run() { "$tmuxBin" -S "$sock" "$@"; }
+        # The socket is owner-only (overtoneblue); non-owner admins reach the
+        # server through the setuid sudo wrapper (hermes holds NOPASSWD).
+        if [[ "$(id -un)" == "$svcUser" ]]; then
+          tmux_run() { "$tmuxBin" -S "$sock" "$@"; }
+        else
+          tmux_run() { "$sudoBin" -n -u "$svcUser" "$tmuxBin" -S "$sock" "$@"; }
+        fi
 
         guard() {
           local prog="$1" probe=""
@@ -219,6 +226,14 @@
             printf 'dir=%s\n' "$dir"
             printf 'model=%s\n' "$model"
             printf 'created=%s\n' "$(date -Is)"
+            # Parent stamp: lets Atlas nest this task under the chat that
+            # dispatched it (env is set when run from an agent session).
+            if [[ -n "''${HERMES_SESSION_ID:-}" ]]; then
+              printf 'parent_session=%s\n' "$HERMES_SESSION_ID"
+            fi
+            if [[ -n "''${HERMES_SESSION_CHAT_ID:-}" ]]; then
+              printf 'parent_chat=%s\n' "$HERMES_SESSION_CHAT_ID"
+            fi
           } > "$tasks/$id.meta"
           chmod 0640 "$tasks/$id.spec" "$tasks/$id.meta"
 
@@ -478,13 +493,13 @@
         # switch; the repo is the source of truth.
         # TODO: also install a pi/AGENTS.md once one exists in the repo.
         system.activationScripts."pi-config" = lib.stringAfter [ "users" ] ''
-          install -d -o ${user} -g users -m 0750 ${stateDir} ${agentDir} ${agentDir}/extensions ${agentDir}/skills
-          install -d -o ${user} -g users -m 0700 ${homeDir}
-          install -d -o ${user} -g users -m 2770 ${tasksDir} ${tmuxDir}
-          install -o ${user} -g users -m 0640 \
+          install -d -o ${user} -g hermes -m 0750 ${stateDir} ${agentDir} ${agentDir}/extensions ${agentDir}/skills
+          install -d -o ${user} -g hermes -m 0700 ${homeDir}
+          install -d -o ${user} -g hermes -m 2770 ${tasksDir} ${tmuxDir}
+          install -o ${user} -g hermes -m 0640 \
             ${../../../../pi/settings.json} \
             ${agentDir}/settings.json
-          install -o ${user} -g users -m 0640 \
+          install -o ${user} -g hermes -m 0640 \
             ${../../../../pi/models.json} \
             ${agentDir}/models.json
         '';
@@ -492,11 +507,11 @@
         # The activation script creates these on first switch; tmpfiles
         # re-asserts modes and ownership at boot.
         systemd.tmpfiles.rules = [
-          "z ${stateDir} 0750 ${user} users - -"
-          "z ${homeDir} 0700 ${user} users - -"
-          "z ${agentDir} 0750 ${user} users - -"
-          "z ${tasksDir} 2770 ${user} users - -"
-          "z ${tmuxDir} 2770 ${user} users - -"
+          "z ${stateDir} 0750 ${user} hermes - -"
+          "z ${homeDir} 0700 ${user} hermes - -"
+          "z ${agentDir} 0750 ${user} hermes - -"
+          "z ${tasksDir} 2770 ${user} hermes - -"
+          "z ${tmuxDir} 2770 ${user} hermes - -"
         ];
 
         environment.systemPackages = [
@@ -583,8 +598,7 @@
               stateDir
             ];
             InaccessiblePaths = [
-              # Leftover Hermes state (credentials) until it is archived.
-              "-/mnt/cache/appdata/hermes-agent"
+              "/mnt/cache/appdata/hermes-agent"
               "-/mnt/user"
               "-/mnt/disk1"
               "-/mnt/disk2"
