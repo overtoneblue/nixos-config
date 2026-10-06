@@ -10,25 +10,18 @@
     let
       inherit (config) modules;
       inherit (modules) device;
-
-      # Passwordless `sudo node-rebuild`. The sudoers rule below pins an
-      # empty argument list so the grant can't be widened with arguments.
-      nodeRebuild = pkgs.writeShellScriptBin "node-rebuild" ''
-        # Transient/non-login contexts do not inherit a usable PATH: `nix`
-        # becomes unresolvable and nh aborts (same flaw fixed on head's
-        # head-rebuild 2026-08-31). Self-anchor to the system profile.
-        export PATH=/run/current-system/sw/bin:$PATH
-
-        exec ${lib.getExe config.programs.nh.package} os switch \
-          ${config.modules.system.flakePath}#node0 \
-          --elevation-strategy none \
-          --bypass-root-check \
-          --show-activation-logs
-      '';
     in
     {
+      # `sudo node-rebuild` (modules/system/rebuild.nix). The webhook file is
+      # placed by hand (node0 has no sops); absent file = no notifications.
+      modules.system.rebuild = {
+        command = "node-rebuild";
+        webhookFile = "${config.modules.system.homeDirectory}/.config/nixos-rebuild/discord-webhook";
+      };
+
       imports = [
         self.nixosModules.options
+        self.nixosModules.rebuild
         ./_system.nix
         self.nixosModules.node0Hardware
         self.nixosModules.base
@@ -193,26 +186,12 @@
         Defaults:${config.modules.system.username} timestamp_type=global, timestamp_timeout=120
       '';
 
-      security.sudo.extraRules = [
-        {
-          users = [ config.modules.system.username ];
-          runAs = "root";
-          commands = [
-            {
-              command = "${nodeRebuild}/bin/node-rebuild ''";
-              options = [ "NOPASSWD" ];
-            }
-          ];
-        }
-      ];
-
       networking.hostName = "node0";
 
       time.hardwareClockInLocalTime = true;
 
       environment.systemPackages = with pkgs; [
         usbutils
-        nodeRebuild
         self.packages.${pkgs.stdenv.hostPlatform.system}.atlas-electron
       ];
     };

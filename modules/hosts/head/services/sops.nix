@@ -30,6 +30,9 @@
         # Raw secrets stay root-only; consumers read the templates below.
         # restartUnits must list every service whose template uses the key.
         secrets = {
+          # Discord webhook for #build-logs; read by head-rebuild-run as root.
+          # Nothing caches it, so no restartUnits.
+          "build-logs-webhook" = { };
           "opencode-server-password" = {
             restartUnits = [ "opencode.service" ];
           };

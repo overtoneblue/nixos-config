@@ -9,45 +9,6 @@
       ...
     }:
     let
-      # Passwordless deploy wrapper with a fixed target and a tiny surface:
-      # only switch, boot or test. User-supplied flags are never forwarded.
-      headRebuild = pkgs.writeShellScriptBin "head-rebuild" ''
-        set -eu
-
-        # Transient units (systemd-run) and other non-login contexts do NOT
-        # inherit a usable PATH: `nix` becomes unresolvable and nh aborts with
-        # "No output from nix --version" (seen live 2026-08-31, twice).
-        # Self-anchor to the stable system profile instead of trusting callers.
-        export PATH=/run/current-system/sw/bin:$PATH
-
-        case "$#" in
-          0)
-            mode=switch
-            ;;
-          1)
-            case "$1" in
-              switch|boot|test)
-                mode="$1"
-                ;;
-              *)
-                echo "usage: head-rebuild [switch|boot|test]" >&2
-                exit 64
-                ;;
-            esac
-            ;;
-          *)
-            echo "usage: head-rebuild [switch|boot|test]" >&2
-            exit 64
-            ;;
-        esac
-
-        exec ${lib.getExe config.programs.nh.package} os "$mode" \
-          /srv/nixos-config#head \
-          --elevation-strategy none \
-          --bypass-root-check \
-          --show-activation-logs
-      '';
-
       # `desktop <command...>` runs a command in node0's graphical session
       # via `desktop-session` (see features/hermes). Arguments are
       # %q-quoted so the remote shell rebuilds the exact argv. The
@@ -87,8 +48,12 @@
     {
       modules.system.desktopCommand = desktop;
 
+      # `sudo head-rebuild` (modules/system/rebuild.nix), notifying #build-logs.
+      modules.system.rebuild.webhookFile = config.sops.secrets."build-logs-webhook".path;
+
       imports = [
         self.nixosModules.options
+        self.nixosModules.rebuild
         ./_system.nix
         self.nixosModules.headHardware
         self.nixosModules.headStorage
@@ -192,37 +157,7 @@
             }
           ];
         }
-        {
-          # Use the stable system-profile path: sudo matches the invoked
-          # symlink path, not the immutable /nix/store target it resolves to.
-          # In sudoers, an argument string of "" means exactly no arguments.
-          users = [ "overtoneblue" ];
-          runAs = "root";
-          commands = [
-            {
-              command = "/run/current-system/sw/bin/head-rebuild \"\"";
-              options = [ "NOPASSWD" ];
-            }
-            {
-              command = "/run/current-system/sw/bin/head-rebuild switch";
-              options = [ "NOPASSWD" ];
-            }
-            {
-              command = "/run/current-system/sw/bin/head-rebuild boot";
-              options = [ "NOPASSWD" ];
-            }
-            {
-              command = "/run/current-system/sw/bin/head-rebuild test";
-              options = [ "NOPASSWD" ];
-            }
-          ];
-        }
       ];
-
-      # The service PATH is deliberately explicit; make the only authorized
-      # deployment target resolvable as `head-rebuild` without adding the
-      # whole system profile.
-      systemd.services.hermes-agent.path = [ headRebuild ];
 
       # ── Nix-daemon privilege boundary ──────────────────────────────────
       # hermes (the gateway service user) may submit builds to the Nix
@@ -261,7 +196,6 @@
       '';
 
       environment.systemPackages = with pkgs; [
-        headRebuild
         config.modules.system.desktopCommand
         tmux
         wget
