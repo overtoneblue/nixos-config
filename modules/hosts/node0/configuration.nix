@@ -192,7 +192,6 @@
 
       environment.systemPackages = with pkgs; [
         usbutils
-        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas-electron
       ];
     };
 }

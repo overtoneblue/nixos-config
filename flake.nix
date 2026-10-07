@@ -62,15 +62,6 @@
     # still open as of 2026-10-01 — zero merges in this area). Filing our
     # own PRs is optional; retire this pin if either patch lands upstream.
     hermes-agent.url = "github:overtoneblue/hermes-agent/atlas";
-    # Atlas: the workstream client app, sourced from the public
-    # github:overtoneblue/atlas repo. The sops access-tokens include
-    # (modules/hosts/head/configuration.nix) is kept as an inert safety
-    # net: revoked/expired tokens don't break public fetches (verified
-    # 2026-09-28), and re-privatizing the repo works without a rebuild.
-    atlas = {
-      url = "github:overtoneblue/atlas";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -66,9 +66,6 @@
         self.nixosModules.headNextcloud
         self.nixosModules.headNginxProxy
         self.nixosModules.headMatrix
-        self.nixosModules.headAtlasHub
-        self.nixosModules.headAtlasd
-        self.nixosModules.headAtlasWeb
         self.nixosModules.headWavegen
         self.nixosModules.headWavegenWeb
         self.nixosModules.base
@@ -179,7 +176,6 @@
       environment.etc."gitconfig".text = ''
         [safe]
           directory = /srv/nixos-config
-          directory = /srv/atlas
       '';
 
       # ── Flake-input auth (atlas) ───────────────────────────────────────
@@ -205,7 +201,6 @@
         mergerfs
         intel-gpu-tools
         self.packages.${pkgs.stdenv.hostPlatform.system}.head-dash
-        self.packages.${pkgs.stdenv.hostPlatform.system}.atlas
         pkgs.claude-code
       ];
 
