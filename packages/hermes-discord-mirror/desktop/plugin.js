@@ -46,6 +46,12 @@ const KINDS = [
   ['media', 'Media'],
   ['category', 'Category']
 ]
+const HIDE_AFTER = [
+  [60, '1 hour'],
+  [1440, '24 hours'],
+  [4320, '3 days'],
+  [10080, '1 week']
+]
 const GLYPH = { forum: '▤', media: '▦', text: '#', announcement: '📣', voice: '🔊', stage: '🎙', category: '▾' }
 
 let ctxRef = null
@@ -335,6 +341,10 @@ function ChannelDialog({ dlg, categories, onClose }) {
   const [topic, setTopic] = useState(editing ? node.topic || '' : '')
   const [tags, setTags] = useState(editing ? (node.tags || []).map(t => t.name).join(', ') : '')
   const [layout, setLayout] = useState('list')
+  // Unset on Discord's side = its own default: 3 days on forums, 24 hours elsewhere.
+  const [hideAfter, setHideAfter] = useState(
+    editing ? node.archive_after || (node.kind === 'forum' || node.kind === 'media' ? 4320 : 1440) : 4320
+  )
   const [parent, setParent] = useState(editing ? node.parent_id || '' : dlg.parent_id || '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -349,6 +359,7 @@ function ChannelDialog({ dlg, categories, onClose }) {
         if (TOPIC_KINDS.has(kind)) body.topic = topic
         if (TAG_KINDS.has(kind)) body.tags = tagList
         if (kind !== 'category' && (parent || null) !== (node.parent_id || null)) body.parent_id = parent || null
+        if (TOPIC_KINDS.has(kind)) body.archive_after = hideAfter
         await ctxRef.rest(`/channels/${node.id}`, { method: 'PATCH', body })
       } else {
         const body = { guild_id: dlg.guild_id, kind, name }
@@ -356,6 +367,7 @@ function ChannelDialog({ dlg, categories, onClose }) {
         if (TOPIC_KINDS.has(kind) && topic.trim()) body.topic = topic
         if (TAG_KINDS.has(kind) && tagList.length) body.tags = tagList
         if (kind === 'forum') body.layout = layout
+        if (TOPIC_KINDS.has(kind)) body.archive_after = hideAfter
         await ctxRef.rest('/channels', { method: 'POST', body })
       }
       onClose()
@@ -415,6 +427,19 @@ function ChannelDialog({ dlg, categories, onClose }) {
         children: jsx('input', { className: 'dm-input', value: tags, onChange: e => setTags(e.target.value) })
       })
     )
+  if (TOPIC_KINDS.has(kind))
+    kids.push(
+      jsx(Field, {
+        label: 'Hide after inactivity',
+        hint: 'Same as Discord\'s setting: threads idle this long drop under "archived" here and in Discord.',
+        children: jsx('div', {
+          className: 'dm-seg',
+          children: HIDE_AFTER.map(([m, l]) =>
+            jsx('span', { className: `dm-chip${hideAfter === m ? ' on' : ''}`, onClick: () => setHideAfter(m), children: l }, m)
+          )
+        })
+      })
+    )
   if (!editing && kind === 'forum')
     kids.push(
       jsx(Field, {
@@ -440,7 +465,7 @@ function ThreadRow({ t, focused }) {
     title: has ? `${t.name}\nHermes: ${t.session.title || t.session.id}` : `${t.name}\nNo Hermes session yet — opens in Discord`,
     onClick: () => openRow(t),
     children: [
-      jsx('span', { className: 'dm-glyph', children: t.archived ? '·' : '›' }),
+      jsx('span', { className: 'dm-glyph', children: t.inactive ? '·' : '›' }),
       jsx('span', { className: 'dm-name', children: t.name }),
       has ? jsx('span', { className: 'dm-dot', title: 'Hermes session' }) : null,
       jsx('span', { className: 'dm-meta', children: rel(t.last_active) }),
@@ -452,7 +477,7 @@ function ThreadRow({ t, focused }) {
 function ChannelBlock({ ch, focused, filter, showArchived, expanded, setExpanded, setDialog }) {
   const q = filter.trim().toLowerCase()
   const chMatch = !q || ch.name.toLowerCase().includes(q)
-  let threads = ch.threads.filter(t => showArchived || !t.archived || (t.session && t.session.id === focused))
+  let threads = ch.threads.filter(t => showArchived || !t.inactive || (t.session && t.session.id === focused))
   if (q && !chMatch) threads = threads.filter(t => t.name.toLowerCase().includes(q))
   if (q && !chMatch && threads.length === 0) return null
   const open = expanded[ch.id] || !!q
@@ -633,7 +658,7 @@ function DiscordView({ compact = false }) {
           jsx('button', {
             type: 'button',
             className: `dm-btn${showArchived ? ' on' : ''}`,
-            title: 'Show archived threads/posts',
+            title: 'Show threads Discord hides: archived, or idle past their channel\'s "Hide after inactivity"',
             onClick: () => {
               save('showArchived', !showArchived)
               setShowArchived(!showArchived)

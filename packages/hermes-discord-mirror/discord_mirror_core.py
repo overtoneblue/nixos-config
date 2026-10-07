@@ -350,14 +350,22 @@ def build_tree(force: bool = False) -> dict:
             if ch.get("type") not in LISTED_TYPES:
                 continue
             threads = []
+            now = time.time()
             for t in by_parent.get(ch["id"], []):
                 sess = sessions.get(t["id"])
                 meta = t.get("thread_metadata") or {}
+                last = max(_thread_ts(t), (sess or {}).get("last_active") or 0)
+                # Discord's own "Hide After Inactivity": the API often leaves long-idle threads
+                # un-archived, but the client hides them once idle past the thread's window.
+                window = int(meta.get("auto_archive_duration") or ch.get("default_auto_archive_duration")
+                             or (4320 if ch.get("type") in (T_FORUM, T_MEDIA) else 1440))
                 threads.append({
                     "id": t["id"], "name": t.get("name", ""), "url": url(t["id"]),
                     "archived": bool(meta.get("archived")), "locked": bool(meta.get("locked")),
+                    "inactive": bool(meta.get("archived")) or now - last > window * 60,
+                    "archive_after": window,
                     "message_count": t.get("message_count") or 0,
-                    "last_active": max(_thread_ts(t), (sess or {}).get("last_active") or 0),
+                    "last_active": last,
                     "session": sess,
                 })
             threads.sort(key=lambda t: t["last_active"], reverse=True)
@@ -365,6 +373,7 @@ def build_tree(force: bool = False) -> dict:
                 "id": ch["id"], "name": ch.get("name", ""), "type": ch.get("type"),
                 "kind": _kind_of(ch.get("type")), "guild_id": gid, "parent_id": ch.get("parent_id"),
                 "position": ch.get("position", 0), "topic": ch.get("topic") or "",
+                "archive_after": ch.get("default_auto_archive_duration"),
                 "tags": [{"id": t["id"], "name": t.get("name", ""), "emoji": t.get("emoji_name")}
                          for t in (ch.get("available_tags") or [])],
                 "url": url(ch["id"]), "session": sessions.get(ch["id"]), "threads": threads,
@@ -646,6 +655,15 @@ def _clean_tags(tags: Any) -> list:
     return out[:20]
 
 
+def _archive_window(v: Any) -> Optional[int]:
+    """Discord's "Hide After Inactivity" choices, in minutes."""
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if n in (60, 1440, 4320, 10080) else None
+
+
 def create_channel(body: dict) -> dict:
     kind = str(body.get("kind") or "forum").lower()
     if kind not in CHANNEL_KINDS:
@@ -669,6 +687,9 @@ def create_channel(body: dict) -> dict:
         payload["default_forum_layout"] = {"list": 1, "gallery": 2}[body["layout"]]
     if body.get("nsfw") and ctype != T_CATEGORY:
         payload["nsfw"] = True
+    window = _archive_window(body.get("archive_after"))
+    if window and ctype in (T_TEXT, T_NEWS, T_FORUM, T_MEDIA):
+        payload["default_auto_archive_duration"] = window
     ch = api("POST", f"/guilds/{guild_id}/channels", payload=payload)
     _invalidate()
     return {"ok": True, "channel": {"id": ch["id"], "name": ch.get("name"), "kind": _kind_of(ch.get("type"))}}
@@ -691,6 +712,9 @@ def update_channel(channel_id: str, body: dict) -> dict:
         ]
     if "parent_id" in body and ctype != T_CATEGORY:
         payload["parent_id"] = str(body["parent_id"]) if body.get("parent_id") else None
+    window = _archive_window(body.get("archive_after"))
+    if window and ctype in (T_TEXT, T_NEWS, T_FORUM, T_MEDIA) and window != cur.get("default_auto_archive_duration"):
+        payload["default_auto_archive_duration"] = window
     if not payload:
         return {"ok": True, "unchanged": True}
     ch = api("PATCH", f"/channels/{channel_id}", payload=payload)
@@ -791,9 +815,10 @@ def create_post(body: dict) -> dict:
             m = execute_webhook(channel_id, {"content": part, **ident})
             first_msg = first_msg or m
     else:
-        thread = api("POST", f"/channels/{channel_id}/threads", payload={
-            "name": title, "type": T_NEWS_THREAD if ctype == T_NEWS else T_PUBLIC_THREAD,
-            "auto_archive_duration": 10080})
+        thread_payload = {"name": title, "type": T_NEWS_THREAD if ctype == T_NEWS else T_PUBLIC_THREAD}
+        if ch.get("default_auto_archive_duration"):  # else Discord applies its own default
+            thread_payload["auto_archive_duration"] = ch["default_auto_archive_duration"]
+        thread = api("POST", f"/channels/{channel_id}/threads", payload=thread_payload)
         target, first_msg = str(thread["id"]), None
         for part in parts:
             m = execute_webhook(channel_id, {"content": part, **ident}, thread_id=target)
