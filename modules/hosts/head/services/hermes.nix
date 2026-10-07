@@ -281,6 +281,9 @@
 
           # Default reasoning effort for every session start.
           agent.reasoning_effort = "max";
+          # Per-model effort (beats the global default above; an in-session
+          # /reasoning still wins). Spelling-tolerant, provider prefix optional.
+          agent.reasoning_overrides."claude-opus-5-5" = "high";
           # Native image routing: attach images directly to the main
           # vision-capable model instead of detouring through an aux backend.
           agent.image_input_mode = "native";
