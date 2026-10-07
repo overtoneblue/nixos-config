@@ -19,7 +19,12 @@ import {
   useValue,
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
-  PALETTE_AREA
+  PALETTE_AREA,
+  PANES_AREA,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
 } from '@hermes/plugin-sdk'
 import { jsx, jsxs } from 'react/jsx-runtime'
 import { useMemo, useState } from 'react'
@@ -81,9 +86,15 @@ const CSS = `
 .dm-empty{padding:24px;color:var(--ui-text-tertiary)}
 .dm-err{color:var(--ui-danger, #d55)}
 .dm-sdot{width:7px;height:7px;border-radius:50%;display:inline-block}
-.dm-scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-start;justify-content:center;padding-top:8vh;z-index:20}
-.dm-modal{width:min(560px,92%);max-height:80vh;overflow:auto;background:var(--ui-bg-elevated, var(--ui-bg, #222));border:1px solid var(--ui-stroke-secondary);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
-.dm-modal h3{margin:0;font-size:14px;font-weight:600;color:var(--ui-text-primary, inherit)}
+.dm-modal{display:flex;flex-direction:column;gap:10px;max-height:85vh;overflow:auto;font-size:13px;color:var(--ui-text-secondary)}
+.dm-page.compact .dm-head{padding:6px 8px;gap:4px}
+.dm-page.compact .dm-head .dm-input{width:100%;order:9}
+.dm-page.compact .dm-btn{padding:1px 6px}
+.dm-page.compact .dm-body{padding:2px 2px 16px}
+.dm-page.compact .dm-row{padding:3px 6px;gap:5px}
+.dm-page.compact .dm-thread{padding-left:22px}
+.dm-page.compact .dm-more{padding-left:22px}
+.dm-page.compact .dm-cat{padding:10px 6px 3px}
 .dm-field{display:flex;flex-direction:column;gap:4px}
 .dm-label{font-size:11px;color:var(--ui-text-tertiary);text-transform:uppercase;letter-spacing:.04em}
 .dm-hint{font-size:11px;color:var(--ui-text-quaternary)}
@@ -153,16 +164,18 @@ function Act({ title, onClick, children }) {
 
 // ── dialogs ─────────────────────────────────────────────────────────────
 
+// The app's own Dialog: portaled over the whole window, so it works the same
+// from the full page and from the narrow sidebar tab.
 function Modal({ title, onClose, children }) {
-  return jsx('div', {
-    className: 'dm-scrim',
-    onMouseDown: e => {
-      if (e.target === e.currentTarget) onClose()
+  return jsx(Dialog, {
+    open: true,
+    onOpenChange: open => {
+      if (!open) onClose()
     },
-    onKeyDown: e => {
-      if (e.key === 'Escape') onClose()
-    },
-    children: jsxs('div', { className: 'dm-modal', children: [jsx('h3', { children: title }), ...children] })
+    children: jsxs(DialogContent, {
+      className: 'dm-modal',
+      children: [jsx(DialogHeader, { children: jsx(DialogTitle, { children: title }) }), ...children]
+    })
   })
 }
 
@@ -498,7 +511,7 @@ function StatusChip({ status }) {
   })
 }
 
-function DiscordPage() {
+function DiscordView({ compact = false }) {
   const qc = useQueryClient()
   const focused = useValue(host.state.focusedStoredSessionId)
   const [filter, setFilter] = useState('')
@@ -591,33 +604,30 @@ function DiscordPage() {
   }, [tree.isLoading, tree.error, data, collapsed, expanded, filter, showArchived, focused])
 
   const close = () => setDialog(null)
+  const btn = (full, short, props) =>
+    jsx('button', { type: 'button', className: 'dm-btn', ...props, children: compact ? short : full })
   return jsxs('div', {
-    className: 'dm-page',
+    className: `dm-page${compact ? ' compact' : ''}`,
     children: [
       jsx('style', { children: CSS }),
       jsxs('div', {
         className: 'dm-head',
         children: [
-          jsx('span', { className: 'dm-title', children: 'Discord' }),
-          jsx('span', { className: 'dm-sub', children: guilds.length === 1 ? guilds[0].name : '' }),
+          compact ? null : jsx('span', { className: 'dm-title', children: 'Discord' }),
+          compact ? null : jsx('span', { className: 'dm-sub', children: guilds.length === 1 ? guilds[0].name : '' }),
           jsx(StatusChip, { status: status.data }),
           jsx('span', { className: 'dm-grow' }),
-          jsx('input', { className: 'dm-input', placeholder: 'Filter channels & posts', value: filter, onChange: e => setFilter(e.target.value) }),
+          jsx('input', { className: 'dm-input', placeholder: compact ? 'Filter' : 'Filter channels & posts', value: filter, onChange: e => setFilter(e.target.value) }),
           guild
-            ? jsx('button', {
-                type: 'button',
-                className: 'dm-btn',
+            ? btn('+ channel', '+ ch', {
                 title: 'Create a channel (any type) or a category',
-                onClick: () => setDialog({ type: 'channel', mode: 'create', guild_id: guild.id }),
-                children: '+ channel'
+                onClick: () => setDialog({ type: 'channel', mode: 'create', guild_id: guild.id })
               })
             : null,
           guild
-            ? jsx('button', {
-                type: 'button',
-                className: 'dm-btn',
-                onClick: () => setDialog({ type: 'channel', mode: 'create', guild_id: guild.id, kind: 'category' }),
-                children: '+ category'
+            ? btn('+ category', '+ cat', {
+                title: 'Create a category',
+                onClick: () => setDialog({ type: 'channel', mode: 'create', guild_id: guild.id, kind: 'category' })
               })
             : null,
           jsx('button', {
@@ -628,9 +638,9 @@ function DiscordPage() {
               save('showArchived', !showArchived)
               setShowArchived(!showArchived)
             },
-            children: 'archived'
+            children: compact ? 'arch' : 'archived'
           }),
-          jsx('button', { type: 'button', className: 'dm-btn', title: 'Re-fetch the server from Discord', onClick: refresh, children: busy ? '…' : 'refresh' })
+          btn(busy ? '…' : 'refresh', busy ? '…' : '↻', { title: 'Re-fetch the server from Discord', onClick: refresh })
         ]
       }),
       jsx('div', { className: 'dm-body', children: body }),
@@ -646,7 +656,23 @@ export default {
   register(ctx) {
     ctxRef = ctx
     ctx.registerMany([
-      { id: 'page', area: ROUTES_AREA, data: { path: PATH }, render: () => jsx(DiscordPage, {}) },
+      { id: 'page', area: ROUTES_AREA, data: { path: PATH }, render: () => jsx(DiscordView, {}) },
+      // Sidebar tab next to Sessions (same recipe as Bot Mode's Bots tab).
+      // hideOnly: closing the tab hides it instead of disabling the plugin.
+      {
+        id: 'pane',
+        area: PANES_AREA,
+        title: 'Discord',
+        data: {
+          placement: 'left',
+          width: '260px',
+          collapsible: true,
+          hideOnly: true,
+          tabTitleText: () => 'Discord',
+          dock: { pane: 'sessions', pos: 'center', enforce: true }
+        },
+        render: () => jsx(DiscordView, { compact: true })
+      },
       { id: 'nav', area: SIDEBAR_NAV_AREA, data: { path: PATH, label: 'Discord', codicon: 'comment-discussion' } },
       {
         id: 'open',
