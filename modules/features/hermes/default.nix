@@ -205,6 +205,14 @@
         inputs.hermes-agent.nixosModules.default
       ];
 
+      # Hermes desktop plugin: Discord server mirror (backend half runs on head,
+      # see modules/packages/hermes-discord-mirror.nix). force: replaces a
+      # hand-dropped dev copy.
+      hm.home.file.".hermes/desktop-plugins/discord-mirror/plugin.js" = {
+        source = "${self.packages.${pkgs.stdenv.hostPlatform.system}.hermes-discord-mirror}/desktop/plugin.js";
+        force = true;
+      };
+
       hm.home.packages = with pkgs; [
         hermesChat
         hermesVoice

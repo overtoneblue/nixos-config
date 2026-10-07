@@ -10,6 +10,7 @@
     let
       stateDir = "/mnt/cache/appdata/hermes-agent";
       username = config.modules.system.username;
+      discordMirror = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.hermes-discord-mirror;
     in
     {
       imports = [
@@ -131,7 +132,11 @@
           # must come from config here: HERMES_MANAGED installs reject
           # `hermes plugins enable` (cannot write config.yaml).
           plugins = {
-            enabled = [ "hermes-stats" ];
+            enabled = [
+              "hermes-stats"
+              # Discord server mirror for Hermes desktop (plugin dir linked below).
+              "discord-mirror"
+            ];
           };
           # Default: text-only replies.  /voice join or /voice on per-chat
           # re-enables TTS; global default stays text.
@@ -400,6 +405,9 @@
         after = [ "network-online.target" "mnt-cache.mount" ];
         wants = [ "network-online.target" ];
         requires = [ "mnt-cache.mount" ];
+        # serve mounts plugin backends + loads plugin hooks at start: pick up
+        # discord-mirror changes on deploy (the gateway agents are untouched).
+        restartTriggers = [ discordMirror ];
 
         environment = {
           HOME = stateDir;
@@ -456,6 +464,8 @@
       systemd.tmpfiles.rules = [
         "f ${stateDir}/.hermes/auth.json 0660 hermes hermes - -"
         "f ${stateDir}/.hermes/auth.lock 0660 hermes hermes - -"
+        # discord-mirror plugin: agent hooks + gateway bridge + desktop backend.
+        "L+ ${stateDir}/.hermes/plugins/discord-mirror - - - - ${discordMirror}"
       ];
 
       system.activationScripts."hermes-shared-state" =

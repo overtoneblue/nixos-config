@@ -1,0 +1,8 @@
+name: discord-mirror
+version: "0.1.0"
+description: "Mirror your Discord server into Hermes desktop; desktop turns in Discord-bound sessions post back to the thread"
+author: "Caden + Nolan"
+provides_hooks:
+  - pre_llm_call
+  - post_llm_call
+kind: standalone
