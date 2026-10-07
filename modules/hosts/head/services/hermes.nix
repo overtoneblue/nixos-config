@@ -268,16 +268,38 @@
           # nudge 0 kills the turn-nudge and its save instruction cadence;
           # background_review off kills the aux-model fork that proactively
           # staged memory/skill writes; curator off stops background
-          # stale-marking/archiving of the skills tree. write_approval ON
-          # (Caden, 2026-09-30): memory/skill writes stage in
-          # pending/{memory,skills}/ and land only on approval; written
-          # per-bot on demand.
-          memory.write_approval = true;
+          # stale-marking/archiving of the skills tree. Deliberate memory
+          # writes land directly (small, injected every turn, easy to fix);
+          # skill writes still stage in pending/skills/ for approval.
+          memory.write_approval = false;
           memory.nudge_interval = 0;
           skills.write_approval = true;
           skills.creation_nudge_interval = 0;
           auxiliary.background_review.enabled = false;
           curator.enabled = false;
+
+          # Command approvals: smart mode (an aux model reviews flagged
+          # commands). Inline -c/-e invocations were ~90% of prompts and are
+          # flagged for the wrapper, not the payload: destructive shell
+          # patterns inside them are matched first and still prompt. Python
+          # logic inside `python -c` is not inspected, same as running a
+          # script file, which never prompts. The settings merge replaces
+          # lists, so this is the whole allowlist: add standing approvals
+          # here, not via "Always". Loaded at gateway start.
+          command_allowlist = [
+            "script execution via -e/-c flag"
+            "shell command via -c/-lc flag"
+          ];
+          approvals.smart_policy = ''
+            Single-operator homelab; this agent is head's trusted administrator.
+            APPROVE read-only inspection, nix eval/build, and non-force git
+            operations in /srv/nixos-config.
+            ESCALATE writes, renames or deletes under /mnt/user or /mnt/disk*;
+            git push --force or other history rewrites; stopping or restarting
+            hermes-agent or hermes-serve; deleting repositories, databases or
+            container volumes; anything that reads, prints, copies or moves
+            secrets (/run/secrets, sops files, .env, auth.json).
+          '';
 
           # Default reasoning effort for every session start.
           agent.reasoning_effort = "max";
