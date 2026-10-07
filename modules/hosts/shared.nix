@@ -13,6 +13,9 @@
     in
 
     {
+      # Inert until a host sets modules.packages.groups.
+      imports = [ self.nixosModules.userPackages ];
+
       users.users.${username} = {
         isNormalUser = true;
 

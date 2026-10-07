@@ -42,46 +42,16 @@
       home-manager.useUserPackages = true;
       hm.home.stateVersion = "25.11";
 
-      # steamworkspy (a rimsort dep) ships no dist-info, so
-      # pythonMetadataCheckHook fails on it. Disable it for that leaf only.
-      nixpkgs.overlays = [
-        (final: prev: {
-          python3 = prev.python3.override {
-            packageOverrides = pf: pp: {
-              steamworkspy = pp.steamworkspy.overridePythonAttrs (_: {
-                dontCheckPythonMetadata = true;
-              });
-            };
-          };
-          # Must also rebind the top-level alias or rimsort (which uses
-          # python3Packages / python314Packages directly) still gets the
-          # un-overridden steamworkspy.
-          python314Packages = final.python3.pkgs;
-        })
+      # Grouped user packages: modules/hosts/packages.nix.
+      modules.packages.groups = [
+        "media"
+        "comms"
+        "apps"
+        "desktop"
+        "gaming"
+        "system"
       ];
 
-      hm.home.packages = with pkgs; [
-        wl-clipboard
-        plexamp
-        element-desktop
-        thunderbird
-        appimage-run
-        plex-htpc
-        calibre
-        gthumb
-        telegram-desktop
-        imv
-        mpv
-        geeqie
-        ueberzugpp
-        nextcloud-client
-        libnotify
-        vscode
-        # jetbrains.idea
-        pavucontrol
-        rimsort
-        jellyfin-desktop
-      ];
       hm.programs = {
         # This is the key head authorizes for overtoneblue.
         ssh = {
@@ -199,9 +169,5 @@
       networking.hostName = "node0";
 
       time.hardwareClockInLocalTime = true;
-
-      environment.systemPackages = with pkgs; [
-        usbutils
-      ];
     };
 }
