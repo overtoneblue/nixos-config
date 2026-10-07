@@ -255,6 +255,15 @@
           terminal.backend = "local";
           browser.cdp_url = "http://127.0.0.1:9222";
 
+          # Web tools: extract pinned to Firecrawl's anonymous keyless cloud
+          # mode (free, no key; the explicit selection is what unlocks it).
+          # Left unpinned, backend autodetect picks `openai-native` —
+          # search-only, present only because of the openai-codex OAuth
+          # credential — as the shared web backend, and web_extract hard-fails
+          # with "search-only backend". Search stays unpinned on purpose:
+          # native on Codex transports, keyless rescue elsewhere.
+          web.extract_backend = "firecrawl";
+
           # Memory model: injection INTO PROMPTS stays; AUTO-CREATION off.
           # nudge 0 kills the turn-nudge and its save instruction cadence;
           # background_review off kills the aux-model fork that proactively
