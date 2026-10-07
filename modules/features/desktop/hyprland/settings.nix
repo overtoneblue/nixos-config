@@ -71,6 +71,7 @@
               # 1 = disable hardware cursors
               # 2 = auto (disable when tearing)
               no_hardware_cursors = 1;
+              default_monitor = "DP-2";
             };
 
             general = {

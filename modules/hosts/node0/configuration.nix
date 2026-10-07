@@ -133,7 +133,17 @@
       boot = {
         kernelPackages = pkgs.linuxPackages_latest;
         loader = {
-          systemd-boot.enable = true;
+          systemd-boot.enable = false;
+          limine = {
+            enable = true;
+            efiSupport = true;
+            secureBoot.enable = true;
+            extraEntries = ''
+              /Windows 11
+                protocol: efi
+                path: boot():///EFI/Microsoft/Boot/bootmgfw.efi
+            '';
+          };
           efi.canTouchEfiVariables = true;
         };
       };
