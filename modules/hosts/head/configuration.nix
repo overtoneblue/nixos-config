@@ -191,6 +191,25 @@
         !include /run/secrets/rendered/nix-access-tokens
       '';
 
+      # claude-code ahead of nixpkgs: the Claude DirectSDK plugin needs
+      # >= 2.1.284 for Sonnet 5.5 and >= 2.1.293 for Haiku 5.5. Only the
+      # manifest (version, URLs, hashes) is swapped, copied verbatim from
+      # nixpkgs master; package.nix is unchanged. Once the locked nixpkgs
+      # catches up this is a no-op that warns at eval: delete the block and
+      # packages/claude-code/ then.
+      nixpkgs.overlays = [
+        (_final: prev: {
+          claude-code =
+            let
+              manifest = lib.importJSON ../../../packages/claude-code/manifest.zst.json;
+            in
+            if lib.versionOlder prev.claude-code.version manifest.version then
+              prev.claude-code.override { inherit manifest; }
+            else
+              lib.warn "claude-code overlay is stale: nixpkgs has ${prev.claude-code.version} (>= ${manifest.version}); remove it and packages/claude-code/" prev.claude-code;
+        })
+      ];
+
       environment.systemPackages = with pkgs; [
         config.modules.system.desktopCommand
         tmux
