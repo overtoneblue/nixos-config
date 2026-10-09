@@ -310,6 +310,18 @@
           # vision-capable model instead of detouring through an aux backend.
           agent.image_input_mode = "native";
 
+          # Claude DirectSDK stale-kill insurance: on the non-stream path the
+          # Opus 240s reasoning floor killed healthy long turns (upstream
+          # hermes-agent#125095); the fork's streaming opt-in is the real fix,
+          # this line covers any remaining non-streamed calls (aux/approvals).
+          # Explicit values outrank the floor and the run-budget cap.
+          providers."claude-subscription-directsdk-experimental".stale_timeout_seconds = 900;
+
+          # Claude Code telemetry + feature-flag fetch: off (quiet by choice;
+          # the pinned catalog carries the models we use — the flag fetch is
+          # what widens the picker; flip on if the full list is wanted).
+          plugins.entries."claude-subscription-directsdk-experimental".settings.claude_code_telemetry = false;
+
           # Pre-stage multi-profile Telegram routing; no behavior change
           # until tokens and routes are configured.
           gateway.multiplex_profiles = true;

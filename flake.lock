@@ -330,15 +330,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1791374517,
-        "narHash": "sha256-g/htwyVGIeet5wZfUoHQe40UMWIJs1dA8Qjip3ivymc=",
-        "owner": "NousResearch",
+        "lastModified": 1791523661,
+        "narHash": "sha256-TetotecV7nyfxs13yEfmlqlx3+906wjMv0h6HcA2nHs=",
+        "owner": "overtoneblue",
         "repo": "hermes-agent",
-        "rev": "a3ed4a173070e981332e4d879ff6cc8b9efd57ab",
+        "rev": "d5bdfa26cb692b736a4edd6954cd38b0e61a7f1f",
         "type": "github"
       },
       "original": {
-        "owner": "NousResearch",
+        "owner": "overtoneblue",
+        "ref": "directsdk-streaming",
         "repo": "hermes-agent",
         "type": "github"
       }

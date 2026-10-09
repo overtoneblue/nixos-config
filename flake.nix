@@ -39,9 +39,12 @@
       url = "github:kaylorben/nixcord";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Upstream main, no fork. The overtoneblue/hermes-agent@atlas pin (two
-    # api_server.py patches for Atlas) was retired 2026-10-07 with Atlas.
-    hermes-agent.url = "github:NousResearch/hermes-agent";
+    # Fork pin: upstream main + one carried commit — let streaming-capable
+    # process plugins opt into host streaming (upstream hermes-agent#124566;
+    # live view + no more 240s stale kills on the Claude subscription route).
+    # Branch stays = main + that commit; revert to upstream the moment
+    # #124566 merges, then this pin and the config workarounds retire.
+    hermes-agent.url = "github:overtoneblue/hermes-agent/directsdk-streaming";
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
