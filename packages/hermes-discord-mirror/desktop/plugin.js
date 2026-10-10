@@ -151,10 +151,37 @@ function refreshAll() {
   queryClient.invalidateQueries({ queryKey: STATUS_KEY })
 }
 
-function openRow(node) {
-  if (node.session?.id) host.openSession(node.session.id)
-  else if (node.url) ctxRef?.os?.openExternal(node.url)
+// Same modifier language as the Sessions sidebar: plain click = in place,
+// ⌘/Ctrl (or middle) click = new tab beside main, ⌘⇧ = new window. A tab can
+// then be dragged to an edge to split — the SDK exposes no session drag for
+// plugin rows, so a direct drag-to-split from here isn't possible yet.
+function intentFor(e) {
+  if (!e) return undefined
+  const mod = e.metaKey || e.ctrlKey || e.button === 1
+  if (mod && e.shiftKey) return 'window'
+  if (mod) return 'tab'
+  return undefined
 }
+
+function openRow(node, e) {
+  if (node.session?.id) {
+    const intent = intentFor(e)
+    host.openSession(node.session.id, intent ? { intent } : undefined)
+  } else if (node.url) ctxRef?.os?.openExternal(node.url)
+}
+
+// Middle-click: open as a tab (and stop the browser's autoscroll).
+const auxOpen = node => ({
+  onMouseDown: e => {
+    if (e.button === 1 && node.session?.id) e.preventDefault()
+  },
+  onAuxClick: e => {
+    if (e.button === 1 && node.session?.id) {
+      e.preventDefault()
+      openRow(node, e)
+    }
+  }
+})
 
 function Act({ title, onClick, children }) {
   return jsx('span', {
@@ -463,12 +490,20 @@ function ThreadRow({ t, focused }) {
   return jsxs('div', {
     className: `dm-row dm-thread${has ? '' : ' nosess'}${has && t.session.id === focused ? ' sel' : ''}`,
     title: has ? `${t.name}\nHermes: ${t.session.title || t.session.id}` : `${t.name}\nNo Hermes session yet — opens in Discord`,
-    onClick: () => openRow(t),
+    onClick: e => openRow(t, e),
+    ...auxOpen(t),
     children: [
       jsx('span', { className: 'dm-glyph', children: t.inactive ? '·' : '›' }),
       jsx('span', { className: 'dm-name', children: t.name }),
       has ? jsx('span', { className: 'dm-dot', title: 'Hermes session' }) : null,
       jsx('span', { className: 'dm-meta', children: rel(t.last_active) }),
+      has
+        ? jsx(Act, {
+            title: 'Open as a tab beside the current chat (⌘/Ctrl-click) — drag that tab to an edge to split',
+            onClick: () => host.openSession(t.session.id, { intent: 'tab' }),
+            children: '⧉'
+          })
+        : null,
       jsx(Act, { title: 'Open in Discord', onClick: () => ctxRef?.os?.openExternal(t.url), children: '↗' })
     ]
   })
@@ -490,7 +525,8 @@ function ChannelBlock({ ch, focused, filter, showArchived, expanded, setExpanded
       jsxs('div', {
         className: `dm-row${has && ch.session.id === focused ? ' sel' : ''}`,
         title: ch.topic || ch.name,
-        onClick: () => (has || !postable ? openRow(ch) : setDialog({ type: 'post', channel: ch })),
+        onClick: e => (has || !postable ? openRow(ch, e) : setDialog({ type: 'post', channel: ch })),
+        ...auxOpen(ch),
         children: [
           jsx('span', { className: 'dm-glyph', children: GLYPH[ch.kind] || '#' }),
           jsx('span', { className: 'dm-name dm-ch', children: ch.name }),
