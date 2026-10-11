@@ -44,7 +44,7 @@
     #   - streaming-capable process plugins opt into host streaming
     #     (hermes-agent#124566; live view + no more 240s stale kills on the
     #     Claude subscription route) — config workarounds retire with it;
-    #   - desktop SDK host.sessions.startDrag (PR below) — discord-mirror rows
+    #   - desktop SDK host.sessions.startDrag (hermes-agent#136494) — discord-mirror rows
     #     drag like Sessions rows; the plugin feature-detects it.
     hermes-agent.url = "github:overtoneblue/hermes-agent/directsdk-streaming";
     sops-nix = {
