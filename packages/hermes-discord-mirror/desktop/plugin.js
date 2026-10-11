@@ -152,9 +152,7 @@ function refreshAll() {
 }
 
 // Same modifier language as the Sessions sidebar: plain click = in place,
-// ⌘/Ctrl (or middle) click = new tab beside main, ⌘⇧ = new window. A tab can
-// then be dragged to an edge to split — the SDK exposes no session drag for
-// plugin rows, so a direct drag-to-split from here isn't possible yet.
+// ⌘/Ctrl (or middle) click = new tab beside main, ⌘⇧ = new window.
 function intentFor(e) {
   if (!e) return undefined
   const mod = e.metaKey || e.ctrlKey || e.button === 1
@@ -170,8 +168,21 @@ function openRow(node, e) {
   } else if (node.url) ctxRef?.os?.openExternal(node.url)
 }
 
-// Middle-click: open as a tab (and stop the browser's autoscroll).
-const auxOpen = node => ({
+// Bound rows drag exactly like Sessions rows (tab strip = stack, edge = split,
+// composer = @session link) via host.sessions.startDrag. Older desktops lack
+// it; ⌘-click / ⧉ then open a tab that can be dragged instead. A press on a
+// row's own action buttons never lifts the row.
+const canDrag = () => typeof host.sessions?.startDrag === 'function'
+
+function dragRow(node, e) {
+  if (!node.session?.id || !canDrag() || e.target.closest?.('.dm-act')) return
+  host.sessions.startDrag(node.session.id, e, { title: node.session.title || node.name })
+}
+
+// Row gestures: press = maybe drag; middle-click = open as a tab (and stop
+// the browser's autoscroll).
+const rowGestures = node => ({
+  onPointerDown: e => dragRow(node, e),
   onMouseDown: e => {
     if (e.button === 1 && node.session?.id) e.preventDefault()
   },
@@ -491,7 +502,7 @@ function ThreadRow({ t, focused }) {
     className: `dm-row dm-thread${has ? '' : ' nosess'}${has && t.session.id === focused ? ' sel' : ''}`,
     title: has ? `${t.name}\nHermes: ${t.session.title || t.session.id}` : `${t.name}\nNo Hermes session yet — opens in Discord`,
     onClick: e => openRow(t, e),
-    ...auxOpen(t),
+    ...rowGestures(t),
     children: [
       jsx('span', { className: 'dm-glyph', children: t.inactive ? '·' : '›' }),
       jsx('span', { className: 'dm-name', children: t.name }),
@@ -499,7 +510,7 @@ function ThreadRow({ t, focused }) {
       jsx('span', { className: 'dm-meta', children: rel(t.last_active) }),
       has
         ? jsx(Act, {
-            title: 'Open as a tab beside the current chat (⌘/Ctrl-click) — drag that tab to an edge to split',
+            title: 'Open as a tab beside the current chat (⌘/Ctrl-click). Or drag the row: edge = split, tab strip = stack',
             onClick: () => host.openSession(t.session.id, { intent: 'tab' }),
             children: '⧉'
           })
@@ -526,7 +537,7 @@ function ChannelBlock({ ch, focused, filter, showArchived, expanded, setExpanded
         className: `dm-row${has && ch.session.id === focused ? ' sel' : ''}`,
         title: ch.topic || ch.name,
         onClick: e => (has || !postable ? openRow(ch, e) : setDialog({ type: 'post', channel: ch })),
-        ...auxOpen(ch),
+        ...rowGestures(ch),
         children: [
           jsx('span', { className: 'dm-glyph', children: GLYPH[ch.kind] || '#' }),
           jsx('span', { className: 'dm-name dm-ch', children: ch.name }),

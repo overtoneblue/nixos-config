@@ -39,11 +39,13 @@
       url = "github:kaylorben/nixcord";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Fork pin: upstream main + one carried commit — let streaming-capable
-    # process plugins opt into host streaming (upstream hermes-agent#124566;
-    # live view + no more 240s stale kills on the Claude subscription route).
-    # Branch stays = main + that commit; revert to upstream the moment
-    # #124566 merges, then this pin and the config workarounds retire.
+    # Fork pin: upstream main + carried commits, each dropped when it merges
+    # upstream (revert to upstream once none are left):
+    #   - streaming-capable process plugins opt into host streaming
+    #     (hermes-agent#124566; live view + no more 240s stale kills on the
+    #     Claude subscription route) — config workarounds retire with it;
+    #   - desktop SDK host.sessions.startDrag (PR below) — discord-mirror rows
+    #     drag like Sessions rows; the plugin feature-detects it.
     hermes-agent.url = "github:overtoneblue/hermes-agent/directsdk-streaming";
     sops-nix = {
       url = "github:Mic92/sops-nix";
