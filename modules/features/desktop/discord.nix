@@ -5,13 +5,14 @@
 }:
 {
   flake.nixosModules.discord =
-    { pkgs, ... }:
+    { pkgs, lib, config, ... }:
     {
       hm = {
+        # Import stays unconditional (options only); the app is gated.
         imports = [
           inputs.nixcord.homeModules.nixcord
         ];
-        programs.nixcord = {
+        programs.nixcord = lib.mkIf config.modules.programs.desktopApps.enable {
           enable = true;
           discord.vencord.enable = true;
           config = {

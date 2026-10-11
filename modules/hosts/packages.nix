@@ -65,6 +65,20 @@
         "gaming"
         "system"
       ];
+
+      # Groups that are heavy GUI apps; dropped when the host turns off
+      # modules.programs.desktopApps (fast builds / aarch64 hosts).
+      heavyGroups = [
+        "media"
+        "comms"
+        "apps"
+        "gaming"
+      ];
+      activeGroups =
+        if config.modules.programs.desktopApps.enable then
+          cfg.groups
+        else
+          lib.filter (g: !(lib.elem g heavyGroups)) cfg.groups;
     in
     {
       options.modules.packages.groups = lib.mkOption {
@@ -76,13 +90,13 @@
       config = {
         users.users.${config.modules.system.username}.packages = lib.concatMap (
           g: groups.${g}
-        ) cfg.groups;
+        ) activeGroups;
 
         # rimsort pulls in steamworkspy, which ships no dist-info, so
         # pythonMetadataCheckHook fails on it; disable that check for that
         # leaf only. Also rebind python314Packages or rimsort (which uses it
         # directly) still gets the un-overridden steamworkspy.
-        nixpkgs.overlays = lib.mkIf (lib.elem "gaming" cfg.groups) [
+        nixpkgs.overlays = lib.mkIf (lib.elem "gaming" activeGroups) [
           (final: prev: {
             python3 = prev.python3.override {
               packageOverrides = pf: pp: {

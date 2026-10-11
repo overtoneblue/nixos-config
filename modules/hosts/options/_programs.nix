@@ -34,6 +34,14 @@ with lib;
         enable = mkEnableOption "Enable GUI programs";
       };
 
+      # Heavy desktop applications: Discord (nixcord), Signal, Steam/gaming and
+      # the GUI package groups in modules/hosts/packages.nix (media, comms,
+      # apps, gaming). Off on hosts that want a fast build or can't build them
+      # (callisto: aarch64, most of these are x86-only or uncached).
+      desktopApps.enable = mkEnableOption "heavy desktop applications" // {
+        default = true;
+      };
+
       gaming = {
         enable = mkEnableOption "Enable packages required for the device to be gaming-ready" // {
           default = false;

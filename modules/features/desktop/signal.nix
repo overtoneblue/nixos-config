@@ -1,9 +1,9 @@
 { self, ... }:
 {
   flake.nixosModules.signal =
-    { pkgs, lib, ... }:
+    { pkgs, lib, config, ... }:
     {
-      environment.systemPackages = [
+      environment.systemPackages = lib.mkIf config.modules.programs.desktopApps.enable [
         self.packages.${pkgs.stdenv.hostPlatform.system}.mySignal
       ];
     };

@@ -1,8 +1,8 @@
 { self, inputs, ... }:
 {
   flake.nixosModules.gaming =
-    { pkgs, ... }:
-    {
+    { pkgs, lib, config, ... }:
+    lib.mkIf config.modules.programs.desktopApps.enable {
       environment.systemPackages = with pkgs; [
         gamescope
       ];
