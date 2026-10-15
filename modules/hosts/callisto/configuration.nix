@@ -147,6 +147,10 @@
         };
       };
 
+      # Native Wayland for Electron/Chromium apps (Vesktop etc.). Without it they
+      # run under XWayland and get bitmap-upscaled to the 1.2 monitor scale = blurry.
+      environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
       networking.hostName = "callisto";
 
       # NixLand set this for every host (hosts/shared).
