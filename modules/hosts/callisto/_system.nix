@@ -16,6 +16,7 @@
         # Heavy / x86-only desktop apps (Discord, Signal, Steam, the app
         # package groups) stay off until we want them on the laptop.
         desktopApps.enable = false;
+        discord.vesktop = true;
         default = {
           terminal = "wezterm";
           fileManager = "thunar";
