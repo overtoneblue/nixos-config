@@ -59,6 +59,7 @@
         self.nixosModules.headStorage
         self.nixosModules.headSops
         self.nixosModules.headHermes
+        self.nixosModules.headHermesTunnel
         self.nixosModules.headOpenCode
         self.nixosModules.headPi
         self.nixosModules.headDebbieTask

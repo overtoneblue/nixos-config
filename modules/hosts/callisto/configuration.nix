@@ -30,6 +30,8 @@
         self.nixosModules.theme
         self.nixosModules.dev
         self.nixosModules.desktop
+        # Hermes Desktop as a client of head's backend (no agent runtime here).
+        self.nixosModules.hermesDesktopClient
         # Deliberately absent: ai (CUDA ComfyUI), hermes (node0 computer-use).
       ];
 
