@@ -8,9 +8,11 @@
 # never exposed to the host.
 {
   flake.nixosModules.headNextcloud =
-    { config, ... }:
+    { config, lib, ... }:
     let
       containerNetwork = "cenunet";
+      tailnetHost = "head.tail8c2dd3.ts.net";
+      tailscale = lib.getExe config.services.tailscale.package;
     in
     {
       virtualisation.oci-containers = {
@@ -33,10 +35,12 @@
             PUID = "99";
             PGID = "100";
             UMASK = "022";
-            NEXTCLOUD_TRUSTED_DOMAINS = "files.cenunix.dev";
+            # Install-time only; the live list is trusted_domains in config.php.
+            NEXTCLOUD_TRUSTED_DOMAINS = tailnetHost;
           };
           # The container terminates TLS itself with a self-signed cert.
-          ports = [ "4143:443" ];
+          # Loopback only: the sole way in is `tailscale serve` below.
+          ports = [ "127.0.0.1:4143:443" ];
           volumes = [
             "/mnt/cache/appdata/nextcloud:/config"
             "/mnt/cache/personal/nextcloud:/data"
@@ -76,8 +80,27 @@
         after = [ "docker-network-${containerNetwork}.service" ];
       };
 
-      # Direct LAN access; public ingress is files.cenunix.dev in
-      # nginx-proxy.nix.
-      networking.firewall.allowedTCPPorts = [ 4143 ];
+      # Tailnet-only ingress: tailscaled terminates HTTPS for
+      # https://${tailnetHost} (Tailscale-issued cert) and proxies to the
+      # loopback-bound container. Who may connect is decided by the tailnet
+      # ACL (members -> tag:head:443). No LAN port, no public vhost.
+      systemd.services.tailscale-serve-nextcloud = {
+        description = "Serve Nextcloud on the tailnet (https://${tailnetHost})";
+        wantedBy = [ "multi-user.target" ];
+        after = [
+          "tailscaled.service"
+          "docker-nextcloud.service"
+        ];
+        wants = [ "tailscaled.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          # tailscaled may still be logging in at boot.
+          Restart = "on-failure";
+          RestartSec = 10;
+          ExecStart = "${tailscale} serve --bg --https=443 https+insecure://127.0.0.1:4143";
+          ExecStop = "${tailscale} serve --https=443 off";
+        };
+      };
     };
 }

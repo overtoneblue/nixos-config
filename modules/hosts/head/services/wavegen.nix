@@ -1,89 +1,9 @@
 { self, ... }:
-# Matrix bot for WaveSpeedAI image editing (packages/wavegen). Not publicly
-# exposed.
+# wavegen-web: web UI for WaveSpeedAI image editing (packages/wavegen-web).
+# The old Matrix bot (headWavegen) was removed 2026-10-14.
 {
-  flake.nixosModules.headWavegen =
-    { config, lib, pkgs, ... }:
-    let
-      ph = config.sops.placeholder;
-    in
-    {
-      imports = [ ];
-
-      sops.secrets = {
-        "wavespeed-api-key" = {
-          restartUnits = [ "wavegen.service" ];
-        };
-        "matrix-wavegen-access-token" = {
-          sopsFile = "/srv/nixos-config/secrets/head-matrix-bots.yaml";
-          restartUnits = [ "wavegen.service" ];
-        };
-      };
-
-      sops.templates."wavegen-env" = {
-        owner = "wavegen";
-        group = "wavegen";
-        mode = "0440";
-        content = ''
-          WAVEGEN_WAVESPEED_API_KEY=${ph."wavespeed-api-key"}
-          WAVEGEN_MATRIX_TOKEN=${ph."matrix-wavegen-access-token"}
-        '';
-      };
-
-      users.users.wavegen = {
-        isSystemUser = true;
-        group = "wavegen";
-        home = "/var/lib/wavegen";
-        createHome = true;
-      };
-      users.groups.wavegen = {};
-
-      systemd.services.wavegen = {
-        description = "wavegen — Matrix bot for WaveSpeedAI image editing";
-        after = [ "network-online.target" "matrix-synapse.service" ];
-        wants = [ "network-online.target" "matrix-synapse.service" ];
-        wantedBy = [ "multi-user.target" ];
-
-        serviceConfig = {
-          ExecStart = "${lib.getExe self.packages.${pkgs.system}.wavegen}";
-          User = "wavegen";
-          Group = "wavegen";
-          WorkingDirectory = "/var/lib/wavegen";
-          Restart = "on-failure";
-          RestartSec = "5";
-
-          EnvironmentFile = config.sops.templates."wavegen-env".path;
-
-          Environment = [
-            "WAVEGEN_HOMESERVER=http://127.0.0.1:8008"
-            "WAVEGEN_MATRIX_USER=@wavegen:cenunix.dev"
-            "WAVEGEN_ALLOWED_SENDER=@caden:cenunix.dev"
-            "WAVEGEN_API_BASE=https://api.wavespeed.ai/api/v3"
-            "WAVEGEN_MODEL=bytedance/seedream-v5.0-pro/edit"
-            "WAVEGEN_STATE_DIR=/var/lib/wavegen"
-            "WAVEGEN_POLL_TIMEOUT=300"
-            "WAVEGEN_QUEUE_CAP=5"
-            "WAVEGEN_PENDING_TTL=600"
-            "WAVEGEN_FLUSH_GRACE=6"
-          ];
-
-          NoNewPrivileges = true;
-          ProtectSystem = "strict";
-          ProtectHome = true;
-          ReadWritePaths = "/var/lib/wavegen";
-          PrivateTmp = true;
-          PrivateDevices = true;
-          ProtectKernelTunables = true;
-          ProtectControlGroups = true;
-          RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
-          CapabilityBoundingSet = [ "" ];
-          RestrictSUIDSGID = true;
-        };
-      };
-    };
-
-  # Web UI for the same thing. Port 8443 isn't opened in the firewall, so it
-  # is only reachable over the tailnet.
+  # Port 8443 isn't opened in the firewall, so it is only reachable over the
+  # tailnet.
   flake.nixosModules.headWavegenWeb =
     { config, lib, pkgs, ... }:
     let

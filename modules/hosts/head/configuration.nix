@@ -63,11 +63,13 @@
         self.nixosModules.headPi
         self.nixosModules.headDebbieTask
         self.nixosModules.headJellyfin
+        self.nixosModules.headPlex
         self.nixosModules.headNextcloud
+        self.nixosModules.headGluetun
+        self.nixosModules.headQbittorrent
         self.nixosModules.headNginxProxy
-        self.nixosModules.headMatrix
-        self.nixosModules.headWavegen
         self.nixosModules.headWavegenWeb
+        self.nixosModules.headTailscaleExit
         self.nixosModules.base
         self.nixosModules.network
         self.nixosModules.tailscale

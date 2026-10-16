@@ -97,7 +97,8 @@
           DISCORD_ALLOWED_USERS = "950769259301199922";
           # Matrix (nolan bot) — non-secret gateway config; the access token is
           # rendered into the sops hermes-env template. E2EE required.
-          MATRIX_HOMESERVER = "https://matrix.cenunix.dev";
+          # Loopback: Synapse is private (matrix.nix).
+          MATRIX_HOMESERVER = "http://127.0.0.1:8008";
           MATRIX_USER_ID = "@nolan:cenunix.dev";
           MATRIX_ALLOWED_USERS = "@caden:cenunix.dev";
           MATRIX_REQUIRE_MENTION = "true";

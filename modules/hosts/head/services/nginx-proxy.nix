@@ -28,20 +28,18 @@
           email = "caden.hargrave@gmail.com";
           dnsProvider = "cloudflare";
           environmentFile = config.sops.templates."cloudflare-credentials".path;
+          # lego's propagation check otherwise asks resolv.conf's first server,
+          # the router (10.1.1.1), which caches the challenge record's NXDOMAIN
+          # for up to the zone's 30 min negative TTL and fails the 2 min wait.
+          dnsResolver = "1.1.1.1:53";
           # nginx reads the cert files from /var/lib/acme/<cert>
           group = "nginx";
         };
         certs."jelly.cenunix.dev" = {
           domain = "jelly.cenunix.dev";
         };
-        certs."files.cenunix.dev" = {
-          domain = "files.cenunix.dev";
-        };
-        certs."matrix.cenunix.dev" = {
-          domain = "matrix.cenunix.dev";
-        };
-        certs."cenunix.dev" = {
-          domain = "cenunix.dev";
+        certs."play.cenunix.dev" = {
+          domain = "play.cenunix.dev";
         };
       };
 
@@ -62,57 +60,38 @@
             '';
           };
         };
-        virtualHosts."files.cenunix.dev" = {
+        # Catch-all for requests that match no vhost (bare IP, stale or
+        # unknown hostnames): refuse the TLS handshake instead of presenting
+        # some other site's cert, and close plain-HTTP connections.
+        virtualHosts."_" = {
+          default = true;
+          rejectSSL = true;
+          locations."/".return = "444";
+        };
+
+        # Nextcloud is tailnet-only (nextcloud.nix); no public vhost.
+
+        # Plex (plex.nix). Clients learn this URL from customConnections
+        # (https://play.cenunix.dev:443) in Preferences.xml via plex.tv.
+        virtualHosts."play.cenunix.dev" = {
           forceSSL = true;
-          useACMEHost = "files.cenunix.dev";
+          useACMEHost = "play.cenunix.dev";
           locations."/" = {
-            # The upstream cert is self-signed, hence proxy_ssl_verify off.
-            proxyPass = "https://127.0.0.1:4143";
+            proxyPass = "http://127.0.0.1:32400";
+            proxyWebsockets = true;
             extraConfig = ''
-              proxy_ssl_verify off;
-              client_max_body_size 0;
-              add_header Strict-Transport-Security "max-age=15552000" always;
+              client_max_body_size 100M;
+              proxy_buffering off;
+              proxy_request_buffering off;
+              # Notification streams and websockets sit idle for long stretches.
+              proxy_read_timeout 1h;
+              proxy_send_timeout 1h;
             '';
           };
         };
 
-        # Client and federation traffic both terminate here.
-        virtualHosts."matrix.cenunix.dev" = {
-          forceSSL = true;
-          useACMEHost = "matrix.cenunix.dev";
-          locations."~ ^(/_matrix|/_synapse/client)" = {
-            proxyPass = "http://127.0.0.1:8008";
-            proxyWebsockets = true;
-            extraConfig = ''
-              client_max_body_size 100M;
-            '';
-          };
-          locations."/" = {
-            proxyPass = "http://127.0.0.1:8008";
-            proxyWebsockets = true;
-            extraConfig = ''
-              client_max_body_size 100M;
-            '';
-          };
-        };
-
-        # The apex only serves Matrix federation delegation.
-        virtualHosts."cenunix.dev" = {
-          forceSSL = true;
-          useACMEHost = "cenunix.dev";
-          locations."/.well-known/matrix/server" = {
-            extraConfig = ''
-              default_type application/json;
-              add_header Access-Control-Allow-Origin "*";
-              return 200 '{"m.server": "matrix.cenunix.dev:443"}';
-            '';
-          };
-          locations."/" = {
-            extraConfig = ''
-              return 404;
-            '';
-          };
-        };
+        # Matrix is private (matrix.nix: loopback + tailnet only); no
+        # matrix.cenunix.dev or apex delegation vhost.
       };
 
       networking.firewall.allowedTCPPorts = [ 80 443 ];
