@@ -18,9 +18,9 @@
     ];
     # ~/.ssh/id_ed25519.pub, passphrase-protected: a normal shell as
     # overtoneblue on head (head/configuration.nix).
-    admin = null;
+    admin = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFGyDfD7zd+w7Gd0WjgxHWXyyeqyz03XQSldcYdkYl8r callisto";
     # ~/.ssh/hermes_desktop_tunnel.pub, no passphrase (starts unattended): the
     # Hermes Desktop tunnel only (head/services/hermes-tunnel.nix).
-    hermesTunnel = null;
+    hermesTunnel = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEb+pgSKZtlc9wyk4NykO1BJCR8VzfVEGVPvyVF91jFg callisto-hermes-tunnel";
   };
 }
