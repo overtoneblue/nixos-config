@@ -127,7 +127,12 @@
         extraGroups = [ "admin" ];
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJr8vXNPsadegcZ64bobPFk42Cnokwrn08tLE9Jab6ik hermes-audio-tunnel"
-        ];
+        ]
+        # Each machine's personal key (modules/hosts/_machines.nix), accepted
+        # only from that machine's tailnet addresses.
+        ++ lib.mapAttrsToList (_: m: ''from="${lib.concatStringsSep "," m.ips}" ${m.admin}'') (
+          lib.filterAttrs (_: m: m.admin or null != null) (import ../_machines.nix)
+        );
       };
 
       security.sudo.wheelNeedsPassword = true;

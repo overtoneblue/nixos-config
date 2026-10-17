@@ -139,15 +139,29 @@
         };
       };
 
+      # SSH server: tailnet only. tailscale0 is a trusted firewall interface,
+      # so nothing is opened on whatever Wi-Fi or LAN the laptop is on.
       services.openssh = {
         enable = true;
-        openFirewall = true;
+        openFirewall = false;
         settings = {
           PasswordAuthentication = false;
           KbdInteractiveAuthentication = false;
           PermitRootLogin = "no";
         };
       };
+
+      # `ssh head`: this machine's passphrase key over the tailnet (head accepts
+      # it only from callisto's tailnet IPs; modules/hosts/_machines.nix).
+      # head's host key is pinned by hermesDesktopClient.
+      programs.ssh.extraConfig = ''
+        Host head
+          HostName ${(import ../_machines.nix).head.ip}
+          User overtoneblue
+          IdentityFile ~/.ssh/id_ed25519
+          IdentitiesOnly yes
+          AddKeysToAgent yes
+      '';
 
       # Native Wayland for Electron/Chromium apps (Vesktop etc.). Without it they
       # run under XWayland and get bitmap-upscaled to the 1.2 monitor scale = blurry.

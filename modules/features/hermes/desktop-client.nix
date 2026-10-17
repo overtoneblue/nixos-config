@@ -7,9 +7,9 @@
 #
 # Per machine, once: create the tunnel key on the machine itself
 #   ssh-keygen -t ed25519 -N "" -C "$(hostname)-hermes-tunnel" -f ~/.ssh/hermes_desktop_tunnel
-# then add its .pub and the machine's tailnet IPs to `clients` in
-# hermes-tunnel.nix, and allow the machine to tag:head:22 in the tailnet ACL.
-# Needs the host's `hm` (home-manager) alias.
+# then add its .pub (`hermesTunnel`) and the machine's tailnet IPs to
+# modules/hosts/_machines.nix, and allow the machine to tag:head:22 in the
+# tailnet ACL. Needs the host's `hm` (home-manager) alias.
 {
   flake.nixosModules.hermesDesktopClient =
     {
@@ -21,7 +21,7 @@
     let
       system = pkgs.stdenv.hostPlatform.system;
       backend = "http://127.0.0.1:9119";
-      headIp = "100.91.71.44"; # head's tailnet IPv4
+      head = (import ../../hosts/_machines.nix).head;
       keyFile = "${config.modules.system.homeDirectory}/.ssh/hermes_desktop_tunnel";
 
       remoteToken = pkgs.writeShellApplication {
@@ -61,9 +61,9 @@
         hostNames = [
           "head"
           "head.tail8c2dd3.ts.net"
-          headIp
+          head.ip
         ];
-        publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8AKR3df4rGeqagxwBLLrfHmy9sYjJ+odSpVfEBOfU8";
+        publicKey = head.hostKey;
       };
 
       hm.systemd.user.services.hermes-desktop-tunnel = {
@@ -86,7 +86,7 @@
               -o ServerAliveInterval=15 \
               -o ServerAliveCountMax=3 \
               -L 127.0.0.1:9119:127.0.0.1:9119 \
-              hermes-tunnel@${headIp}
+              hermes-tunnel@${head.ip}
           '';
           Restart = "always";
           RestartSec = 10;

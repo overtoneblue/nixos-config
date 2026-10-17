@@ -3,9 +3,9 @@
 # machines (modules/features/hermes/desktop-client.nix) over the tailnet.
 # A client can forward to head's loopback hermes-serve (127.0.0.1:9119) and do
 # nothing else: no shell or commands, no other forwards, no reverse, socket,
-# agent or X11 forwarding, no TTY. Each key is also pinned to its machine's
-# tailnet addresses, and the tailnet ACL must allow that machine to
-# tag:head:22.
+# agent or X11 forwarding, no TTY. Keys come from `hermesTunnel` in
+# modules/hosts/_machines.nix, each pinned to its machine's tailnet addresses;
+# the tailnet ACL must also allow that machine to tag:head:22.
 #
 # This tunnel is the real lock on the backend: hermes-serve hands its session
 # token to any client that can reach 127.0.0.1:9119.
@@ -15,18 +15,21 @@
     let
       falseBin = "${pkgs.coreutils}/bin/false";
 
-      # name = { ips = "<tailnet IPv4>,<tailnet IPv6>"; key = "<its .pub line>"; };
-      # The key is created on the client itself (see desktop-client.nix).
-      clients = { };
+      # Machines with a tunnel key; each key is created on its own machine
+      # (see desktop-client.nix).
+      clients = lib.filterAttrs (_: m: m.hermesTunnel or null != null) (import ../../_machines.nix);
 
       tunnelOnly =
-        ips: ''restrict,port-forwarding,permitopen="127.0.0.1:9119",command="${falseBin}",from="${ips}"'';
+        ips:
+        ''restrict,port-forwarding,permitopen="127.0.0.1:9119",command="${falseBin}",from="${lib.concatStringsSep "," ips}"'';
     in
     {
       users.users.hermes-tunnel = {
         isSystemUser = true;
         group = "hermes-tunnel";
-        openssh.authorizedKeys.keys = lib.mapAttrsToList (_: c: "${tunnelOnly c.ips} ${c.key}") clients;
+        openssh.authorizedKeys.keys = lib.mapAttrsToList (
+          _: m: "${tunnelOnly m.ips} ${m.hermesTunnel}"
+        ) clients;
       };
       users.groups.hermes-tunnel = { };
 
