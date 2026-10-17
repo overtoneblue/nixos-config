@@ -11,6 +11,19 @@
       stateDir = "/mnt/cache/appdata/hermes-agent";
       username = config.modules.system.username;
       discordMirror = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.hermes-discord-mirror;
+      tailnetHost = "head.tail8c2dd3.ts.net";
+      tailscale = lib.getExe config.services.tailscale.package;
+
+      # The tailnet-facing backend must pass Hermex's floor (it refuses hosts
+      # reporting < 0.21.3). The fork's Nix lane bakes version 0.0.0 into
+      # install-stamp.json unless version/distance are passed; the code is 201
+      # commits past v0.21.6 (rev 7c37ad90). Scoped to the one new instance so
+      # the gateway and the Desktop backend keep their current package and are
+      # not restarted for a cosmetic label.
+      hermesMobile = (inputs.hermes-agent.packages.${pkgs.stdenv.hostPlatform.system}.default).override {
+        version = "0.21.6";
+        distance = 201;
+      };
     in
     {
       imports = [
@@ -499,6 +512,94 @@
         # Make NixOS security wrappers resolvable (sudo head-rebuild) and
         # keep the same runtime PATH shape as the gateway unit.
         path = [ "/run/wrappers" pkgs.claude-code ];
+      };
+
+      # ── Tailnet-facing backend for Hermex on iOS ──────────────────────
+      # A second, isolated `hermes serve` instance is the only Hermes surface
+      # reachable from the tailnet. HERMES_DASHBOARD_PUBLIC_URL engages the
+      # dashboard password gate on THIS instance (Hermex requires
+      # auth_required=true with the basic provider), while the main serve on
+      # 9119 stays loopback-only and ungated for the Desktop tunnels and the
+      # gateway is untouched — deploying this restarts neither.
+      systemd.services.hermes-serve-tailnet = {
+        description = "Hermes Agent backend for tailnet clients (gated, 127.0.0.1:9120)";
+        wantedBy = [ "multi-user.target" ];
+        after = [
+          "network-online.target"
+          "mnt-cache.mount"
+          "hermes-serve.service"
+        ];
+        wants = [ "network-online.target" ];
+        requires = [ "mnt-cache.mount" ];
+        # Same plugin set as the main backend: mount changes need a restart.
+        restartTriggers = [ discordMirror ];
+
+        environment = {
+          HOME = stateDir;
+          HERMES_HOME = "${stateDir}/.hermes";
+          HERMES_MANAGED = "true";
+
+          # Exact public origin: turns the login gate on for this instance and
+          # adds the hostname to the HTTP Host / WebSocket Origin guard.
+          HERMES_DASHBOARD_PUBLIC_URL = "https://${tailnetHost}:10000";
+
+          # Same toolchain env as the gateway so phone-spawned turns have
+          # identical capabilities (deploy, desktop bridge, git, nh).
+          NH_OS_FLAKE = "/srv/nixos-config";
+          NH_FLAKE = "/srv/nixos-config";
+          NH_SHOW_ACTIVATION_LOGS = "1";
+          DESKTOP_SSH_KEY = config.sops.secrets."hermes-desktop-key".path;
+          DESKTOP_KNOWN_HOSTS = "/etc/ssh/ssh_known_hosts";
+        };
+
+        serviceConfig = {
+          User = "hermes";
+          Group = "hermes";
+          WorkingDirectory = "${stateDir}/.hermes/workspace";
+
+          # Isolated: the machine-level server owns 9119; this one is dedicated.
+          ExecStart = "${hermesMobile}/bin/hermes serve --host 127.0.0.1 --port 9120 --isolated";
+
+          Restart = "always";
+          RestartSec = 5;
+
+          # Shared-state: group-writable like the other Hermes units.
+          UMask = "0007";
+
+          # Same service hardening posture as the gateway / main backend.
+          NoNewPrivileges = lib.mkForce false;
+          ProtectSystem = lib.mkForce false;
+          ReadOnlyPaths = [
+            "/mnt/disk1"
+            "/mnt/disk2"
+            "/mnt/disk3"
+            "/mnt/user"
+          ];
+        };
+
+        path = [ "/run/wrappers" pkgs.claude-code ];
+      };
+
+      # Tailnet-only HTTPS ingress for that instance (same pattern as Nextcloud
+      # on :443). Who may connect is decided by the tailnet ACL
+      # (members -> tag:head:10000). No LAN port, no public vhost.
+      systemd.services.tailscale-serve-hermes = {
+        description = "Serve the Hermes backend on the tailnet (https://${tailnetHost}:10000)";
+        wantedBy = [ "multi-user.target" ];
+        after = [
+          "tailscaled.service"
+          "hermes-serve-tailnet.service"
+        ];
+        wants = [ "tailscaled.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          # tailscaled may still be logging in at boot.
+          Restart = "on-failure";
+          RestartSec = 10;
+          ExecStart = "${tailscale} serve --bg --https=10000 http://127.0.0.1:9120";
+          ExecStop = "${tailscale} serve --https=10000 off";
+        };
       };
 
       # ── Shared Hermes credential store permissions ────────────────────
